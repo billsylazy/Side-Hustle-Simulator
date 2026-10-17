@@ -178,9 +178,18 @@ end
 -- Income for one tick: sum of equipped workers' base income, scaled by the
 -- WorkerEfficiency upgrade and the rebirth multiplier, floored.
 local function computeTickIncome(data: any): number
+	-- Count at most equipCap(data) equipped workers: saved data can hold more
+	-- Equipped flags than the current cap (the WorkerSlots upgrade resets on
+	-- rebirth), and the extra ones must not earn.
 	local base = 0
+	local counted = 0
+	local cap = equipCap(data)
 	for _, worker in data.Workers do
 		if worker.Equipped then
+			counted += 1
+			if counted > cap then
+				break
+			end
 			base += GameConfig.getWorkerIncome(worker.Rarity, worker.Crate)
 		end
 	end
@@ -259,6 +268,11 @@ function WorkerService.start()
 					local income = computeTickIncome(data)
 					if income > 0 then
 						DataService.addCash(player, income)
+					else
+						-- Keep the >=1/s DataSync cadence even with no income,
+						-- so clients whose listeners connected after the load-time
+						-- snapshot still receive their data within a second.
+						DataService.sync(player)
 					end
 				end
 			end

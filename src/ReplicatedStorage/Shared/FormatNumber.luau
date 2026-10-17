@@ -12,7 +12,9 @@ function FormatNumber.abbreviate(n: number): string
 	local negative = n < 0
 	n = math.abs(n)
 	local index = 1
-	while n >= 1000 and index < #SUFFIXES do
+	-- The 999.95 clause keeps "%.1f" from rounding up to "1000.0K" at suffix
+	-- boundaries (999,999 -> 1M, not 1000.0K).
+	while index < #SUFFIXES and (n >= 1000 or (index > 1 and n >= 999.95)) do
 		n /= 1000
 		index += 1
 	end

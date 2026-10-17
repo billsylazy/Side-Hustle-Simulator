@@ -99,11 +99,16 @@ export type WorkerEntry = { Uid: string, Id: string, Rarity: string, Crate: stri
 ```
 
 **Session locking** (SE-1): stored value is `{ Data = PlayerData, Lock = { JobId: string,
-Time: number }? }`. On load (UpdateAsync): if a foreign lock is younger than
-`GameConfig.Data.LockTimeout` (120 s), retry up to 5× with 2 s waits, then kick
-("Your data is still saving from another server — rejoin in a minute."). Otherwise
-claim the lock. A 60 s loop refreshes `Lock.Time` for loaded players. Saves keep our
-lock; the final save on leave/shutdown sets `Lock = nil`. Validate before every save
+SessionId: string, Time: number }? }`. Each load claims the lock under a fresh session
+GUID and ownership is compared by `SessionId` (never JobId alone), so a stale lock from
+the player's previous session on the *same* server still reads as not ours. On load
+(UpdateAsync): if another session's lock is younger than `GameConfig.Data.LockTimeout`
+(120 s), retry up to 5× with 2 s waits, then kick ("Your data is still saving from
+another server — rejoin in a minute."). A same-server fast rejoin additionally waits
+(bounded) for that player's in-flight leave-time save before loading. A 60 s loop
+refreshes `Lock.Time` for loaded players. Saves keep the session lock — but never
+re-assert it once the session has ended — and the final save on leave/shutdown sets
+`Lock = nil`; `BindToClose` drains every in-flight save up to a 25 s deadline. Validate before every save
 (numbers are numbers, no NaN/inf, Cash >= 0); skip the save if corrupt. Reconcile
 loaded data against `GameConfig.Data.Defaults()` (fill missing keys recursively).
 

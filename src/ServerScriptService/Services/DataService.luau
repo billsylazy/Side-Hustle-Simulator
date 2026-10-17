@@ -13,6 +13,7 @@
 
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
@@ -38,6 +39,17 @@ local loaded: { [Player]: PlayerData } = {}
 local joinClocks: { [Player]: number } = {}
 local started = false
 local shuttingDown = false
+
+-- Each load claims the lock under a unique session GUID, so a stale lock left
+-- by the player's PREVIOUS session on this same server is still recognized as
+-- not ours (JobId alone cannot tell the two apart on a fast same-server rejoin).
+local sessionIds: { [number]: string } = {} -- UserId -> active session GUID
+-- UserId -> true while that player's final (leave-time) save is in flight, so
+-- a fast rejoin waits for it instead of loading a pre-save snapshot.
+local savingUserIds: { [number]: boolean } = {}
+-- Writes currently in flight anywhere (auto-save, leave, shutdown); BindToClose
+-- holds the server open until this drains or the deadline passes.
+local pendingSaves = 0
 
 ----------------------------------------------------------------------
 -- Helpers
@@ -165,9 +177,21 @@ end
 -- DataStore writes
 ----------------------------------------------------------------------
 
--- Write a player's data. Keeps our lock unless clearLock is true.
--- Never clobbers a fresh foreign lock (another server owns the session).
-local function writeData(userId: number, data: PlayerData, clearLock: boolean): boolean
+-- A stored lock blocks us when it belongs to a DIFFERENT session (by GUID)
+-- and is still fresh. Sessions are compared by GUID, not JobId, so a stale
+-- lock from the player's previous visit to this same server never passes.
+local function isForeignLock(lock: any, sessionId: string): boolean
+	return typeof(lock) == "table"
+		and lock.SessionId ~= sessionId
+		and typeof(lock.Time) == "number"
+		and os.time() - lock.Time < GameConfig.Data.LockTimeout
+end
+
+-- Write a player's data under its session GUID. Keeps the session lock unless
+-- clearLock is true, and never re-asserts a lock for a session that has ended
+-- meanwhile (an auto-save finishing after the leave-time save must not lock
+-- the key again). Never clobbers a fresh lock owned by another session.
+local function writeDataInner(userId: number, data: PlayerData, sessionId: string, clearLock: boolean): boolean
 	if not validate(data) then
 		warn(`[DataService] Data for user {userId} failed validation, skipping save`)
 		return false
@@ -181,27 +205,21 @@ local function writeData(userId: number, data: PlayerData, clearLock: boolean): 
 		local ok, err = pcall(function()
 			dataStore:UpdateAsync(key, function(stored)
 				stored = if typeof(stored) == "table" then stored else {}
-				local lock = stored.Lock
-				if
-					typeof(lock) == "table"
-					and lock.JobId ~= game.JobId
-					and typeof(lock.Time) == "number"
-					and os.time() - lock.Time < GameConfig.Data.LockTimeout
-				then
+				if isForeignLock(stored.Lock, sessionId) then
 					foreignLock = true
-					return nil -- abort: another live server owns this session
+					return nil -- abort: another live session owns this key
 				end
 
 				local entry: { [string]: any } = { Data = data }
-				if not clearLock then
-					entry.Lock = { JobId = game.JobId, Time = os.time() }
+				if not clearLock and sessionIds[userId] == sessionId then
+					entry.Lock = { JobId = game.JobId, SessionId = sessionId, Time = os.time() }
 				end
 				return entry
 			end)
 		end)
 
 		if foreignLock then
-			warn(`[DataService] Skipped save for user {userId}: session owned by another server`)
+			warn(`[DataService] Skipped save for user {userId}: session owned elsewhere`)
 			return false
 		end
 		if ok then
@@ -218,16 +236,27 @@ local function writeData(userId: number, data: PlayerData, clearLock: boolean): 
 	return false
 end
 
--- Release our lock without touching Data (player left during load).
-local function releaseLock(userId: number)
+local function writeData(userId: number, data: PlayerData, sessionId: string, clearLock: boolean): boolean
+	pendingSaves += 1
+	local ok, result = pcall(writeDataInner, userId, data, sessionId, clearLock)
+	pendingSaves -= 1
+	if not ok then
+		warn(`[DataService] Save for user {userId} raised: {result}`)
+		return false
+	end
+	return result
+end
+
+-- Release this session's lock without touching Data (player left during load).
+local function releaseLock(userId: number, sessionId: string)
 	pcall(function()
 		dataStore:UpdateAsync(keyFor(userId), function(stored)
 			if typeof(stored) ~= "table" then
 				return nil
 			end
 			local lock = stored.Lock
-			if typeof(lock) ~= "table" or lock.JobId ~= game.JobId then
-				return nil -- not ours; leave untouched
+			if typeof(lock) ~= "table" or lock.SessionId ~= sessionId then
+				return nil -- not this session's lock; leave untouched
 			end
 			stored.Lock = nil
 			return stored
@@ -235,15 +264,19 @@ local function releaseLock(userId: number)
 	end)
 end
 
--- Bump Lock.Time so other servers keep seeing our session as alive.
+-- Bump Lock.Time so other servers keep seeing this session as alive.
 local function refreshLock(player: Player)
+	local sessionId = sessionIds[player.UserId]
+	if not sessionId then
+		return
+	end
 	local ok, err = pcall(function()
 		dataStore:UpdateAsync(keyFor(player.UserId), function(stored)
 			if typeof(stored) ~= "table" then
 				return nil
 			end
 			local lock = stored.Lock
-			if typeof(lock) ~= "table" or lock.JobId ~= game.JobId then
+			if typeof(lock) ~= "table" or lock.SessionId ~= sessionId then
 				return nil -- we lost the lock; do not fight over it
 			end
 			lock.Time = os.time()
@@ -322,7 +355,22 @@ function DataService.loadPlayer(player: Player)
 		return
 	end
 
-	local key = keyFor(player.UserId)
+	local userId = player.UserId
+
+	-- A leave-time save from this player's previous session on THIS server may
+	-- still be in flight (it retries on DataStore errors). Wait for it so we
+	-- never read the pre-save snapshot; bounded so a wedged save cannot block
+	-- the join forever (the lock check below still guards correctness).
+	local waitDeadline = os.clock() + SAVE_ATTEMPTS * (SAVE_RETRY_DELAY + 8)
+	while savingUserIds[userId] and os.clock() < waitDeadline do
+		task.wait(0.1)
+	end
+	if not player:IsDescendantOf(Players) then
+		return
+	end
+
+	local key = keyFor(userId)
+	local sessionId = HttpService:GenerateGUID(false)
 	local lockBusy = false
 	local storedData: any = nil
 	local claimed = false
@@ -332,17 +380,11 @@ function DataService.loadPlayer(player: Player)
 		local ok, err = pcall(function()
 			dataStore:UpdateAsync(key, function(stored)
 				stored = if typeof(stored) == "table" then stored else {}
-				local lock = stored.Lock
-				if
-					typeof(lock) == "table"
-					and lock.JobId ~= game.JobId
-					and typeof(lock.Time) == "number"
-					and os.time() - lock.Time < GameConfig.Data.LockTimeout
-				then
+				if isForeignLock(stored.Lock, sessionId) then
 					lockBusy = true
 					return nil -- abort: session still owned elsewhere
 				end
-				stored.Lock = { JobId = game.JobId, Time = os.time() }
+				stored.Lock = { JobId = game.JobId, SessionId = sessionId, Time = os.time() }
 				storedData = stored.Data
 				return stored
 			end)
@@ -366,9 +408,14 @@ function DataService.loadPlayer(player: Player)
 		return
 	end
 
+	sessionIds[userId] = sessionId
+
 	-- Player may have left during the async load: release the lock and bail.
 	if not player:IsDescendantOf(Players) then
-		task.spawn(releaseLock, player.UserId)
+		if sessionIds[userId] == sessionId then
+			sessionIds[userId] = nil
+		end
+		task.spawn(releaseLock, userId, sessionId)
 		return
 	end
 
@@ -397,18 +444,33 @@ function DataService.unloadPlayer(player: Player)
 		return
 	end
 
+	local userId = player.UserId
+	local sessionId = sessionIds[userId]
+	if not sessionId then
+		return
+	end
+
 	if joinedAt then
 		data.Stats.PlayTime += math.max(0, math.floor(os.clock() - joinedAt + 0.5))
 	end
 
-	writeData(player.UserId, data, true)
+	-- Mark the final save in flight so a fast same-server rejoin waits for it
+	-- instead of loading a stale snapshot. Clearing sessionIds first also stops
+	-- any in-flight auto-save from re-asserting the lock after we clear it.
+	savingUserIds[userId] = true
+	sessionIds[userId] = nil
+	writeData(userId, data, sessionId, true)
+	savingUserIds[userId] = nil
 	print(`[DataService] Unloaded data for {player.Name}`)
 end
 
--- Auto-save every loaded player (keeps our lock). Non-blocking.
+-- Auto-save every loaded player (keeps the session lock). Non-blocking.
 function DataService.saveAll()
 	for player, data in loaded do
-		task.spawn(writeData, player.UserId, data, false)
+		local sessionId = sessionIds[player.UserId]
+		if sessionId then
+			task.spawn(writeData, player.UserId, data, sessionId, false)
+		end
 	end
 end
 
@@ -450,6 +512,12 @@ function DataService.start()
 			total += 1
 		end
 		if total == 0 then
+			-- Nothing left to start, but saves begun from PlayerRemoving may
+			-- still be in flight: drain them before letting the server close.
+			local deadline = os.clock() + SHUTDOWN_DEADLINE
+			while pendingSaves > 0 and os.clock() < deadline do
+				task.wait(0.1)
+			end
 			return
 		end
 
@@ -458,17 +526,25 @@ function DataService.start()
 			loaded[player] = nil
 			local joinedAt = joinClocks[player]
 			joinClocks[player] = nil
+			local userId = player.UserId
+			local sessionId = sessionIds[userId]
+			sessionIds[userId] = nil
 			task.spawn(function()
 				if joinedAt then
 					data.Stats.PlayTime += math.max(0, math.floor(os.clock() - joinedAt + 0.5))
 				end
-				writeData(player.UserId, data, true)
+				if sessionId then
+					writeData(userId, data, sessionId, true)
+				end
 				finished += 1
 			end)
 		end
 
+		-- Hold the server open for this batch AND for saves already in flight
+		-- elsewhere (a PlayerRemoving final save, a late auto-save) until they
+		-- commit or the deadline passes.
 		local deadline = os.clock() + SHUTDOWN_DEADLINE
-		while finished < total and os.clock() < deadline do
+		while (finished < total or pendingSaves > 0) and os.clock() < deadline do
 			task.wait(0.1)
 		end
 

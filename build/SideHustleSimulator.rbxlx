@@ -540,7 +540,9 @@ function FormatNumber.abbreviate(n: number): string
 	local negative = n < 0
 	n = math.abs(n)
 	local index = 1
-	while n >= 1000 and index < #SUFFIXES do
+	-- The 999.95 clause keeps "%.1f" from rounding up to "1000.0K" at suffix
+	-- boundaries (999,999 -> 1M, not 1000.0K).
+	while index < #SUFFIXES and (n >= 1000 or (index > 1 and n >= 999.95)) do
 		n /= 1000
 		index += 1
 	end
@@ -1139,6 +1141,7 @@ print("[GameManager] Side Hustle Simulator server ready")
 
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
@@ -1164,6 +1167,17 @@ local loaded: { [Player]: PlayerData } = {}
 local joinClocks: { [Player]: number } = {}
 local started = false
 local shuttingDown = false
+
+-- Each load claims the lock under a unique session GUID, so a stale lock left
+-- by the player's PREVIOUS session on this same server is still recognized as
+-- not ours (JobId alone cannot tell the two apart on a fast same-server rejoin).
+local sessionIds: { [number]: string } = {} -- UserId -> active session GUID
+-- UserId -> true while that player's final (leave-time) save is in flight, so
+-- a fast rejoin waits for it instead of loading a pre-save snapshot.
+local savingUserIds: { [number]: boolean } = {}
+-- Writes currently in flight anywhere (auto-save, leave, shutdown); BindToClose
+-- holds the server open until this drains or the deadline passes.
+local pendingSaves = 0
 
 ----------------------------------------------------------------------
 -- Helpers
@@ -1291,9 +1305,21 @@ end
 -- DataStore writes
 ----------------------------------------------------------------------
 
--- Write a player's data. Keeps our lock unless clearLock is true.
--- Never clobbers a fresh foreign lock (another server owns the session).
-local function writeData(userId: number, data: PlayerData, clearLock: boolean): boolean
+-- A stored lock blocks us when it belongs to a DIFFERENT session (by GUID)
+-- and is still fresh. Sessions are compared by GUID, not JobId, so a stale
+-- lock from the player's previous visit to this same server never passes.
+local function isForeignLock(lock: any, sessionId: string): boolean
+	return typeof(lock) == "table"
+		and lock.SessionId ~= sessionId
+		and typeof(lock.Time) == "number"
+		and os.time() - lock.Time < GameConfig.Data.LockTimeout
+end
+
+-- Write a player's data under its session GUID. Keeps the session lock unless
+-- clearLock is true, and never re-asserts a lock for a session that has ended
+-- meanwhile (an auto-save finishing after the leave-time save must not lock
+-- the key again). Never clobbers a fresh lock owned by another session.
+local function writeDataInner(userId: number, data: PlayerData, sessionId: string, clearLock: boolean): boolean
 	if not validate(data) then
 		warn(`[DataService] Data for user {userId} failed validation, skipping save`)
 		return false
@@ -1307,27 +1333,21 @@ local function writeData(userId: number, data: PlayerData, clearLock: boolean): 
 		local ok, err = pcall(function()
 			dataStore:UpdateAsync(key, function(stored)
 				stored = if typeof(stored) == "table" then stored else {}
-				local lock = stored.Lock
-				if
-					typeof(lock) == "table"
-					and lock.JobId ~= game.JobId
-					and typeof(lock.Time) == "number"
-					and os.time() - lock.Time < GameConfig.Data.LockTimeout
-				then
+				if isForeignLock(stored.Lock, sessionId) then
 					foreignLock = true
-					return nil -- abort: another live server owns this session
+					return nil -- abort: another live session owns this key
 				end
 
 				local entry: { [string]: any } = { Data = data }
-				if not clearLock then
-					entry.Lock = { JobId = game.JobId, Time = os.time() }
+				if not clearLock and sessionIds[userId] == sessionId then
+					entry.Lock = { JobId = game.JobId, SessionId = sessionId, Time = os.time() }
 				end
 				return entry
 			end)
 		end)
 
 		if foreignLock then
-			warn(`[DataService] Skipped save for user {userId}: session owned by another server`)
+			warn(`[DataService] Skipped save for user {userId}: session owned elsewhere`)
 			return false
 		end
 		if ok then
@@ -1344,16 +1364,27 @@ local function writeData(userId: number, data: PlayerData, clearLock: boolean): 
 	return false
 end
 
--- Release our lock without touching Data (player left during load).
-local function releaseLock(userId: number)
+local function writeData(userId: number, data: PlayerData, sessionId: string, clearLock: boolean): boolean
+	pendingSaves += 1
+	local ok, result = pcall(writeDataInner, userId, data, sessionId, clearLock)
+	pendingSaves -= 1
+	if not ok then
+		warn(`[DataService] Save for user {userId} raised: {result}`)
+		return false
+	end
+	return result
+end
+
+-- Release this session's lock without touching Data (player left during load).
+local function releaseLock(userId: number, sessionId: string)
 	pcall(function()
 		dataStore:UpdateAsync(keyFor(userId), function(stored)
 			if typeof(stored) ~= "table" then
 				return nil
 			end
 			local lock = stored.Lock
-			if typeof(lock) ~= "table" or lock.JobId ~= game.JobId then
-				return nil -- not ours; leave untouched
+			if typeof(lock) ~= "table" or lock.SessionId ~= sessionId then
+				return nil -- not this session's lock; leave untouched
 			end
 			stored.Lock = nil
 			return stored
@@ -1361,15 +1392,19 @@ local function releaseLock(userId: number)
 	end)
 end
 
--- Bump Lock.Time so other servers keep seeing our session as alive.
+-- Bump Lock.Time so other servers keep seeing this session as alive.
 local function refreshLock(player: Player)
+	local sessionId = sessionIds[player.UserId]
+	if not sessionId then
+		return
+	end
 	local ok, err = pcall(function()
 		dataStore:UpdateAsync(keyFor(player.UserId), function(stored)
 			if typeof(stored) ~= "table" then
 				return nil
 			end
 			local lock = stored.Lock
-			if typeof(lock) ~= "table" or lock.JobId ~= game.JobId then
+			if typeof(lock) ~= "table" or lock.SessionId ~= sessionId then
 				return nil -- we lost the lock; do not fight over it
 			end
 			lock.Time = os.time()
@@ -1448,7 +1483,22 @@ function DataService.loadPlayer(player: Player)
 		return
 	end
 
-	local key = keyFor(player.UserId)
+	local userId = player.UserId
+
+	-- A leave-time save from this player's previous session on THIS server may
+	-- still be in flight (it retries on DataStore errors). Wait for it so we
+	-- never read the pre-save snapshot; bounded so a wedged save cannot block
+	-- the join forever (the lock check below still guards correctness).
+	local waitDeadline = os.clock() + SAVE_ATTEMPTS * (SAVE_RETRY_DELAY + 8)
+	while savingUserIds[userId] and os.clock() < waitDeadline do
+		task.wait(0.1)
+	end
+	if not player:IsDescendantOf(Players) then
+		return
+	end
+
+	local key = keyFor(userId)
+	local sessionId = HttpService:GenerateGUID(false)
 	local lockBusy = false
 	local storedData: any = nil
 	local claimed = false
@@ -1458,17 +1508,11 @@ function DataService.loadPlayer(player: Player)
 		local ok, err = pcall(function()
 			dataStore:UpdateAsync(key, function(stored)
 				stored = if typeof(stored) == "table" then stored else {}
-				local lock = stored.Lock
-				if
-					typeof(lock) == "table"
-					and lock.JobId ~= game.JobId
-					and typeof(lock.Time) == "number"
-					and os.time() - lock.Time < GameConfig.Data.LockTimeout
-				then
+				if isForeignLock(stored.Lock, sessionId) then
 					lockBusy = true
 					return nil -- abort: session still owned elsewhere
 				end
-				stored.Lock = { JobId = game.JobId, Time = os.time() }
+				stored.Lock = { JobId = game.JobId, SessionId = sessionId, Time = os.time() }
 				storedData = stored.Data
 				return stored
 			end)
@@ -1492,9 +1536,14 @@ function DataService.loadPlayer(player: Player)
 		return
 	end
 
+	sessionIds[userId] = sessionId
+
 	-- Player may have left during the async load: release the lock and bail.
 	if not player:IsDescendantOf(Players) then
-		task.spawn(releaseLock, player.UserId)
+		if sessionIds[userId] == sessionId then
+			sessionIds[userId] = nil
+		end
+		task.spawn(releaseLock, userId, sessionId)
 		return
 	end
 
@@ -1523,18 +1572,33 @@ function DataService.unloadPlayer(player: Player)
 		return
 	end
 
+	local userId = player.UserId
+	local sessionId = sessionIds[userId]
+	if not sessionId then
+		return
+	end
+
 	if joinedAt then
 		data.Stats.PlayTime += math.max(0, math.floor(os.clock() - joinedAt + 0.5))
 	end
 
-	writeData(player.UserId, data, true)
+	-- Mark the final save in flight so a fast same-server rejoin waits for it
+	-- instead of loading a stale snapshot. Clearing sessionIds first also stops
+	-- any in-flight auto-save from re-asserting the lock after we clear it.
+	savingUserIds[userId] = true
+	sessionIds[userId] = nil
+	writeData(userId, data, sessionId, true)
+	savingUserIds[userId] = nil
 	print(`[DataService] Unloaded data for {player.Name}`)
 end
 
--- Auto-save every loaded player (keeps our lock). Non-blocking.
+-- Auto-save every loaded player (keeps the session lock). Non-blocking.
 function DataService.saveAll()
 	for player, data in loaded do
-		task.spawn(writeData, player.UserId, data, false)
+		local sessionId = sessionIds[player.UserId]
+		if sessionId then
+			task.spawn(writeData, player.UserId, data, sessionId, false)
+		end
 	end
 end
 
@@ -1576,6 +1640,12 @@ function DataService.start()
 			total += 1
 		end
 		if total == 0 then
+			-- Nothing left to start, but saves begun from PlayerRemoving may
+			-- still be in flight: drain them before letting the server close.
+			local deadline = os.clock() + SHUTDOWN_DEADLINE
+			while pendingSaves > 0 and os.clock() < deadline do
+				task.wait(0.1)
+			end
 			return
 		end
 
@@ -1584,17 +1654,25 @@ function DataService.start()
 			loaded[player] = nil
 			local joinedAt = joinClocks[player]
 			joinClocks[player] = nil
+			local userId = player.UserId
+			local sessionId = sessionIds[userId]
+			sessionIds[userId] = nil
 			task.spawn(function()
 				if joinedAt then
 					data.Stats.PlayTime += math.max(0, math.floor(os.clock() - joinedAt + 0.5))
 				end
-				writeData(player.UserId, data, true)
+				if sessionId then
+					writeData(userId, data, sessionId, true)
+				end
 				finished += 1
 			end)
 		end
 
+		-- Hold the server open for this batch AND for saves already in flight
+		-- elsewhere (a PlayerRemoving final save, a late auto-save) until they
+		-- commit or the deadline passes.
 		local deadline = os.clock() + SHUTDOWN_DEADLINE
-		while finished < total and os.clock() < deadline do
+		while (finished < total or pendingSaves > 0) and os.clock() < deadline do
 			task.wait(0.1)
 		end
 
@@ -1959,6 +2037,21 @@ local function onRequestRebirth(player: Player)
 	data.Rebirths += 1
 	data.Stats.TotalRebirths += 1
 
+	-- WorkerSlots just reset to 0, so the equip cap shrank back to the base.
+	-- Unequip any workers beyond the new cap or they would keep earning
+	-- against a cap the player no longer owns (WorkerService also clamps the
+	-- income tick defensively, but the data should be honest too).
+	local cap = GameConfig.Workers.BaseEquipSlots
+	local equipped = 0
+	for _, worker in data.Workers do
+		if worker.Equipped then
+			equipped += 1
+			if equipped > cap then
+				worker.Equipped = false
+			end
+		end
+	end
+
 	-- WalkSpeed upgrade just reset to level 0 -> back to base walk speed.
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -2045,7 +2138,9 @@ export type RemoteConfig = {
 }
 
 local RATE_WINDOW = 10 -- seconds
-local DEFAULT_MAX_PER_WINDOW = 30
+-- Generous enough that honest button-mashing (e.g. equip spam at the 0.2 s
+-- cooldown) never accrues violations; the cooldown runs first and absorbs it.
+local DEFAULT_MAX_PER_WINDOW = 60
 local KICK_AFTER_VIOLATIONS = 5
 
 -- Every remote in the ARCHITECTURE.md table. All are RemoteEvents.
@@ -2189,10 +2284,13 @@ function RemoteService.register(config: RemoteConfig)
 	local maxPerWindow = config.RateLimit or DEFAULT_MAX_PER_WINDOW
 
 	remote.OnServerEvent:Connect(function(player: Player, ...: any)
-		if not checkRateLimit(player, config.Name, maxPerWindow) then
+		-- Cooldown first: fires inside the cooldown are a normal result of fast
+		-- clicking and drop silently, without ever counting toward the rate
+		-- limit (which exists to catch floods, not enthusiastic players).
+		if cooldown > 0 and not checkCooldown(player, config.Name, cooldown) then
 			return
 		end
-		if cooldown > 0 and not checkCooldown(player, config.Name, cooldown) then
+		if not checkRateLimit(player, config.Name, maxPerWindow) then
 			return
 		end
 		if config.Validator then
@@ -2623,9 +2721,18 @@ end
 -- Income for one tick: sum of equipped workers' base income, scaled by the
 -- WorkerEfficiency upgrade and the rebirth multiplier, floored.
 local function computeTickIncome(data: any): number
+	-- Count at most equipCap(data) equipped workers: saved data can hold more
+	-- Equipped flags than the current cap (the WorkerSlots upgrade resets on
+	-- rebirth), and the extra ones must not earn.
 	local base = 0
+	local counted = 0
+	local cap = equipCap(data)
 	for _, worker in data.Workers do
 		if worker.Equipped then
+			counted += 1
+			if counted > cap then
+				break
+			end
 			base += GameConfig.getWorkerIncome(worker.Rarity, worker.Crate)
 		end
 	end
@@ -2704,6 +2811,11 @@ function WorkerService.start()
 					local income = computeTickIncome(data)
 					if income > 0 then
 						DataService.addCash(player, income)
+					else
+						-- Keep the >=1/s DataSync cadence even with no income,
+						-- so clients whose listeners connected after the load-time
+						-- snapshot still receive their data within a second.
+						DataService.sync(player)
 					end
 				end
 			end
@@ -4096,9 +4208,10 @@ local function buildZone(zonesFolder: Folder, zone)
 
 	-- Colored floor pad (signature color, desaturated enough to walk on)
 	local padColor = zone.SignColor:Lerp(Color3.fromRGB(152, 148, 144), 0.6)
+	-- 1.5 thick so the pad bottom meets the ground top (Y=0): no floating seam.
 	makeBlock({
-		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, 1, PAD_SIZE),
-		cframe = groundCF * CFrame.new(0, 1, 0), color = padColor,
+		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, 1.5, PAD_SIZE),
+		cframe = groundCF * CFrame.new(0, 0.75, 0), color = padColor,
 	})
 
 	local zoneCF = groundCF * CFrame.new(0, PAD_TOP, 0)

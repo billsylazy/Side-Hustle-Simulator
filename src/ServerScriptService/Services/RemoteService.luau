@@ -31,7 +31,9 @@ export type RemoteConfig = {
 }
 
 local RATE_WINDOW = 10 -- seconds
-local DEFAULT_MAX_PER_WINDOW = 30
+-- Generous enough that honest button-mashing (e.g. equip spam at the 0.2 s
+-- cooldown) never accrues violations; the cooldown runs first and absorbs it.
+local DEFAULT_MAX_PER_WINDOW = 60
 local KICK_AFTER_VIOLATIONS = 5
 
 -- Every remote in the ARCHITECTURE.md table. All are RemoteEvents.
@@ -175,10 +177,13 @@ function RemoteService.register(config: RemoteConfig)
 	local maxPerWindow = config.RateLimit or DEFAULT_MAX_PER_WINDOW
 
 	remote.OnServerEvent:Connect(function(player: Player, ...: any)
-		if not checkRateLimit(player, config.Name, maxPerWindow) then
+		-- Cooldown first: fires inside the cooldown are a normal result of fast
+		-- clicking and drop silently, without ever counting toward the rate
+		-- limit (which exists to catch floods, not enthusiastic players).
+		if cooldown > 0 and not checkCooldown(player, config.Name, cooldown) then
 			return
 		end
-		if cooldown > 0 and not checkCooldown(player, config.Name, cooldown) then
+		if not checkRateLimit(player, config.Name, maxPerWindow) then
 			return
 		end
 		if config.Validator then

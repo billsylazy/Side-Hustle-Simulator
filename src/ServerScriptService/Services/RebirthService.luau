@@ -58,6 +58,21 @@ local function onRequestRebirth(player: Player)
 	data.Rebirths += 1
 	data.Stats.TotalRebirths += 1
 
+	-- WorkerSlots just reset to 0, so the equip cap shrank back to the base.
+	-- Unequip any workers beyond the new cap or they would keep earning
+	-- against a cap the player no longer owns (WorkerService also clamps the
+	-- income tick defensively, but the data should be honest too).
+	local cap = GameConfig.Workers.BaseEquipSlots
+	local equipped = 0
+	for _, worker in data.Workers do
+		if worker.Equipped then
+			equipped += 1
+			if equipped > cap then
+				worker.Equipped = false
+			end
+		end
+	end
+
 	-- WalkSpeed upgrade just reset to level 0 -> back to base walk speed.
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")

@@ -1176,9 +1176,10 @@ local function buildZone(zonesFolder: Folder, zone)
 
 	-- Colored floor pad (signature color, desaturated enough to walk on)
 	local padColor = zone.SignColor:Lerp(Color3.fromRGB(152, 148, 144), 0.6)
+	-- 1.5 thick so the pad bottom meets the ground top (Y=0): no floating seam.
 	makeBlock({
-		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, 1, PAD_SIZE),
-		cframe = groundCF * CFrame.new(0, 1, 0), color = padColor,
+		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, 1.5, PAD_SIZE),
+		cframe = groundCF * CFrame.new(0, 0.75, 0), color = padColor,
 	})
 
 	local zoneCF = groundCF * CFrame.new(0, PAD_TOP, 0)
