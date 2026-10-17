@@ -1,0 +1,292 @@
+{
+  "name": "WorkersGui",
+  "screen_gui_props": {
+    "Enabled": false,
+    "IgnoreGuiInset": false,
+    "ScreenInsets": "CoreUISafeInsets"
+  },
+  "icon_ids": {},
+  "todos": [
+    "Upload the icons listed above, then paste the asset ids back so the build can be refreshed with them"
+  ],
+  "children": [
+    {
+      "class": "Frame",
+      "name": "Main",
+      "props": {
+        "AnchorPoint": [0.5, 0.5],
+        "Position": [0.5, 0, 0.5, 0],
+        "Size": [0.62, 0, 0.74, 0],
+        "BackgroundTransparency": 1
+      },
+      "children": [
+        { "class": "UIScale", "name": "PanelScale", "props": { "Scale": 1 } },
+        { "class": "UISizeConstraint", "props": { "MinSize": [480, 250], "MaxSize": [780, 520] } },
+        {
+          "class": "Frame",
+          "name": "Shadow",
+          "props": {
+            "AnchorPoint": [0.5, 0.5],
+            "Position": [0.5, 0, 0.5, 8],
+            "Size": [1, 0, 1, 0],
+            "BackgroundColor3": "#040435",
+            "BackgroundTransparency": 0.45,
+            "BorderSizePixel": 0,
+            "ZIndex": 1
+          },
+          "children": [{ "class": "UICorner", "props": { "CornerRadius": [0, 24] } }]
+        },
+        {
+          "class": "Frame",
+          "name": "Panel",
+          "props": {
+            "Size": [1, 0, 1, 0],
+            "BackgroundColor3": "#ffffff",
+            "BorderSizePixel": 0,
+            "ZIndex": 2
+          },
+          "children": [
+            { "class": "UICorner", "props": { "CornerRadius": [0, 24] } },
+            { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 4, "ApplyStrokeMode": "Border" } },
+            { "class": "UIGradient", "props": { "Rotation": 90, "Color": [[0, "#fffdf6"], [1, "#ffeaf3"]] } },
+            { "class": "UIPadding", "props": { "PaddingTop": [0, 34], "PaddingBottom": [0, 12], "PaddingLeft": [0, 16], "PaddingRight": [0, 16] } },
+            {
+              "class": "TextLabel",
+              "name": "SlotsLabel",
+              "props": {
+                "AnchorPoint": [0.5, 0],
+                "Position": [0.5, 0, 0, 0],
+                "Size": [0.4, 0, 0, 34],
+                "BackgroundColor3": "#ffffff",
+                "BorderSizePixel": 0,
+                "Text": "Equipped 0/3",
+                "TextScaled": true,
+                "TextColor3": "#ffffff",
+                "FontFace": { "family": "FredokaOne" },
+                "ZIndex": 3
+              },
+              "children": [
+                { "class": "UISizeConstraint", "props": { "MinSize": [170, 34], "MaxSize": [240, 34] } },
+                { "class": "UICorner", "props": { "CornerRadius": [1, 0] } },
+                { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border" } },
+                { "class": "UIGradient", "props": { "Rotation": 90, "Color": [[0, "#7fd8ff"], [1, "#2f8fd8"]] } },
+                { "class": "UITextSizeConstraint", "props": { "MaxTextSize": 20 } },
+                { "class": "UIPadding", "props": { "PaddingTop": [0, 4], "PaddingBottom": [0, 4], "PaddingLeft": [0, 12], "PaddingRight": [0, 12] } }
+              ]
+            },
+            {
+              "class": "ScrollingFrame",
+              "name": "Items",
+              "props": {
+                "Position": [0, 0, 0, 44],
+                "Size": [1, 0, 1, -44],
+                "BackgroundTransparency": 1,
+                "BorderSizePixel": 0,
+                "ScrollBarThickness": 8,
+                "ScrollBarImageColor3": "#040435",
+                "AutomaticCanvasSize": "Y",
+                "CanvasSize": [0, 0, 0, 0],
+                "ScrollingDirection": "Y",
+                "ZIndex": 2
+              },
+              "children": [
+                {
+                  "class": "UIGridLayout",
+                  "props": {
+                    "CellSize": [0.235, -6, 0, 160],
+                    "CellPadding": [0.02, -2, 0, 10],
+                    "SortOrder": "LayoutOrder",
+                    "FillDirection": "Horizontal",
+                    "HorizontalAlignment": "Left"
+                  }
+                },
+                { "class": "UIPadding", "props": { "PaddingTop": [0, 4], "PaddingRight": [0, 10] } },
+                {
+                  "class": "Frame",
+                  "name": "WorkerCardTemplate",
+                  "props": {
+                    "Visible": false,
+                    "Size": [0, 108, 0, 160],
+                    "BackgroundColor3": "#ffffff",
+                    "BorderSizePixel": 0
+                  },
+                  "children": [
+                    { "class": "UICorner", "props": { "CornerRadius": [0, 14] } },
+                    { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border" } },
+                    { "class": "UIGradient", "props": { "Rotation": 90, "Color": [[0, "#f6f1fd"], [1, "#ded3ef"]] } },
+                    {
+                      "class": "Frame",
+                      "name": "RarityBar",
+                      "props": {
+                        "AnchorPoint": [0.5, 0],
+                        "Position": [0.5, 0, 0, 6],
+                        "Size": [1, -14, 0, 18],
+                        "BackgroundColor3": "#aaaab4",
+                        "BorderSizePixel": 0,
+                        "ZIndex": 2
+                      },
+                      "children": [
+                        { "class": "UICorner", "props": { "CornerRadius": [1, 0] } },
+                        {
+                          "class": "TextLabel",
+                          "name": "RarityLabel",
+                          "props": {
+                            "Size": [1, 0, 1, 0],
+                            "BackgroundTransparency": 1,
+                            "Text": "Employee",
+                            "TextScaled": true,
+                            "TextColor3": "#ffffff",
+                            "FontFace": { "family": "FredokaOne" },
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 1.5, "ApplyStrokeMode": "Contextual" } },
+                            { "class": "UITextSizeConstraint", "props": { "MaxTextSize": 12 } }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "class": "ImageLabel",
+                      "name": "Face",
+                      "props": {
+                        "AnchorPoint": [0.5, 0],
+                        "Position": [0.5, 0, 0, 28],
+                        "Size": [0, 42, 0, 42],
+                        "BackgroundTransparency": 1,
+                        "Image": "icon:Player/Player/Player 1st",
+                        "ScaleType": "Fit",
+                        "ZIndex": 2
+                      }
+                    },
+                    {
+                      "class": "TextLabel",
+                      "name": "Name",
+                      "props": {
+                        "Position": [0, 6, 0, 72],
+                        "Size": [1, -12, 0, 18],
+                        "BackgroundTransparency": 1,
+                        "Text": "Benny the Employee",
+                        "TextScaled": true,
+                        "TextColor3": "#3a3153",
+                        "FontFace": { "family": "FredokaOne" },
+                        "ZIndex": 2
+                      },
+                      "children": [{ "class": "UITextSizeConstraint", "props": { "MaxTextSize": 14 } }]
+                    },
+                    {
+                      "class": "TextLabel",
+                      "name": "Income",
+                      "props": {
+                        "Position": [0, 6, 0, 90],
+                        "Size": [1, -12, 0, 16],
+                        "BackgroundTransparency": 1,
+                        "Text": "$6/s",
+                        "TextScaled": true,
+                        "TextColor3": "#2a932a",
+                        "FontFace": { "family": "FredokaOne" },
+                        "ZIndex": 2
+                      },
+                      "children": [{ "class": "UITextSizeConstraint", "props": { "MaxTextSize": 14 } }]
+                    },
+                    {
+                      "class": "TextButton",
+                      "name": "ActionButton",
+                      "props": {
+                        "AnchorPoint": [0.5, 1],
+                        "Position": [0.5, 0, 1, -8],
+                        "Size": [1, -18, 0, 40],
+                        "BackgroundColor3": "#ffffff",
+                        "BorderSizePixel": 0,
+                        "Text": "EQUIP",
+                        "TextScaled": true,
+                        "TextColor3": "#ffffff",
+                        "FontFace": { "family": "FredokaOne" },
+                        "ZIndex": 2
+                      },
+                      "children": [
+                        { "class": "UICorner", "props": { "CornerRadius": [0, 10] } },
+                        { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border" } },
+                        { "class": "UIGradient", "name": "ButtonGrad", "props": { "Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]] } },
+                        { "class": "UITextSizeConstraint", "props": { "MaxTextSize": 18 } },
+                        { "class": "UIPadding", "props": { "PaddingTop": [0, 6], "PaddingBottom": [0, 6] } }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "class": "TextLabel",
+              "name": "EmptyState",
+              "props": {
+                "AnchorPoint": [0.5, 0.5],
+                "Position": [0.5, 0, 0.55, 0],
+                "Size": [0.8, 0, 0, 40],
+                "BackgroundTransparency": 1,
+                "Text": "Hire workers in the Shop!",
+                "TextScaled": true,
+                "TextColor3": "#8a7f9e",
+                "FontFace": { "family": "FredokaOne" },
+                "Visible": true,
+                "ZIndex": 4
+              },
+              "children": [{ "class": "UITextSizeConstraint", "props": { "MaxTextSize": 22 } }]
+            }
+          ]
+        },
+        {
+          "class": "Frame",
+          "name": "TitleBanner",
+          "props": {
+            "AnchorPoint": [0.5, 0.5],
+            "Position": [0.5, 0, 0, 2],
+            "Size": [0.5, 0, 0, 50],
+            "BackgroundColor3": "#ffffff",
+            "BorderSizePixel": 0,
+            "ZIndex": 5
+          },
+          "children": [
+            { "class": "UISizeConstraint", "props": { "MinSize": [200, 44], "MaxSize": [300, 52] } },
+            { "class": "UICorner", "props": { "CornerRadius": [1, 0] } },
+            { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 4, "ApplyStrokeMode": "Border" } },
+            { "class": "UIGradient", "props": { "Rotation": 90, "Color": [[0, "#7fd8ff"], [1, "#2f8fd8"]] } },
+            {
+              "class": "TextLabel",
+              "name": "Title",
+              "props": {
+                "AnchorPoint": [0.5, 0.5],
+                "Position": [0.5, 0, 0.5, 0],
+                "Size": [1, -28, 1, -12],
+                "BackgroundTransparency": 1,
+                "Text": "WORKERS",
+                "TextScaled": true,
+                "TextColor3": "#ffffff",
+                "FontFace": { "family": "LuckiestGuy" },
+                "ZIndex": 6
+              },
+              "children": [
+                { "class": "UIStroke", "props": { "Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Contextual" } },
+                { "class": "UITextSizeConstraint", "props": { "MaxTextSize": 30 } }
+              ]
+            }
+          ]
+        },
+        {
+          "class": "ImageButton",
+          "name": "CloseButton",
+          "props": {
+            "AnchorPoint": [0.5, 0.5],
+            "Position": [1, -8, 0, 8],
+            "Size": [0, 52, 0, 52],
+            "BackgroundTransparency": 1,
+            "Image": "icon:UI/Close Button/Close Button 1st Outline",
+            "ScaleType": "Fit",
+            "ZIndex": 6
+          }
+        }
+      ]
+    },
+    { "class": "LocalScript", "name": "WorkersController", "source_file": "workers.client.lua" }
+  ]
+}

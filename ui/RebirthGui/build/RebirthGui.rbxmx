@@ -1,0 +1,627 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="ScreenGui" referent="RBX6733740F3B134D189B76909FAD81F10D">
+    <Properties>
+      <bool name="ResetOnSpawn">false</bool>
+      <token name="ZIndexBehavior">1</token>
+      <bool name="IgnoreGuiInset">false</bool>
+      <bool name="Enabled">false</bool>
+      <token name="ScreenInsets">2</token>
+      <string name="Name">RebirthGui</string>
+    </Properties>
+    <Item class="Frame" referent="RBX1FD90FC6DDF045019AFCCC35B043FC4D">
+      <Properties>
+        <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+        <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
+        <UDim2 name="Size"><XS>0.42</XS><XO>0</XO><YS>0.8</YS><YO>0</YO></UDim2>
+        <float name="BackgroundTransparency">1</float>
+        <string name="Name">Main</string>
+      </Properties>
+      <Item class="UIScale" referent="RBX4392C95942184976A52AE6FD404DF590">
+        <Properties>
+          <float name="Scale">1</float>
+          <string name="Name">PanelScale</string>
+        </Properties>
+      </Item>
+      <Item class="UISizeConstraint" referent="RBXA22A84C606F64E4FA00EBC0685835FFC">
+        <Properties>
+          <Vector2 name="MinSize"><X>340</X><Y>270</Y></Vector2>
+          <Vector2 name="MaxSize"><X>460</X><Y>430</Y></Vector2>
+          <string name="Name">UISizeConstraint</string>
+        </Properties>
+      </Item>
+      <Item class="Frame" referent="RBX5EEF10DE92E5408DA658B41855E8A34C">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>8</YO></UDim2>
+          <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+          <float name="BackgroundTransparency">0.45</float>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">1</int>
+          <string name="Name">Shadow</string>
+        </Properties>
+        <Item class="UICorner" referent="RBX934284FF1BE046C5AEE5C2E3976CE04C">
+          <Properties>
+            <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Frame" referent="RBX5D2D754840AA40AC8812B41FB97D116A">
+        <Properties>
+          <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">2</int>
+          <string name="Name">Panel</string>
+        </Properties>
+        <Item class="UICorner" referent="RBX1956A5B026104FFDBEC9CC4FAB683298">
+          <Properties>
+            <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+        <Item class="UIStroke" referent="RBXBF2C96786E9A408C97EBB499322A6CF3">
+          <Properties>
+            <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <float name="Thickness">4</float>
+            <token name="ApplyStrokeMode">1</token>
+            <string name="Name">UIStroke</string>
+          </Properties>
+        </Item>
+        <Item class="UIGradient" referent="RBXDA94FF47A9AE4404B49D6C80233DD61B">
+          <Properties>
+            <float name="Rotation">90</float>
+            <ColorSequence name="Color">0 1 0.992157 0.964706 0 1 1 0.917647 0.952941 0 </ColorSequence>
+            <string name="Name">UIGradient</string>
+          </Properties>
+        </Item>
+        <Item class="UIPadding" referent="RBX020CD1E3D8EF40CB8477176370057A64">
+          <Properties>
+            <UDim name="PaddingTop"><S>0</S><O>34</O></UDim>
+            <UDim name="PaddingBottom"><S>0</S><O>14</O></UDim>
+            <UDim name="PaddingLeft"><S>0</S><O>18</O></UDim>
+            <UDim name="PaddingRight"><S>0</S><O>18</O></UDim>
+            <string name="Name">UIPadding</string>
+          </Properties>
+        </Item>
+        <Item class="ImageLabel" referent="RBX230ACCC469E94345AFE93DD62B38ACF2">
+          <Properties>
+            <Vector2 name="AnchorPoint"><X>0.5</X><Y>0</Y></Vector2>
+            <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>0.24</XS><XO>0</XO><YS>0.24</YS><YO>0</YO></UDim2>
+            <token name="SizeConstraint">2</token>
+            <float name="BackgroundTransparency">1</float>
+            <Content name="Image"><url>rbxassetid://0</url></Content>
+            <token name="ScaleType">3</token>
+            <int name="ZIndex">2</int>
+            <string name="Name">RebirthIcon</string>
+          </Properties>
+        </Item>
+        <Item class="Frame" referent="RBX0023BB9A311945049A6D66E739E8A4C5">
+          <Properties>
+            <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0.26</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.17</YS><YO>0</YO></UDim2>
+            <float name="BackgroundTransparency">1</float>
+            <int name="ZIndex">2</int>
+            <string name="Name">Mults</string>
+          </Properties>
+          <Item class="UIListLayout" referent="RBX300BD5A7EFE84E23BBBFD7AAFDEAB93A">
+            <Properties>
+              <token name="FillDirection">0</token>
+              <UDim name="Padding"><S>0</S><O>14</O></UDim>
+              <token name="HorizontalAlignment">0</token>
+              <token name="VerticalAlignment">0</token>
+              <token name="SortOrder">2</token>
+              <string name="Name">UIListLayout</string>
+            </Properties>
+          </Item>
+          <Item class="Frame" referent="RBX3030E72D5D3346EAAECF8B6BBD444A3B">
+            <Properties>
+              <UDim2 name="Size"><XS>0.4</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+              <float name="BackgroundTransparency">1</float>
+              <int name="LayoutOrder">1</int>
+              <string name="Name">CurrentBox</string>
+            </Properties>
+            <Item class="TextLabel" referent="RBXE9A5A022930646019E6CD448F72CB399">
+              <Properties>
+                <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.4</YS><YO>0</YO></UDim2>
+                <float name="BackgroundTransparency">1</float>
+                <string name="Text">NOW</string>
+                <bool name="TextScaled">true</bool>
+                <Color3 name="TextColor3"><R>0.541176</R><G>0.498039</G><B>0.619608</B></Color3>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <string name="Name">Caption</string>
+              </Properties>
+              <Item class="UITextSizeConstraint" referent="RBXF823008CBF6A41B1816CB07F692B6F09">
+                <Properties>
+                  <int name="MaxTextSize">13</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+            <Item class="TextLabel" referent="RBX0D4A77B240AF400E86F7C3312D744600">
+              <Properties>
+                <Vector2 name="AnchorPoint"><X>0</X><Y>1</Y></Vector2>
+                <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.56</YS><YO>0</YO></UDim2>
+                <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                <int name="BorderSizePixel">0</int>
+                <string name="Text">x1</string>
+                <bool name="TextScaled">true</bool>
+                <Color3 name="TextColor3"><R>0.227451</R><G>0.192157</G><B>0.32549</B></Color3>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <string name="Name">CurrentMult</string>
+              </Properties>
+              <Item class="UICorner" referent="RBX2F24E6049FC3403BB7D3B6DFAA834D0F">
+                <Properties>
+                  <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                  <string name="Name">UICorner</string>
+                </Properties>
+              </Item>
+              <Item class="UIStroke" referent="RBXD8B8278A4DF24ED7A6BAB9CF99B9CFB8">
+                <Properties>
+                  <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                  <float name="Thickness">2.5</float>
+                  <token name="ApplyStrokeMode">1</token>
+                  <string name="Name">UIStroke</string>
+                </Properties>
+              </Item>
+              <Item class="UIGradient" referent="RBX1C694FB0E1AD4EB49D47947988B0EEE4">
+                <Properties>
+                  <float name="Rotation">90</float>
+                  <ColorSequence name="Color">0 0.937255 0.913725 0.972549 0 1 0.847059 0.803922 0.921569 0 </ColorSequence>
+                  <string name="Name">UIGradient</string>
+                </Properties>
+              </Item>
+              <Item class="UITextSizeConstraint" referent="RBX5CC00E82D2084F4688A0AE86887C416F">
+                <Properties>
+                  <int name="MaxTextSize">22</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+          </Item>
+          <Item class="Frame" referent="RBXC57FC5A4508247F3908C4E6E5185DAA4">
+            <Properties>
+              <UDim2 name="Size"><XS>0.4</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+              <float name="BackgroundTransparency">1</float>
+              <int name="LayoutOrder">2</int>
+              <string name="Name">NextBox</string>
+            </Properties>
+            <Item class="TextLabel" referent="RBXEB34595683F444F590A0143F6EC58F90">
+              <Properties>
+                <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.4</YS><YO>0</YO></UDim2>
+                <float name="BackgroundTransparency">1</float>
+                <string name="Text">NEXT</string>
+                <bool name="TextScaled">true</bool>
+                <Color3 name="TextColor3"><R>0.541176</R><G>0.498039</G><B>0.619608</B></Color3>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <string name="Name">Caption</string>
+              </Properties>
+              <Item class="UITextSizeConstraint" referent="RBX69748DD0A31C4B2B9F3D2443C7026FB2">
+                <Properties>
+                  <int name="MaxTextSize">13</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+            <Item class="TextLabel" referent="RBX4F0107CED82949EBBA096E042B27B57B">
+              <Properties>
+                <Vector2 name="AnchorPoint"><X>0</X><Y>1</Y></Vector2>
+                <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.56</YS><YO>0</YO></UDim2>
+                <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                <int name="BorderSizePixel">0</int>
+                <string name="Text">x1.5</string>
+                <bool name="TextScaled">true</bool>
+                <Color3 name="TextColor3"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <string name="Name">NextMult</string>
+              </Properties>
+              <Item class="UICorner" referent="RBXDCD469DC680147A58B49944AF109863F">
+                <Properties>
+                  <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                  <string name="Name">UICorner</string>
+                </Properties>
+              </Item>
+              <Item class="UIStroke" referent="RBX75C0CA68001A40279485F29292657646">
+                <Properties>
+                  <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                  <float name="Thickness">2.5</float>
+                  <token name="ApplyStrokeMode">1</token>
+                  <string name="Name">UIStroke</string>
+                </Properties>
+              </Item>
+              <Item class="UIGradient" referent="RBX38245CCAD8D245F48ADD44336FFAA7D4">
+                <Properties>
+                  <float name="Rotation">90</float>
+                  <ColorSequence name="Color">0 1 0.831373 0.121569 0 1 1 0.607843 0.133333 0 </ColorSequence>
+                  <string name="Name">UIGradient</string>
+                </Properties>
+              </Item>
+              <Item class="UITextSizeConstraint" referent="RBXCCA5E76EC0F64DCDA63E4ADC70534D8A">
+                <Properties>
+                  <int name="MaxTextSize">22</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Frame" referent="RBX2CBC6F33D4394C58854819E05D509A16">
+          <Properties>
+            <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0.47</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0</YS><YO>30</YO></UDim2>
+            <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <int name="BorderSizePixel">0</int>
+            <int name="ZIndex">2</int>
+            <string name="Name">ProgressBack</string>
+          </Properties>
+          <Item class="UICorner" referent="RBX07EB568232044EB0AAEB72D67B10844B">
+            <Properties>
+              <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+              <string name="Name">UICorner</string>
+            </Properties>
+          </Item>
+          <Item class="UIStroke" referent="RBXE5157113377E4DD0ACEFBF5FEB7ACFF4">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">3</float>
+              <token name="ApplyStrokeMode">1</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UIGradient" referent="RBXE6F2D78CEC1E410AAAAAECED981B34BD">
+            <Properties>
+              <float name="Rotation">90</float>
+              <ColorSequence name="Color">0 0.913725 0.894118 0.960784 0 1 0.831373 0.796078 0.909804 0 </ColorSequence>
+              <string name="Name">UIGradient</string>
+            </Properties>
+          </Item>
+          <Item class="Frame" referent="RBX44D1D68637174767BDAB4ADBB2F72246">
+            <Properties>
+              <UDim2 name="Size"><XS>0.5</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+              <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+              <int name="BorderSizePixel">0</int>
+              <int name="ZIndex">3</int>
+              <string name="Name">ProgressFill</string>
+            </Properties>
+            <Item class="UICorner" referent="RBXAC1A9F22B0BE4B6BB07ADA7A4BFA5767">
+              <Properties>
+                <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                <string name="Name">UICorner</string>
+              </Properties>
+            </Item>
+            <Item class="UIGradient" referent="RBX214D7483A1114F47AB1B5ED7583BE5DB">
+              <Properties>
+                <float name="Rotation">90</float>
+                <ColorSequence name="Color">0 0.431373 0.886275 0.431373 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
+                <string name="Name">UIGradient</string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="TextLabel" referent="RBX50F605E2E3254A459E1189487FCACA22">
+            <Properties>
+              <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+              <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
+              <UDim2 name="Size"><XS>1</XS><XO>-16</XO><YS>1</YS><YO>-8</YO></UDim2>
+              <float name="BackgroundTransparency">1</float>
+              <string name="Text">$12.5K / $25K</string>
+              <bool name="TextScaled">true</bool>
+              <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+              <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+              <int name="ZIndex">4</int>
+              <string name="Name">ProgressLabel</string>
+            </Properties>
+            <Item class="UIStroke" referent="RBXA4FC7D609F214372844EEAC84FD55ACC">
+              <Properties>
+                <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <float name="Thickness">2.5</float>
+                <token name="ApplyStrokeMode">0</token>
+                <string name="Name">UIStroke</string>
+              </Properties>
+            </Item>
+            <Item class="UITextSizeConstraint" referent="RBX38641417AF464AA78ECE820E4F7BF1C1">
+              <Properties>
+                <int name="MaxTextSize">16</int>
+                <string name="Name">UITextSizeConstraint</string>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="TextLabel" referent="RBX2626B787F8164CCA8619A614CFBAF3D6">
+          <Properties>
+            <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0.615</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0</YS><YO>26</YO></UDim2>
+            <float name="BackgroundTransparency">1</float>
+            <string name="Text">Resets cash, hustles and upgrades. Keeps workers and quests!</string>
+            <bool name="TextScaled">true</bool>
+            <bool name="TextWrapped">true</bool>
+            <Color3 name="TextColor3"><R>0.752941</R><G>0.290196</G><B>0.388235</B></Color3>
+            <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+            <int name="ZIndex">2</int>
+            <string name="Name">Warning</string>
+          </Properties>
+          <Item class="UITextSizeConstraint" referent="RBX5F7427FA9121412F895D3F86CD1EECC4">
+            <Properties>
+              <int name="MaxTextSize">12</int>
+              <string name="Name">UITextSizeConstraint</string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="TextButton" referent="RBX4C980182C39C4FD9BB7A74DBEBD2CB86">
+          <Properties>
+            <Vector2 name="AnchorPoint"><X>0.5</X><Y>1</Y></Vector2>
+            <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>0.92</XS><XO>0</XO><YS>0</YS><YO>54</YO></UDim2>
+            <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <int name="BorderSizePixel">0</int>
+            <string name="Text">REBIRTH!</string>
+            <bool name="TextScaled">true</bool>
+            <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <Font name="FontFace"><Family><url>rbxasset://fonts/families/LuckiestGuy.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+            <int name="ZIndex">2</int>
+            <string name="Name">RebirthButton</string>
+          </Properties>
+          <Item class="UICorner" referent="RBX11F18D2A20144FEABCD5371735B2261B">
+            <Properties>
+              <UDim name="CornerRadius"><S>0</S><O>16</O></UDim>
+              <string name="Name">UICorner</string>
+            </Properties>
+          </Item>
+          <Item class="UIStroke" referent="RBX2FD1BD9AACD44971834F936BF88F0A8B">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">4</float>
+              <token name="ApplyStrokeMode">1</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UIGradient" referent="RBX86779DE0A81C461FAC7F80765120B8A8">
+            <Properties>
+              <float name="Rotation">90</float>
+              <ColorSequence name="Color">0 0.968627 0.215686 0.360784 0 1 1 0.482353 0.721569 0 </ColorSequence>
+              <string name="Name">ButtonGrad</string>
+            </Properties>
+          </Item>
+          <Item class="UITextSizeConstraint" referent="RBXF9FD37DB3C15421A9EC213FE316BDFE2">
+            <Properties>
+              <int name="MaxTextSize">34</int>
+              <string name="Name">UITextSizeConstraint</string>
+            </Properties>
+          </Item>
+          <Item class="UIPadding" referent="RBXD8515387789E4CFD8B6B82ECE6265281">
+            <Properties>
+              <UDim name="PaddingTop"><S>0</S><O>8</O></UDim>
+              <UDim name="PaddingBottom"><S>0</S><O>6</O></UDim>
+              <string name="Name">UIPadding</string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="Frame" referent="RBX646A7AC74C184635BD182083DEDC4C5E">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0</YS><YO>2</YO></UDim2>
+          <UDim2 name="Size"><XS>0.55</XS><XO>0</XO><YS>0</YS><YO>50</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">5</int>
+          <string name="Name">TitleBanner</string>
+        </Properties>
+        <Item class="UISizeConstraint" referent="RBX8DD387614589466CA0C16BA6A5389BCE">
+          <Properties>
+            <Vector2 name="MinSize"><X>190</X><Y>44</Y></Vector2>
+            <Vector2 name="MaxSize"><X>260</X><Y>52</Y></Vector2>
+            <string name="Name">UISizeConstraint</string>
+          </Properties>
+        </Item>
+        <Item class="UICorner" referent="RBX9E4F396B9154486FADE42D2C29FF7B60">
+          <Properties>
+            <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+        <Item class="UIStroke" referent="RBX67B55FC1BB6A46F7A277797D510E755D">
+          <Properties>
+            <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <float name="Thickness">4</float>
+            <token name="ApplyStrokeMode">1</token>
+            <string name="Name">UIStroke</string>
+          </Properties>
+        </Item>
+        <Item class="UIGradient" referent="RBX4F405ECBF7134F2FBEBCD52B29482C39">
+          <Properties>
+            <float name="Rotation">90</float>
+            <ColorSequence name="Color">0 0.501961 0.45098 1 0 1 0.360784 0.2 0.858824 0 </ColorSequence>
+            <string name="Name">UIGradient</string>
+          </Properties>
+        </Item>
+        <Item class="TextLabel" referent="RBX2B7763A45FC64A8F9A204296DE42C606">
+          <Properties>
+            <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+            <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>-28</XO><YS>1</YS><YO>-12</YO></UDim2>
+            <float name="BackgroundTransparency">1</float>
+            <string name="Text">REBIRTH</string>
+            <bool name="TextScaled">true</bool>
+            <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <Font name="FontFace"><Family><url>rbxasset://fonts/families/LuckiestGuy.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+            <int name="ZIndex">6</int>
+            <string name="Name">Title</string>
+          </Properties>
+          <Item class="UIStroke" referent="RBXAC6E9E29049A4B8CBD6CA7DA8CE172D5">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">3</float>
+              <token name="ApplyStrokeMode">0</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UITextSizeConstraint" referent="RBXBCDBEFE685C946B3A8F95E2B5702A349">
+            <Properties>
+              <int name="MaxTextSize">30</int>
+              <string name="Name">UITextSizeConstraint</string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="ImageButton" referent="RBX58CCA0F2BEF940E6AC1A264C136C9917">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>1</XS><XO>-8</XO><YS>0</YS><YO>8</YO></UDim2>
+          <UDim2 name="Size"><XS>0</XS><XO>52</XO><YS>0</YS><YO>52</YO></UDim2>
+          <float name="BackgroundTransparency">1</float>
+          <Content name="Image"><url>rbxassetid://0</url></Content>
+          <token name="ScaleType">3</token>
+          <int name="ZIndex">6</int>
+          <string name="Name">CloseButton</string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="LocalScript" referent="RBX9D9E542A67C24D7185848CDB571B15CE">
+      <Properties>
+        <string name="Name">RebirthController</string>
+        <ProtectedString name="Source"><![CDATA[-- RebirthController (LocalScript inside RebirthGui)
+-- Shows current/next rebirth multiplier and CashThisLife progress toward the
+-- requirement. The big button fires RequestRebirth; the server validates and
+-- answers with RebirthResult ("SUCCESS" or "INSUFFICIENT") + a DataSync snapshot.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local FormatNumber = require(Shared:WaitForChild("FormatNumber"))
+local ButtonFX = require(Shared:WaitForChild("ButtonFX"))
+local ClientEffects = require(Shared:WaitForChild("ClientEffects"))
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local DataSync = Remotes:WaitForChild("DataSync")
+local RequestRebirth = Remotes:WaitForChild("RequestRebirth")
+local RebirthResult = Remotes:WaitForChild("RebirthResult")
+
+local gui = script.Parent
+local main = gui:WaitForChild("Main")
+local panelScale = main:WaitForChild("PanelScale")
+local panel = main:WaitForChild("Panel")
+local mults = panel:WaitForChild("Mults")
+local currentMult = mults:WaitForChild("CurrentBox"):WaitForChild("CurrentMult")
+local nextMult = mults:WaitForChild("NextBox"):WaitForChild("NextMult")
+local progressBack = panel:WaitForChild("ProgressBack")
+local progressFill = progressBack:WaitForChild("ProgressFill")
+local progressLabel = progressBack:WaitForChild("ProgressLabel")
+local rebirthButton = panel:WaitForChild("RebirthButton")
+local buttonGrad = rebirthButton:WaitForChild("ButtonGrad")
+local closeButton = main:WaitForChild("CloseButton")
+
+local BASE_POSITION = main.Position
+local WHITE = Color3.fromRGB(255, 255, 255)
+local DISABLED_GRAY = Color3.fromRGB(150, 148, 158)
+
+local lastSnapshot: { [string]: any }? = nil
+
+local function refresh(snapshot: { [string]: any }?)
+	if not snapshot then
+		return
+	end
+	local rebirths = snapshot.Rebirths or 0
+	local cashThisLife = snapshot.CashThisLife or 0
+	local requirement = GameConfig.getRebirthRequirement(rebirths)
+
+	currentMult.Text = "x" .. tostring(GameConfig.getRebirthMultiplier(rebirths))
+	nextMult.Text = "x" .. tostring(GameConfig.getRebirthMultiplier(rebirths + 1))
+
+	local alpha = math.clamp(cashThisLife / requirement, 0, 1)
+	TweenService:Create(
+		progressFill,
+		TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Size = UDim2.new(alpha, 0, 1, 0) }
+	):Play()
+	progressLabel.Text = FormatNumber.money(cashThisLife) .. " / " .. FormatNumber.money(requirement)
+
+	-- Visually disable the button until the requirement is met. Active=false
+	-- also stops .Activated from firing.
+	local canRebirth = cashThisLife >= requirement
+	rebirthButton.Active = canRebirth
+	rebirthButton.AutoButtonColor = canRebirth
+	buttonGrad.Enabled = canRebirth
+	rebirthButton.BackgroundColor3 = if canRebirth then WHITE else DISABLED_GRAY
+	rebirthButton.TextTransparency = if canRebirth then 0 else 0.3
+end
+
+local shaking = false
+local function shakePanel()
+	if shaking then
+		return
+	end
+	shaking = true
+	for i = 1, 5 do
+		local offset = if i % 2 == 0 then 9 else -9
+		local tween = TweenService:Create(
+			main,
+			TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = BASE_POSITION + UDim2.fromOffset(offset, 0) }
+		)
+		tween:Play()
+		tween.Completed:Wait()
+	end
+	local settle = TweenService:Create(
+		main,
+		TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Position = BASE_POSITION }
+	)
+	settle:Play()
+	settle.Completed:Wait()
+	shaking = false
+end
+
+local function bounceOpen()
+	panelScale.Scale = 0.6
+	TweenService:Create(
+		panelScale,
+		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 }
+	):Play()
+end
+
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if gui.Enabled then
+		bounceOpen()
+		refresh(lastSnapshot)
+	end
+end)
+
+DataSync.OnClientEvent:Connect(function(snapshot)
+	lastSnapshot = snapshot
+	if gui.Enabled then
+		refresh(snapshot)
+	end
+end)
+
+RebirthResult.OnClientEvent:Connect(function(result: string)
+	if result == "INSUFFICIENT" and gui.Enabled then
+		ClientEffects.playSound("Error")
+		task.spawn(shakePanel)
+	end
+	-- "SUCCESS" celebration is handled by RebirthWatcher; the panel just
+	-- refreshes from the DataSync snapshot that follows.
+end)
+
+rebirthButton.Activated:Connect(function()
+	RequestRebirth:FireServer()
+end)
+ButtonFX.attach(rebirthButton)
+
+closeButton.Activated:Connect(function()
+	gui.Enabled = false
+end)
+ButtonFX.attach(closeButton)
+]]></ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>

@@ -1,0 +1,230 @@
+{
+	"name": "MainHUD",
+	"screen_gui_props": {
+		"IgnoreGuiInset": false,
+		"ScreenInsets": "CoreUISafeInsets"
+	},
+	"children": [
+		{
+			"class": "Frame",
+			"name": "TopCenter",
+			"props": {
+				"AnchorPoint": [0.5, 0],
+				"Position": [0.5, 0, 0, 8],
+				"Size": [0.32, 0, 0.2, 0],
+				"BackgroundTransparency": 1
+			},
+			"children": [
+				{"class": "UISizeConstraint", "props": {"MinSize": [250, 96], "MaxSize": [430, 150]}},
+				{"class": "UIListLayout", "props": {"FillDirection": "Vertical", "Padding": [0, 6], "SortOrder": "LayoutOrder", "HorizontalAlignment": "Center"}},
+				{
+					"class": "Frame",
+					"name": "CashPill",
+					"props": {"Size": [1, 0, 0.5, 0], "BackgroundColor3": "#ffffff", "LayoutOrder": 1},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [1, 0]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#ffd41f"], [0.5, "#9ccb30"], [1, "#2a932a"]]}},
+						{"class": "UIScale", "name": "PopScale", "props": {}},
+						{
+							"class": "ImageLabel",
+							"name": "CashIcon",
+							"props": {
+								"Image": "icon:Currency/Cash/Green Cash 1st Outline",
+								"BackgroundTransparency": 1,
+								"AnchorPoint": [0, 0.5],
+								"Position": [0, -14, 0.5, 0],
+								"Size": [1.35, 0, 1.35, 0],
+								"SizeConstraint": "RelativeYY",
+								"ScaleType": "Fit",
+								"ZIndex": 2
+							}
+						},
+						{
+							"class": "TextLabel",
+							"name": "Amount",
+							"props": {
+								"Text": "$0",
+								"BackgroundTransparency": 1,
+								"Position": [0.26, 0, 0.1, 0],
+								"Size": [0.7, 0, 0.8, 0],
+								"TextScaled": true,
+								"TextColor3": "#ffffff",
+								"TextXAlignment": "Left",
+								"FontFace": {"family": "FredokaOne"}
+							},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 34}}
+							]
+						}
+					]
+				},
+				{
+					"class": "Frame",
+					"name": "RebirthPill",
+					"props": {"Size": [0.56, 0, 0.32, 0], "BackgroundColor3": "#ffffff", "LayoutOrder": 2},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [1, 0]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#8073ff"], [1, "#5c33db"]]}},
+						{
+							"class": "ImageLabel",
+							"name": "RebirthIcon",
+							"props": {
+								"Image": "icon:Main/Rebirth and Auto Open/Rebirth 1st Outline",
+								"BackgroundTransparency": 1,
+								"AnchorPoint": [0, 0.5],
+								"Position": [0, -8, 0.5, 0],
+								"Size": [1.25, 0, 1.25, 0],
+								"SizeConstraint": "RelativeYY",
+								"ScaleType": "Fit",
+								"ZIndex": 2
+							}
+						},
+						{
+							"class": "TextLabel",
+							"name": "Multiplier",
+							"props": {
+								"Text": "x1",
+								"BackgroundTransparency": 1,
+								"Position": [0.3, 0, 0.1, 0],
+								"Size": [0.62, 0, 0.8, 0],
+								"TextScaled": true,
+								"TextColor3": "#ffffff",
+								"TextXAlignment": "Left",
+								"FontFace": {"family": "FredokaOne"}
+							},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+							]
+						}
+					]
+				},
+				{
+					"class": "Frame",
+					"name": "Toast",
+					"props": {"Size": [1.25, 0, 0.34, 0], "BackgroundColor3": "#2f8fd8", "Visible": false, "LayoutOrder": 3},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [1, 0]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#ffffff"], [1, "#c4c4c4"]]}},
+						{
+							"class": "TextLabel",
+							"name": "Message",
+							"props": {
+								"Text": "Welcome to Side Hustle Simulator!",
+								"BackgroundTransparency": 1,
+								"Position": [0.05, 0, 0.12, 0],
+								"Size": [0.9, 0, 0.76, 0],
+								"TextScaled": true,
+								"TextColor3": "#ffffff",
+								"FontFace": {"family": "FredokaOne"}
+							},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"class": "Frame",
+			"name": "SideButtons",
+			"props": {
+				"AnchorPoint": [0, 0.5],
+				"Position": [0, 12, 0.45, 0],
+				"Size": [0.1, 0, 0.6, 0],
+				"BackgroundTransparency": 1
+			},
+			"children": [
+				{"class": "UISizeConstraint", "props": {"MinSize": [60, 216], "MaxSize": [110, 430]}},
+				{"class": "UIListLayout", "props": {"FillDirection": "Vertical", "Padding": [0, 8], "SortOrder": "LayoutOrder", "VerticalAlignment": "Center", "HorizontalAlignment": "Left"}},
+				{
+					"class": "ImageButton",
+					"name": "ShopButton",
+					"props": {"Size": [0.22, 0, 0.22, 0], "SizeConstraint": "RelativeYY", "BackgroundColor3": "#ffffff", "LayoutOrder": 1},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [0, 14]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fffdfb"], [1, "#e9e4f5"]]}},
+						{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Main/Shopping Cart/Golden Shopping Cart 1st Outline", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 3], "Size": [0.72, 0, 0.62, 0], "ScaleType": "Fit", "ZIndex": 2}},
+						{
+							"class": "TextLabel",
+							"name": "Caption",
+							"props": {"Text": "SHOP", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -4], "Size": [0.94, 0, 0.26, 0], "TextScaled": true, "TextColor3": "#ffffff", "FontFace": {"family": "FredokaOne"}, "ZIndex": 2},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}
+							]
+						}
+					]
+				},
+				{
+					"class": "ImageButton",
+					"name": "WorkersButton",
+					"props": {"Size": [0.22, 0, 0.22, 0], "SizeConstraint": "RelativeYY", "BackgroundColor3": "#ffffff", "LayoutOrder": 2},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [0, 14]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fffdfb"], [1, "#e9e4f5"]]}},
+						{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Player/Friend/Friend 1st Outline", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 3], "Size": [0.72, 0, 0.62, 0], "ScaleType": "Fit", "ZIndex": 2}},
+						{
+							"class": "TextLabel",
+							"name": "Caption",
+							"props": {"Text": "WORKERS", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -4], "Size": [0.94, 0, 0.26, 0], "TextScaled": true, "TextColor3": "#ffffff", "FontFace": {"family": "FredokaOne"}, "ZIndex": 2},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}
+							]
+						}
+					]
+				},
+				{
+					"class": "ImageButton",
+					"name": "RebirthButton",
+					"props": {"Size": [0.22, 0, 0.22, 0], "SizeConstraint": "RelativeYY", "BackgroundColor3": "#ffffff", "LayoutOrder": 3},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [0, 14]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fffdfb"], [1, "#e9e4f5"]]}},
+						{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Main/Rebirth and Auto Open/Rebirth 1st Outline", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 3], "Size": [0.72, 0, 0.62, 0], "ScaleType": "Fit", "ZIndex": 2}},
+						{
+							"class": "TextLabel",
+							"name": "Caption",
+							"props": {"Text": "REBIRTH", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -4], "Size": [0.94, 0, 0.26, 0], "TextScaled": true, "TextColor3": "#ffffff", "FontFace": {"family": "FredokaOne"}, "ZIndex": 2},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}
+							]
+						}
+					]
+				},
+				{
+					"class": "ImageButton",
+					"name": "QuestsButton",
+					"props": {"Size": [0.22, 0, 0.22, 0], "SizeConstraint": "RelativeYY", "BackgroundColor3": "#ffffff", "LayoutOrder": 4},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [0, 14]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fffdfb"], [1, "#e9e4f5"]]}},
+						{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Item/Scroll/Scroll 1st Outline", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 3], "Size": [0.72, 0, 0.62, 0], "ScaleType": "Fit", "ZIndex": 2}},
+						{
+							"class": "TextLabel",
+							"name": "Caption",
+							"props": {"Text": "QUESTS", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -4], "Size": [0.94, 0, 0.26, 0], "TextScaled": true, "TextColor3": "#ffffff", "FontFace": {"family": "FredokaOne"}, "ZIndex": 2},
+							"children": [
+								{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2}},
+								{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}
+							]
+						}
+					]
+				}
+			]
+		},
+		{"class": "LocalScript", "name": "HUDController", "source_file": "hud.client.lua"}
+	]
+}

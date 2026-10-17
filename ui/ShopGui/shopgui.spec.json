@@ -1,0 +1,412 @@
+{
+	"name": "ShopGui",
+	"screen_gui_props": {
+		"IgnoreGuiInset": false,
+		"ScreenInsets": "CoreUISafeInsets",
+		"Enabled": false
+	},
+	"children": [
+		{
+			"class": "Frame",
+			"name": "Main",
+			"props": {
+				"AnchorPoint": [0.5, 0.5],
+				"Position": [0.5, 0, 0.5, 0],
+				"Size": [0.64, 0, 0.74, 0],
+				"BackgroundTransparency": 1
+			},
+			"children": [
+				{"class": "UIAspectRatioConstraint", "props": {"AspectRatio": 1.55}},
+				{"class": "UISizeConstraint", "props": {"MaxSize": [760, 490]}},
+				{"class": "UIScale", "name": "OpenScale", "props": {}},
+				{
+					"class": "Frame",
+					"name": "Shadow",
+					"props": {"AnchorPoint": [0.5, 0.5], "Position": [0.5, 0, 0.5, 7], "Size": [1, 0, 1, 0], "BackgroundColor3": "#040435", "BackgroundTransparency": 0.55, "ZIndex": 1},
+					"children": [{"class": "UICorner", "props": {"CornerRadius": [0, 22]}}]
+				},
+				{
+					"class": "Frame",
+					"name": "Body",
+					"props": {"Size": [1, 0, 1, 0], "BackgroundColor3": "#ffffff", "ZIndex": 2},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [0, 22]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 4, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fff3f7"], [1, "#f1e9f2"]]}},
+						{
+							"class": "ScrollingFrame",
+							"name": "Items",
+							"props": {
+								"AnchorPoint": [0.5, 1],
+								"Position": [0.5, 0, 1, -12],
+								"Size": [1, -28, 1, -52],
+								"BackgroundTransparency": 1,
+								"BorderSizePixel": 0,
+								"ZIndex": 3,
+								"CanvasSize": [0, 0, 0, 580],
+								"AutomaticCanvasSize": "Y",
+								"ScrollingDirection": "Y",
+								"ScrollBarThickness": 8,
+								"ScrollBarImageColor3": "#040435"
+							},
+							"children": [
+								{"class": "UIListLayout", "props": {"FillDirection": "Vertical", "Padding": [0, 8], "SortOrder": "LayoutOrder", "HorizontalAlignment": "Center"}},
+								{"class": "UIPadding", "props": {"PaddingTop": [0, 4], "PaddingLeft": [0, 4], "PaddingRight": [0, 10]}},
+								{
+									"class": "TextLabel",
+									"name": "UpgradesHeader",
+									"props": {"Size": [1, -8, 0, 26], "BackgroundTransparency": 1, "Text": "UPGRADES", "TextColor3": "#ffffff", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "LayoutOrder": 1, "ZIndex": 3},
+									"children": [
+										{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+										{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 24}}
+									]
+								},
+								{
+									"class": "Frame",
+									"name": "UpgradeGrid",
+									"props": {"Size": [1, -8, 0, 266], "BackgroundTransparency": 1, "LayoutOrder": 2, "ZIndex": 3},
+									"children": [
+										{"class": "UIGridLayout", "props": {"CellSize": [0.485, -6, 0, 128], "CellPadding": [0.03, 0, 0, 10], "SortOrder": "LayoutOrder", "HorizontalAlignment": "Center"}},
+										{
+											"class": "Frame",
+											"name": "HustlePower",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 1, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Nature/Thunderstorm/Thunderstorm 1st", "BackgroundTransparency": 1, "Position": [0, 10, 0, 8], "Size": [0, 48, 0, 48], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Hustle Power", "Position": [0, 64, 0, 10], "Size": [1, -72, 0, 26], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Level",
+													"props": {"Text": "Lv 0/25", "Position": [0, 64, 0, 38], "Size": [1, -72, 0, 20], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 16}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "BuyButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -10], "Size": [1, -20, 0, 48], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$100", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"class": "Frame",
+											"name": "WorkerEfficiency",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 2, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Player/Arm/Arm 1st", "BackgroundTransparency": 1, "Position": [0, 10, 0, 8], "Size": [0, 48, 0, 48], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Worker Hustle", "Position": [0, 64, 0, 10], "Size": [1, -72, 0, 26], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Level",
+													"props": {"Text": "Lv 0/25", "Position": [0, 64, 0, 38], "Size": [1, -72, 0, 20], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 16}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "BuyButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -10], "Size": [1, -20, 0, 48], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$250", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"class": "Frame",
+											"name": "WalkSpeed",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 3, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Item/Shoe/Blue Shoe 1st", "BackgroundTransparency": 1, "Position": [0, 10, 0, 8], "Size": [0, 48, 0, 48], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Fast Shoes", "Position": [0, 64, 0, 10], "Size": [1, -72, 0, 26], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Level",
+													"props": {"Text": "Lv 0/8", "Position": [0, 64, 0, 38], "Size": [1, -72, 0, 20], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 16}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "BuyButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -10], "Size": [1, -20, 0, 48], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$500", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"class": "Frame",
+											"name": "WorkerSlots",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 4, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Player/Add Player/Add Player 1st", "BackgroundTransparency": 1, "Position": [0, 10, 0, 8], "Size": [0, 48, 0, 48], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Worker Slot", "Position": [0, 64, 0, 10], "Size": [1, -72, 0, 26], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Level",
+													"props": {"Text": "Lv 0/3", "Position": [0, 64, 0, 38], "Size": [1, -72, 0, 20], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 16}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "BuyButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -10], "Size": [1, -20, 0, 48], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$25K", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 22}}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								},
+								{
+									"class": "TextLabel",
+									"name": "CratesHeader",
+									"props": {"Size": [1, -8, 0, 26], "BackgroundTransparency": 1, "Text": "HIRE WORKERS", "TextColor3": "#ffffff", "TextScaled": true, "TextXAlignment": "Left", "FontFace": {"family": "FredokaOne"}, "LayoutOrder": 3, "ZIndex": 3},
+									"children": [
+										{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+										{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 24}}
+									]
+								},
+								{
+									"class": "Frame",
+									"name": "CrateGrid",
+									"props": {"Size": [1, -8, 0, 190], "BackgroundTransparency": 1, "LayoutOrder": 4, "ZIndex": 3},
+									"children": [
+										{"class": "UIGridLayout", "props": {"CellSize": [0.31, -4, 0, 185], "CellPadding": [0.034, -2, 0, 10], "SortOrder": "LayoutOrder", "HorizontalAlignment": "Center"}},
+										{
+											"class": "Frame",
+											"name": "StarterCrate",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 1, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Item/Box/Box 1st", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 8], "Size": [0, 46, 0, 46], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Starter Crate", "Position": [0, 6, 0, 56], "Size": [1, -12, 0, 22], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Odds",
+													"props": {"Text": "Intern 60% / Employee 28% / Manager 10% / CEO 2%", "Position": [0, 8, 0, 80], "Size": [1, -16, 0, 48], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextWrapped": true, "TextYAlignment": "Top", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 14}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "HireButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -8], "Size": [1, -14, 0, 44], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$100", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"class": "Frame",
+											"name": "ProCrate",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 2, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#e9e4f5"], [1, "#d4cbe8"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Item/Chest/Chest 1st", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 8], "Size": [0, 46, 0, 46], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Pro Crate", "Position": [0, 6, 0, 56], "Size": [1, -12, 0, 22], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Odds",
+													"props": {"Text": "Intern 40% / Employee 35% / Manager 18% / CEO 7%", "Position": [0, 8, 0, 80], "Size": [1, -16, 0, 48], "BackgroundTransparency": 1, "TextColor3": "#5c5784", "TextScaled": true, "TextWrapped": true, "TextYAlignment": "Top", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 14}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "HireButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -8], "Size": [1, -14, 0, 44], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$10K", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}
+															]
+														}
+													]
+												}
+											]
+										},
+										{
+											"class": "Frame",
+											"name": "EliteCrate",
+											"props": {"BackgroundColor3": "#ffffff", "LayoutOrder": 3, "ZIndex": 3},
+											"children": [
+												{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+												{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5, "ApplyStrokeMode": "Border"}},
+												{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#fdeec4"], [1, "#f3cf84"]]}},
+												{"class": "ImageLabel", "name": "Icon", "props": {"Image": "icon:Item/Box/Golden Box 1st", "BackgroundTransparency": 1, "AnchorPoint": [0.5, 0], "Position": [0.5, 0, 0, 8], "Size": [0, 46, 0, 46], "ScaleType": "Fit", "ZIndex": 4}},
+												{
+													"class": "TextLabel",
+													"name": "Name",
+													"props": {"Text": "Elite Crate", "Position": [0, 6, 0, 56], "Size": [1, -12, 0, 22], "BackgroundTransparency": 1, "TextColor3": "#040435", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 18}}]
+												},
+												{
+													"class": "TextLabel",
+													"name": "Odds",
+													"props": {"Text": "Intern 20% / Employee 35% / Manager 30% / CEO 15%", "Position": [0, 8, 0, 80], "Size": [1, -16, 0, 48], "BackgroundTransparency": 1, "TextColor3": "#6b5420", "TextScaled": true, "TextWrapped": true, "TextYAlignment": "Top", "FontFace": {"family": "FredokaOne"}, "ZIndex": 4},
+													"children": [{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 14}}]
+												},
+												{
+													"class": "TextButton",
+													"name": "HireButton",
+													"props": {"AnchorPoint": [0.5, 1], "Position": [0.5, 0, 1, -8], "Size": [1, -14, 0, 44], "BackgroundColor3": "#ffffff", "Text": "", "ZIndex": 4},
+													"children": [
+														{"class": "UICorner", "props": {"CornerRadius": [0, 12]}},
+														{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3, "ApplyStrokeMode": "Border"}},
+														{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#47c64e"], [1, "#2a932a"]]}},
+														{
+															"class": "TextLabel",
+															"name": "Price",
+															"props": {"Text": "$1M", "Position": [0, 6, 0, 6], "Size": [1, -12, 1, -12], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "FredokaOne"}, "ZIndex": 5},
+															"children": [
+																{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 2.5}},
+																{"class": "UITextSizeConstraint", "props": {"MaxTextSize": 20}}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"class": "Frame",
+					"name": "TitleBanner",
+					"props": {"AnchorPoint": [0.5, 0.5], "Position": [0.5, 0, 0, 0], "Size": [0, 190, 0, 58], "BackgroundColor3": "#ffffff", "ZIndex": 5},
+					"children": [
+						{"class": "UICorner", "props": {"CornerRadius": [1, 0]}},
+						{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 4, "ApplyStrokeMode": "Border"}},
+						{"class": "UIGradient", "props": {"Rotation": 90, "Color": [[0, "#ffd41f"], [1, "#ff7b22"]]}},
+						{
+							"class": "TextLabel",
+							"name": "Title",
+							"props": {"Text": "SHOP", "Position": [0, 12, 0, 9], "Size": [1, -24, 1, -18], "BackgroundTransparency": 1, "TextColor3": "#ffffff", "TextScaled": true, "FontFace": {"family": "LuckiestGuy"}, "ZIndex": 6},
+							"children": [{"class": "UIStroke", "props": {"Color": "#040435", "Thickness": 3}}]
+						}
+					]
+				},
+				{
+					"class": "ImageButton",
+					"name": "CloseButton",
+					"props": {"AnchorPoint": [0.5, 0.5], "Position": [1, -6, 0, 6], "Size": [0, 52, 0, 52], "BackgroundTransparency": 1, "Image": "icon:UI/Close Button/Close Button 1st Outline", "ScaleType": "Fit", "ZIndex": 6}
+				}
+			]
+		},
+		{"class": "LocalScript", "name": "ShopController", "source_file": "shop.client.lua"}
+	]
+}

@@ -107,7 +107,9 @@ lock; the final save on leave/shutdown sets `Lock = nil`. Validate before every 
 (numbers are numbers, no NaN/inf, Cash >= 0); skip the save if corrupt. Reconcile
 loaded data against `GameConfig.Data.Defaults()` (fill missing keys recursively).
 
-**Cash API** — the ONLY way any service changes cash:
+**Cash API** — the ONLY way any service changes cash (one carve-out: the rebirth
+reset in RebirthService zeroes Cash/CashThisLife directly and must call
+`DataService.sync(player)` immediately after):
 - `DataService.getData(player): PlayerData?`
 - `DataService.addCash(player, amount: number)` — adds to Cash, CashThisLife,
   Stats.TotalCashEarned; updates leaderstats; fires DataSync.

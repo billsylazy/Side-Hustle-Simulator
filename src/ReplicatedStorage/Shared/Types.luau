@@ -34,4 +34,6 @@ export type PlayerData = {
 
 export type ToastKind = "error" | "info" | "success"
 
-return nil
+-- A ModuleScript must return exactly one non-nil value in Roblox; scripts that
+-- `require` this module for its exported types get this empty table.
+return {}
