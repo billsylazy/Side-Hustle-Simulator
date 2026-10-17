@@ -37,6 +37,9 @@
       "MainHUD": {
         "$path": "ui/MainHUD/build/MainHUD.rbxmx"
       },
+      "HustleGui": {
+        "$path": "ui/HustleGui/build/HustleGui.rbxmx"
+      },
       "ShopGui": {
         "$path": "ui/ShopGui/build/ShopGui.rbxmx"
       },
@@ -59,8 +62,13 @@
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "ClockTime": 12,
-        "Brightness": 3
+        "Technology": "Future",
+        "ClockTime": 13,
+        "Brightness": 2.6,
+        "GlobalShadows": true,
+        "ShadowSoftness": 0.6,
+        "EnvironmentDiffuseScale": 0.6,
+        "EnvironmentSpecularScale": 0.6
       }
     }
   }

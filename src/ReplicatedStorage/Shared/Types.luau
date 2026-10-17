@@ -1,9 +1,9 @@
 --!strict
--- Shared type definitions. See ARCHITECTURE.md "Data schema".
+-- Shared type definitions (v2). See ARCHITECTURE.md "Data schema v2".
 
 export type WorkerEntry = {
 	Uid: string,
-	Id: string, -- reserved for future distinct worker characters; currently rarity id
+	Id: string, -- currently the rarity id
 	Rarity: string, -- "Intern" | "Employee" | "Manager" | "CEO"
 	Crate: string, -- crate id the worker was hired from
 	Name: string,
@@ -12,9 +12,10 @@ export type WorkerEntry = {
 
 export type PlayerStats = {
 	HustleCount: number,
+	AutoHustleCount: number,
 	TotalCashEarned: number,
 	WorkersHired: number,
-	ZonesUnlockedCount: number,
+	HighestLevel: number,
 	TotalRebirths: number,
 	PlayTime: number,
 }
@@ -22,18 +23,30 @@ export type PlayerStats = {
 export type PlayerData = {
 	DataVersion: number,
 	Cash: number,
-	CashThisLife: number,
+	Level: number,
+	Xp: number,
 	Rebirths: number,
-	UnlockedZones: { string },
-	Upgrades: { [string]: number },
+	Upgrades: { [string]: { [string]: number } }, -- zoneId -> upgradeId -> level
+	Perks: { [string]: number },
 	Workers: { WorkerEntry },
 	Stats: PlayerStats,
 	ClaimedQuests: { [string]: boolean },
 	LastSeen: number,
 }
 
+export type HustleKind = "Manual" | "Auto" | "Burst" | "Peak"
+
+export type HustleResultPayload = {
+	Amount: number,
+	Xp: number,
+	Kind: HustleKind,
+	Mult: number,
+	Combo: number?,
+	Charge: number?,
+	ChargeMax: number?,
+}
+
 export type ToastKind = "error" | "info" | "success"
 
--- A ModuleScript must return exactly one non-nil value in Roblox; scripts that
--- `require` this module for its exported types get this empty table.
+-- A ModuleScript must return exactly one non-nil value in Roblox.
 return {}
