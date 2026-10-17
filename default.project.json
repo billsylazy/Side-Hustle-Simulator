@@ -1,0 +1,67 @@
+{
+  "name": "SideHustleSimulator",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "GameManager": {
+        "$path": "src/ServerScriptService/GameManager.server.luau"
+      },
+      "Services": {
+        "$path": "src/ServerScriptService/Services"
+      },
+      "World": {
+        "$path": "src/ServerScriptService/World"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "ClientMain": {
+          "$path": "src/StarterPlayerScripts/ClientMain.client.luau"
+        },
+        "Controllers": {
+          "$path": "src/StarterPlayerScripts/Controllers"
+        }
+      }
+    },
+    "StarterGui": {
+      "$className": "StarterGui",
+      "MainHUD": {
+        "$path": "ui/MainHUD/build/MainHUD.rbxmx"
+      },
+      "ShopGui": {
+        "$path": "ui/ShopGui/build/ShopGui.rbxmx"
+      },
+      "WorkersGui": {
+        "$path": "ui/WorkersGui/build/WorkersGui.rbxmx"
+      },
+      "RebirthGui": {
+        "$path": "ui/RebirthGui/build/RebirthGui.rbxmx"
+      },
+      "QuestsGui": {
+        "$path": "ui/QuestsGui/build/QuestsGui.rbxmx"
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "ClockTime": 12,
+        "Brightness": 3
+      }
+    }
+  }
+}

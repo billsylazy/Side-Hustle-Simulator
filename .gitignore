@@ -1,0 +1,6 @@
+# roblox-ui-builder tooling (unpacked from the Claude skill; regenerable)
+.roblox-ui-tools/
+
+# Rojo
+*.rbxlx.lock
+/sourcemap.json
