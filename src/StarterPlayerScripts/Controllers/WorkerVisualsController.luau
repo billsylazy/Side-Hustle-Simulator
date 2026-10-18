@@ -2,8 +2,8 @@
 -- chibi rigs that waddle along behind the character (art & feel guide: "workers
 -- waddling around doing the hustle animation in the background").
 --
--- Pure view layer, client-only: rigs are built from primitives, live in a
--- local-only Workspace folder ("WorkerRigs") and are driven purely by CFrame
+-- Pure view layer, client-only: rigs are built by ChibiRig (primitives), live in
+-- a local-only Workspace folder ("WorkerRigs") and are driven purely by CFrame
 -- math on a single RunService.Heartbeat connection - no physics, no server
 -- instances. Equipped workers come from the DataSync snapshot (fires >=1/s)
 -- and are diffed by Uid so rigs persist across syncs.
@@ -15,9 +15,10 @@ local RunService = game:GetService("RunService")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(sharedFolder:WaitForChild("GameConfig"))
 local FormatNumber = require(sharedFolder:WaitForChild("FormatNumber"))
+local ChibiRig = require(sharedFolder:WaitForChild("ChibiRig"))
 
 local RIG_FOLDER_NAME = "WorkerRigs"
-local MAX_RIGS = 6 -- equip cap: BaseEquipSlots (3) + WorkerSlots max level (3)
+local MAX_RIGS = GameConfig.Workers.BaseEquipSlots + GameConfig.Perks.WorkerSlots.MaxLevel -- 3 + 3
 
 -- Slot fan behind/beside the player: angle in degrees (0 = directly behind,
 -- negative = player's left) and radius in studs (contract: 5-7).
@@ -35,17 +36,9 @@ local FOLLOW_RATE = 4.5 -- exponential position smoothing per second
 local TURN_RATE = 10 -- yaw smoothing per second
 local WADDLE_SWAY = math.rad(8) -- +-8 degrees RotZ while moving
 local WADDLE_BOB = 0.2 -- studs of up/down bob while moving
+local ARM_SWING = math.rad(28) -- arm pitch swing while moving
 local MOVE_THRESHOLD = 0.75 -- studs/s before a rig counts as moving
 local HIDDEN_CFRAME = CFrame.new(0, -500, 0) -- parking spot before first placement
-
--- Palette
-local COLOR_SKIN = Color3.fromRGB(255, 220, 177)
-local COLOR_PANTS = Color3.fromRGB(52, 52, 72)
-local COLOR_BLACK = Color3.fromRGB(18, 18, 24)
-local COLOR_NAVY = Color3.fromRGB(4, 4, 53) -- #040435 stroke (UI contract)
-local COLOR_WHITE = Color3.fromRGB(245, 245, 245)
-local COLOR_BOARD = Color3.fromRGB(134, 87, 45)
-local COLOR_FALLBACK = Color3.fromRGB(170, 170, 180)
 
 type RigState = {
 	uid: string,
@@ -76,7 +69,7 @@ local started = false
 local WorkerVisualsController = {}
 
 ----------------------------------------------------------------------
--- Rig building (primitives only; everything anchored + non-colliding)
+-- Rig building (ChibiRig primitives; everything anchored + non-colliding)
 ----------------------------------------------------------------------
 
 local function getRigFolder(): Folder
@@ -91,120 +84,19 @@ local function getRigFolder(): Folder
 	return folder
 end
 
-local function addPart(model: Model, name: string, size: Vector3, cf: CFrame, color: Color3, shape: Enum.PartType?): Part
-	local part = Instance.new("Part")
-	part.Name = name
-	if shape then
-		part.Shape = shape
-	end
-	part.Size = size
-	part.CFrame = cf
-	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = model
-	return part
-end
-
-local function addTagLabel(tag: BillboardGui, text: string, color: Color3, yScale: number, heightScale: number)
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, heightScale)
-	label.Position = UDim2.fromScale(0, yScale)
-	label.Font = Enum.Font.FredokaOne
-	label.Text = text
-	label.TextColor3 = color
-	label.TextScaled = true
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = COLOR_NAVY
-	stroke.Thickness = 2.5
-	stroke.Parent = label
-
-	label.Parent = tag
-end
-
-local function buildNameTag(head: BasePart, workerName: string, incomePerSec: number, rarityColor: Color3)
-	local tag = Instance.new("BillboardGui")
-	tag.Name = "NameTag"
-	tag.Adornee = head
-	tag.Size = UDim2.fromScale(7, 2.4)
-	tag.ExtentsOffset = Vector3.new(0, 1.3, 0) -- float above the head
-	tag.MaxDistance = 80
-	tag.LightInfluence = 0
-	tag.AlwaysOnTop = false
-
-	addTagLabel(tag, workerName, COLOR_WHITE, 0, 0.58)
-	addTagLabel(tag, FormatNumber.money(incomePerSec) .. "/s", rarityColor, 0.58, 0.42)
-
-	tag.Parent = head
-end
-
--- Builds one chibi rig at the world origin (feet at y=0, facing -Z), then
--- parks it underground until the follow loop places it.
+-- Builds one chibi rig for a worker entry, then parks it underground until
+-- the follow loop places it.
 local function buildRigModel(entry: { [string]: any }): Model
 	local rarity = GameConfig.getRarity(entry.Rarity)
-	local shirtColor = if rarity then rarity.Color else COLOR_FALLBACK
-	local prop = if rarity then rarity.Prop else "None"
-
-	local model = Instance.new("Model")
-	model.Name = "WorkerRig_" .. tostring(entry.Name)
-
-	-- Invisible root at the feet: the pivot every PivotTo moves.
-	local root = addPart(model, "RootPart", Vector3.new(0.2, 0.2, 0.2), CFrame.new(0, 0, 0), COLOR_BLACK)
-	root.Transparency = 1
-	model.PrimaryPart = root
-
-	-- Stubby legs
-	addPart(model, "LeftLeg", Vector3.new(0.45, 0.5, 0.45), CFrame.new(-0.38, 0.25, 0), COLOR_PANTS)
-	addPart(model, "RightLeg", Vector3.new(0.45, 0.5, 0.45), CFrame.new(0.38, 0.25, 0), COLOR_PANTS)
-
-	-- Small body block (~1.6 wide); rarity color tints the shirt
-	-- (CEO's "GoldSuit" look falls out of its gold rarity color).
-	addPart(model, "Body", Vector3.new(1.6, 1.4, 0.9), CFrame.new(0, 1.2, 0), shirtColor)
-
-	-- Stubby arms (sleeves match the shirt)
-	addPart(model, "LeftArm", Vector3.new(0.35, 0.85, 0.35), CFrame.new(-0.98, 1.25, 0), shirtColor)
-	addPart(model, "RightArm", Vector3.new(0.35, 0.85, 0.35), CFrame.new(0.98, 1.25, 0), shirtColor)
-
-	-- Big round head (ball ~2.2 studs), slightly sunk into the body
-	local headCF = CFrame.new(0, 2.85, 0)
-	local head = addPart(model, "Head", Vector3.new(2.2, 2.2, 2.2), headCF, COLOR_SKIN, Enum.PartType.Ball)
-
-	-- Two flat black cylinder eyes (cylinder axis is X; yaw 90 points it forward)
-	local eyeTurn = CFrame.Angles(0, math.rad(90), 0)
-	addPart(model, "LeftEye", Vector3.new(0.1, 0.34, 0.34), headCF * CFrame.new(-0.42, 0.18, -0.97) * eyeTurn, COLOR_BLACK, Enum.PartType.Cylinder)
-	addPart(model, "RightEye", Vector3.new(0.1, 0.34, 0.34), headCF * CFrame.new(0.42, 0.18, -0.97) * eyeTurn, COLOR_BLACK, Enum.PartType.Cylinder)
-
-	-- Tiny smile
-	addPart(model, "Smile", Vector3.new(0.55, 0.09, 0.1), headCF * CFrame.new(0, -0.42, -0.93), COLOR_BLACK)
-
-	-- Rarity props (GameConfig RarityDef.Prop)
-	if prop == "CoffeeCup" then
-		-- White coffee cup held at the side (upright cylinder + tiny handle)
-		local cupCF = CFrame.new(1.05, 0.95, -0.1)
-		addPart(model, "CoffeeCup", Vector3.new(0.5, 0.36, 0.36), cupCF * CFrame.Angles(0, 0, math.rad(90)), COLOR_WHITE, Enum.PartType.Cylinder)
-		addPart(model, "CupHandle", Vector3.new(0.26, 0.1, 0.1), cupCF * CFrame.new(0.26, 0, 0), COLOR_WHITE)
-	elseif prop == "Clipboard" then
-		-- Brown clipboard with a white paper, held in front
-		local boardCF = CFrame.new(0, 1.25, -0.72) * CFrame.Angles(math.rad(-18), 0, 0)
-		addPart(model, "Clipboard", Vector3.new(0.9, 1.05, 0.08), boardCF, COLOR_BOARD)
-		addPart(model, "ClipboardPaper", Vector3.new(0.72, 0.85, 0.04), boardCF * CFrame.new(0, -0.03, -0.055), COLOR_WHITE)
-	elseif prop == "GoldSuit" then
-		-- Gold body comes from the rarity color; add the sunglasses bar
-		addPart(model, "Sunglasses", Vector3.new(1.35, 0.32, 0.12), headCF * CFrame.new(0, 0.18, -1.0), COLOR_BLACK)
-	end
-
 	local income = GameConfig.getWorkerIncome(entry.Rarity, entry.Crate)
-	buildNameTag(head, tostring(entry.Name), income, shirtColor)
-
-	model:PivotTo(HIDDEN_CFRAME)
+	local model = ChibiRig.build({
+		Name = tostring(entry.Name),
+		Rarity = entry.Rarity,
+		Label = FormatNumber.money(income) .. "/s",
+		LabelColor = if rarity then rarity.Color else nil,
+	})
+	model.Name = "WorkerRig_" .. tostring(entry.Name)
+	ChibiRig.setPose(model, HIDDEN_CFRAME)
 	model.Parent = getRigFolder()
 	return model
 end
@@ -381,11 +273,20 @@ local function updateRig(rig: RigState, dt: number, hrpPos: Vector3?, playerYawC
 	end
 
 	local pos = rig.pos :: Vector3
-	model:PivotTo(
-		CFrame.new(pos.X, pos.Y + rig.bob + hopY, pos.Z)
-			* CFrame.Angles(0, rig.yaw + spinYaw, 0)
-			* CFrame.Angles(0, 0, rig.sway)
-	)
+	local rootCF = CFrame.new(pos.X, pos.Y + rig.bob + hopY, pos.Z)
+		* CFrame.Angles(0, rig.yaw + spinYaw, 0)
+		* CFrame.Angles(0, 0, rig.sway)
+
+	if moving then
+		-- Arms swing opposite each other while waddling (2 extra CFrame ops).
+		local swing = math.sin(rig.phase) * ARM_SWING
+		ChibiRig.setPose(model, rootCF, {
+			LeftArm = CFrame.Angles(swing, 0, 0),
+			RightArm = CFrame.Angles(-swing, 0, 0),
+		})
+	else
+		ChibiRig.setPose(model, rootCF)
+	end
 end
 
 local function onHeartbeat(dt: number)

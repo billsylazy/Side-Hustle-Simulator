@@ -1,11 +1,12 @@
--- RebirthService: rebirth validation, reset and multiplier queries.
--- Contract: ARCHITECTURE.md "Earnings math" + "Remotes".
--- Requirement = GameConfig.getRebirthRequirement(Rebirths), checked against
--- CashThisLife. Rebirth RESETS: Cash, CashThisLife, UnlockedZones (back to the
--- starting zone), all Upgrades to 0. KEEPS: Workers (equip state as-is),
--- Stats, ClaimedQuests. Rebirths += 1, Stats.TotalRebirths += 1.
+-- RebirthService (v2): level-gated rebirth validation, reset and multiplier
+-- queries. Contract: ARCHITECTURE.md "Rebirth" + "Remotes".
+-- Requires Level >= GameConfig.Rebirth.RequiredLevel and Rebirths < MaxRebirths.
+-- Rebirth RESETS: Cash, Level, Xp, Upgrades (fresh per-zone empty tables),
+-- Perks (all 0), WalkSpeed back to base, workers unequipped beyond the base cap.
+-- KEEPS: Workers, Stats, ClaimedQuests. Rebirths += 1, Stats.TotalRebirths += 1.
 -- C->S traffic goes through RemoteService.register (RequestRebirth, 2 s
--- cooldown, no args); result goes back on the RebirthResult RemoteEvent.
+-- cooldown, no args); result goes back on the RebirthResult RemoteEvent:
+--   "SUCCESS", newRebirths, cashMult   |   "INSUFFICIENT", requiredLevel
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,6 +17,8 @@ local RebirthService = {}
 -- Injected via init(services) -- never require sibling services directly.
 local DataService
 local RemoteService
+
+local started = false
 
 -- Fires a S->C RemoteEvent to one player via RemoteService.fireClient(name,
 -- player, ...); falls back to the contract-pinned ReplicatedStorage.Remotes
@@ -39,22 +42,23 @@ local function onRequestRebirth(player: Player)
 		return
 	end
 
-	local requirement = GameConfig.getRebirthRequirement(data.Rebirths)
+	local requiredLevel = GameConfig.Rebirth.RequiredLevel
+	local level = if typeof(data.Level) == "number" then data.Level else 1
 
-	-- Must be below the rebirth cap and have earned enough THIS life.
-	if data.Rebirths >= GameConfig.Rebirth.MaxRebirths or data.CashThisLife < requirement then
-		fireClient(player, "RebirthResult", "INSUFFICIENT", requirement)
+	-- Must be below the rebirth cap and have reached the required level.
+	if data.Rebirths >= GameConfig.Rebirth.MaxRebirths or level < requiredLevel then
+		fireClient(player, "RebirthResult", "INSUFFICIENT", requiredLevel)
 		return
 	end
 
-	-- Apply the reset (see header). Setting every existing upgrade key to 0
-	-- (rather than replacing the table) keeps the schema's key set intact.
+	-- Apply the reset (see header). This is the contract's carve-out: the
+	-- rebirth reset may assign data fields directly, then DataService.sync.
+	local defaults = GameConfig.Data.Defaults()
 	data.Cash = 0
-	data.CashThisLife = 0
-	data.UnlockedZones = { GameConfig.StartingZoneId }
-	for upgradeId in data.Upgrades do
-		data.Upgrades[upgradeId] = 0
-	end
+	data.Level = 1
+	data.Xp = 0
+	data.Upgrades = defaults.Upgrades -- fresh per-zone empty tables
+	data.Perks = defaults.Perks -- WalkSpeed / WorkerSlots / WorkerEfficiency = 0
 	data.Rebirths += 1
 	data.Stats.TotalRebirths += 1
 
@@ -73,14 +77,14 @@ local function onRequestRebirth(player: Player)
 		end
 	end
 
-	-- WalkSpeed upgrade just reset to level 0 -> back to base walk speed.
+	-- WalkSpeed perk just reset to level 0 -> back to base walk speed.
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.WalkSpeed = GameConfig.BaseWalkSpeed
 	end
 
-	-- Push the fresh snapshot; sync also refreshes leaderstats (Cash, Rebirths).
+	-- Push the fresh snapshot; sync also refreshes leaderstats (Cash, Level, Rebirths).
 	DataService.sync(player)
 
 	-- RebirthWatcher plays the full-screen celebration off this.
@@ -89,7 +93,7 @@ local function onRequestRebirth(player: Player)
 		"RebirthResult",
 		"SUCCESS",
 		data.Rebirths,
-		GameConfig.getRebirthMultiplier(data.Rebirths)
+		GameConfig.getRebirthCashMultiplier(data.Rebirths)
 	)
 end
 
@@ -99,6 +103,11 @@ function RebirthService.init(services: { [string]: any })
 end
 
 function RebirthService.start()
+	if started then
+		return
+	end
+	started = true
+
 	-- RemoteService.register handles type validation, the per-remote cooldown
 	-- (2 s, per the remotes table), rate limiting and violation kicks.
 	RemoteService.register({
@@ -108,13 +117,27 @@ function RebirthService.start()
 	})
 end
 
--- rebirthMult = 1 + GameConfig.Rebirth.BonusPerRebirth * rebirths.
+-- cashMult = 1 + GameConfig.Rebirth.CashBonusPerRebirth * rebirths.
 -- Delegates to GameConfig so there is exactly one source of truth.
-function RebirthService.getMultiplier(rebirths: number): number
-	return GameConfig.getRebirthMultiplier(rebirths)
+function RebirthService.getCashMultiplier(rebirths: number): number
+	return GameConfig.getRebirthCashMultiplier(rebirths)
 end
 
-function RebirthService.cleanupPlayer(player: Player)
+-- xpMult = 1 + GameConfig.Rebirth.XpBonusPerRebirth * rebirths.
+function RebirthService.getXpMultiplier(rebirths: number): number
+	return GameConfig.getRebirthXpMultiplier(rebirths)
+end
+
+-- True when the player could rebirth right now (UI/other services may ask).
+function RebirthService.canRebirth(player: Player): boolean
+	local data = DataService.getData(player)
+	if not data then
+		return false
+	end
+	return data.Rebirths < GameConfig.Rebirth.MaxRebirths and data.Level >= GameConfig.Rebirth.RequiredLevel
+end
+
+function RebirthService.cleanupPlayer(_player: Player)
 	-- No per-player state here: the RequestRebirth cooldown bookkeeping is
 	-- owned by RemoteService. Kept for the uniform service module shape.
 end

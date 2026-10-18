@@ -1,7 +1,9 @@
--- WorkerService: crate hiring (weighted RNG), equip/unequip, passive income tick.
--- Contract: ARCHITECTURE.md "Remotes" + "Earnings math" + "Data schema".
--- Worker income/sec = sum(getWorkerIncome(Rarity, Crate) for equipped)
---   * (1 + 0.2 * WorkerEfficiencyLevel) * rebirthMult, floored, applied every
+-- WorkerService (v2): crate hiring (weighted RNG), equip/unequip, passive income tick.
+-- Contract: ARCHITECTURE.md "Remotes" + "Upgrades & perks" + "Data schema v2".
+-- Equip cap = GameConfig.Workers.BaseEquipSlots + data.Perks.WorkerSlots.
+-- Worker income/sec = sum(getWorkerIncome(Rarity, Crate) for the first `cap`
+--   equipped workers) * (1 + WorkerEfficiencyPerLevel * Perks.WorkerEfficiency)
+--   * GameConfig.getRebirthCashMultiplier(Rebirths), floored, applied every
 --   GameConfig.Workers.IncomeTickSeconds via DataService.addCash (which syncs).
 -- Server-authoritative: crate existence is checked in the validator (a crate id
 -- outside GameConfig can only come from a tampered client), storage/cost/slot
@@ -30,6 +32,16 @@ local started = false
 
 local function toast(player: Player, message: string, kind: string)
 	RemoteService.fireClient("Toast", player, message, kind)
+end
+
+-- Perk level from a data table (missing/corrupt -> 0).
+local function perkLevel(data: any, perkId: string): number
+	local perks = data.Perks
+	if typeof(perks) ~= "table" then
+		return 0
+	end
+	local level = perks[perkId]
+	return if typeof(level) == "number" then level else 0
 end
 
 -- Weighted RNG over crate.Weights. Weights need not sum to 100 (normalized
@@ -76,9 +88,18 @@ local function countEquipped(data: any): number
 	return count
 end
 
--- Equipped worker cap = BaseEquipSlots + WorkerSlots upgrade level.
+-- Equipped worker cap = BaseEquipSlots + WorkerSlots perk level.
 local function equipCap(data: any): number
-	return GameConfig.Workers.BaseEquipSlots + (data.Upgrades.WorkerSlots or 0)
+	return GameConfig.Workers.BaseEquipSlots + perkLevel(data, "WorkerSlots")
+end
+
+-- Public so UI-facing services can show the cap; reads the loaded data only.
+function WorkerService.getEquipCap(player: Player): number
+	local data = DataService.getData(player)
+	if not data then
+		return GameConfig.Workers.BaseEquipSlots
+	end
+	return equipCap(data)
 end
 
 ----------------------------------------------------------------------
@@ -176,10 +197,10 @@ end
 ----------------------------------------------------------------------
 
 -- Income for one tick: sum of equipped workers' base income, scaled by the
--- WorkerEfficiency upgrade and the rebirth multiplier, floored.
+-- WorkerEfficiency perk and the rebirth cash multiplier, floored.
 local function computeTickIncome(data: any): number
 	-- Count at most equipCap(data) equipped workers: saved data can hold more
-	-- Equipped flags than the current cap (the WorkerSlots upgrade resets on
+	-- Equipped flags than the current cap (the WorkerSlots perk resets on
 	-- rebirth), and the extra ones must not earn.
 	local base = 0
 	local counted = 0
@@ -197,8 +218,18 @@ local function computeTickIncome(data: any): number
 		return 0
 	end
 
-	local efficiencyMult = 1 + GameConfig.WorkerEfficiencyPerLevel * (data.Upgrades.WorkerEfficiency or 0)
-	return math.floor(base * efficiencyMult * GameConfig.getRebirthMultiplier(data.Rebirths))
+	local efficiencyMult = 1 + GameConfig.WorkerEfficiencyPerLevel * perkLevel(data, "WorkerEfficiency")
+	local rebirths = if typeof(data.Rebirths) == "number" then data.Rebirths else 0
+	return math.floor(base * efficiencyMult * GameConfig.getRebirthCashMultiplier(rebirths))
+end
+
+-- Public query so UI/other services can show "$/s" without duplicating the math.
+function WorkerService.getIncomePerTick(player: Player): number
+	local data = DataService.getData(player)
+	if not data then
+		return 0
+	end
+	return computeTickIncome(data)
 end
 
 ----------------------------------------------------------------------
@@ -258,7 +289,7 @@ function WorkerService.start()
 	})
 
 	-- Passive income tick. addCash syncs (DataSync >= 1/s per player is fine
-	-- per contract); players with zero income are skipped entirely.
+	-- per contract); players with zero income still get a sync every tick.
 	task.spawn(function()
 		while true do
 			task.wait(GameConfig.Workers.IncomeTickSeconds)

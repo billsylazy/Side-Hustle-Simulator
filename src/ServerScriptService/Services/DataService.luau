@@ -1,14 +1,19 @@
 --[[
-	DataService.luau
-	Persistence + the ONLY cash mutation API (ARCHITECTURE.md "Data schema").
+	DataService.luau (v2)
+	Persistence + the ONLY cash mutation API (ARCHITECTURE.md "Data schema v2").
 
+	- DataStore GameConfig.Data.StoreName ("SideHustleData_v2"), key "Player_" .. UserId.
 	- UpdateAsync-based session locking: stored value is
-	  { Data = PlayerData, Lock = { JobId = game.JobId, Time = os.time() }? }.
+	  { Data = PlayerData, Lock = { JobId, SessionId, Time }? } owned by SessionId.
 	- Load retry/kick flow when a foreign lock is fresh (SE-1).
 	- 60s lock refresh loop for loaded players.
+	- Stored Data whose DataVersion ~= GameConfig.Data.Version is replaced by
+	  GameConfig.Data.Defaults() (fresh game); everything else is reconciled
+	  against the v2 defaults (Upgrades is a map of per-zone tables).
 	- Validation before every save; corrupt data is never written.
-	- Final save on leave clears the lock; BindToClose saves in parallel.
-	- DataService is the ONLY creator of leaderstats (Cash, Rebirths IntValues).
+	- Final save on leave clears the lock; BindToClose drains in-flight saves.
+	- DataService is the ONLY creator of leaderstats (Cash, Level, Rebirths IntValues).
+	- XP is written by LevelService only (contract); rebirth reset by RebirthService.
 ]]
 
 local Players = game:GetService("Players")
@@ -79,21 +84,43 @@ local function deepClone(original: { [any]: any }): { [any]: any }
 end
 
 -- Fill missing keys recursively from the template (GameConfig.Data.Defaults()).
+-- v2: Upgrades is a map zoneId -> { upgradeId -> level }; the template holds
+-- one empty table per zone, so recursing creates every missing zone table.
+-- A stored value whose type does not match the template (or a non-finite
+-- number) is replaced by the default rather than left to block every save.
 local function reconcile(data: { [any]: any }, template: { [any]: any })
 	for key, default in template do
-		if data[key] == nil then
-			if typeof(default) == "table" then
+		local value = data[key]
+		if typeof(default) == "table" then
+			if typeof(value) ~= "table" then
 				data[key] = deepClone(default)
 			else
+				reconcile(value, default)
+			end
+		elseif typeof(default) == "number" then
+			if not isFiniteNumber(value) then
 				data[key] = default
 			end
-		elseif typeof(default) == "table" and typeof(data[key]) == "table" then
-			reconcile(data[key], default)
+		elseif value == nil or typeof(value) ~= typeof(default) then
+			data[key] = default
 		end
 	end
 end
 
--- Reject corrupt data before it ever reaches the DataStore.
+-- True when every value of a table is a finite, non-negative number.
+local function allNonNegativeNumbers(levels: any): boolean
+	if typeof(levels) ~= "table" then
+		return false
+	end
+	for _, level in levels do
+		if not isFiniteNumber(level) or level < 0 then
+			return false
+		end
+	end
+	return true
+end
+
+-- Reject corrupt data before it ever reaches the DataStore (v2 fields).
 local function validate(data: any): boolean
 	if typeof(data) ~= "table" then
 		return false
@@ -101,22 +128,27 @@ local function validate(data: any): boolean
 	if not isFiniteNumber(data.Cash) or data.Cash < 0 then
 		return false
 	end
-	if not isFiniteNumber(data.CashThisLife) or data.CashThisLife < 0 then
+	if not isFiniteNumber(data.Level) or data.Level < 1 then
+		return false
+	end
+	if not isFiniteNumber(data.Xp) or data.Xp < 0 then
 		return false
 	end
 	if not isFiniteNumber(data.Rebirths) or data.Rebirths < 0 then
 		return false
 	end
-	if typeof(data.UnlockedZones) ~= "table" then
-		return false
-	end
+	-- Upgrades: zoneId -> { upgradeId -> level }
 	if typeof(data.Upgrades) ~= "table" then
 		return false
 	end
-	for _, level in data.Upgrades do
-		if not isFiniteNumber(level) or level < 0 then
+	for _, zoneUpgrades in data.Upgrades do
+		if not allNonNegativeNumbers(zoneUpgrades) then
 			return false
 		end
+	end
+	-- Perks: perkId -> level
+	if not allNonNegativeNumbers(data.Perks) then
+		return false
 	end
 	if typeof(data.Workers) ~= "table" then
 		return false
@@ -135,19 +167,28 @@ local function validate(data: any): boolean
 	return true
 end
 
+local function setIntValue(parent: Instance, name: string, value: number)
+	local child = parent:FindFirstChild(name)
+	if child and child:IsA("IntValue") then
+		child.Value = math.floor(value)
+	end
+end
+
 local function updateLeaderstats(player: Player, data: PlayerData)
 	local leaderstats = player:FindFirstChild("leaderstats")
 	if not leaderstats then
 		return
 	end
-	local cash = leaderstats:FindFirstChild("Cash")
-	if cash and cash:IsA("IntValue") then
-		cash.Value = math.floor(data.Cash)
-	end
-	local rebirths = leaderstats:FindFirstChild("Rebirths")
-	if rebirths and rebirths:IsA("IntValue") then
-		rebirths.Value = math.floor(data.Rebirths)
-	end
+	setIntValue(leaderstats, "Cash", data.Cash)
+	setIntValue(leaderstats, "Level", data.Level)
+	setIntValue(leaderstats, "Rebirths", data.Rebirths)
+end
+
+local function newIntValue(name: string, value: number, parent: Instance)
+	local intValue = Instance.new("IntValue")
+	intValue.Name = name
+	intValue.Value = math.floor(value)
+	intValue.Parent = parent
 end
 
 -- DataService is the ONLY creator of leaderstats.
@@ -160,15 +201,9 @@ local function createLeaderstats(player: Player, data: PlayerData)
 	local leaderstats = Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
 
-	local cash = Instance.new("IntValue")
-	cash.Name = "Cash"
-	cash.Value = math.floor(data.Cash)
-	cash.Parent = leaderstats
-
-	local rebirths = Instance.new("IntValue")
-	rebirths.Name = "Rebirths"
-	rebirths.Value = math.floor(data.Rebirths)
-	rebirths.Parent = leaderstats
+	newIntValue("Cash", data.Cash, leaderstats)
+	newIntValue("Level", data.Level, leaderstats)
+	newIntValue("Rebirths", data.Rebirths, leaderstats)
 
 	leaderstats.Parent = player
 end
@@ -304,7 +339,8 @@ function DataService.getLoadedPlayers(): { Player }
 	return result
 end
 
--- Fires the full data snapshot to the client and refreshes leaderstats.
+-- Fires the full data snapshot to the client and refreshes leaderstats
+-- (Cash, Level, Rebirths).
 function DataService.sync(player: Player)
 	local data = loaded[player]
 	if not data then
@@ -316,7 +352,7 @@ function DataService.sync(player: Player)
 	end
 end
 
--- Adds to Cash, CashThisLife and Stats.TotalCashEarned. Server-only.
+-- Adds to Cash and Stats.TotalCashEarned, then syncs. Server-only.
 function DataService.addCash(player: Player, amount: number)
 	local data = loaded[player]
 	if not data then
@@ -326,7 +362,6 @@ function DataService.addCash(player: Player, amount: number)
 		return
 	end
 	data.Cash += amount
-	data.CashThisLife += amount
 	data.Stats.TotalCashEarned += amount
 	DataService.sync(player)
 end
@@ -349,7 +384,7 @@ function DataService.spendCash(player: Player, amount: number): boolean
 end
 
 -- Claim the session lock (retrying against a fresh foreign lock), load,
--- reconcile against defaults, create leaderstats.
+-- version-check + reconcile against defaults, create leaderstats.
 function DataService.loadPlayer(player: Player)
 	if loaded[player] then
 		return
@@ -419,10 +454,15 @@ function DataService.loadPlayer(player: Player)
 		return
 	end
 
+	-- v2 schema: anything stored under a different DataVersion (including a
+	-- v1 table with no DataVersion at all) is a fresh game.
 	local data: PlayerData
-	if typeof(storedData) == "table" then
+	if typeof(storedData) == "table" and storedData.DataVersion == GameConfig.Data.Version then
 		data = storedData :: PlayerData
 	else
+		if typeof(storedData) == "table" then
+			warn(`[DataService] {player.Name} had DataVersion {tostring(storedData.DataVersion)}; resetting to v{GameConfig.Data.Version} defaults`)
+		end
 		data = GameConfig.Data.Defaults() :: PlayerData
 	end
 	reconcile(data :: any, GameConfig.Data.Defaults())

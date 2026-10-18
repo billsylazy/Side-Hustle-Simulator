@@ -1,9 +1,9 @@
 --[[
-	GameManager.server.luau
+	GameManager.server.luau (v2)
 	Server entry point (ARCHITECTURE.md "Service pattern"):
 	1. Build the map + lighting (MapBuilder.build(), idempotent).
 	2. Create every remote (RemoteService.init()).
-	3. Require all services, init(services) all, then start() all.
+	3. Require all 9 services, init(services) all, then start() all.
 	4. Player lifecycle: load/sync on join, unload + per-service cleanup on leave.
 	5. Auto-save loop every GameConfig.Data.SaveInterval.
 	game:BindToClose is handled inside DataService.
@@ -25,9 +25,13 @@ local RemoteService = require(servicesFolder.RemoteService)
 RemoteService.init()
 
 -- 3. Require all services, inject the services table, init all, start all.
+--    Order matters only loosely (DataService/RemoteService first so every
+--    other service's start() can register remotes and query data; LevelService
+--    before the services that delegate zone-unlock queries to it).
 local SERVICE_ORDER = {
 	"DataService",
 	"RemoteService",
+	"LevelService",
 	"ZoneService",
 	"HustleService",
 	"WorkerService",
@@ -40,7 +44,9 @@ local services: { [string]: any } = {}
 for _, name in SERVICE_ORDER do
 	local moduleScript = servicesFolder:FindFirstChild(name)
 	assert(moduleScript ~= nil, `[GameManager] Missing service module: Services.{name}`)
-	services[name] = require(moduleScript)
+	local service = require(moduleScript)
+	assert(typeof(service) == "table", `[GameManager] Services.{name} must return a table`)
+	services[name] = service
 end
 
 for _, name in SERVICE_ORDER do
@@ -91,4 +97,4 @@ task.spawn(function()
 	end
 end)
 
-print("[GameManager] Side Hustle Simulator server ready")
+print(`[GameManager] Side Hustle Simulator v{GameConfig.Data.Version} server ready ({#SERVICE_ORDER} services)`)

@@ -1,8 +1,9 @@
--- ZoneGateController: LOCAL-ONLY gate visuals for the local player's unlocked
--- zones. The server stays authoritative (it rejects hustles in locked zones),
--- so these are pure view changes: walk-through walls, hidden signs/prompts.
--- Watches DataSync and re-applies on every snapshot, which also restores
--- gates for zones re-locked by rebirth (UnlockedZones shrinks).
+-- ZoneGateController: LOCAL-ONLY gate visuals for the zones the local player
+-- has unlocked by level (v2: zone unlocked <=> snapshot.Level >= zone.UnlockLevel).
+-- The server stays authoritative (it rejects hustles in locked zones), so these
+-- are pure view changes: a walk-through GateWall and a hidden sign billboard.
+-- Watches DataSync and re-applies on every snapshot, which also restores the
+-- gates when the level drops after a rebirth. No UnlockPrompt exists in v2.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,46 +11,41 @@ local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild
 
 type GateRefs = {
 	zoneId: string,
+	unlockLevel: number,
 	gateWall: BasePart,
 	originalTransparency: number,
 	originalCanCollide: boolean,
-	billboard: BillboardGui?,
-	prompt: ProximityPrompt?,
+	billboards: { BillboardGui },
 }
 
 local gates: { [string]: GateRefs } = {}
-local unlockedSet: { [string]: boolean } = {}
-local hasData = false -- never touch gates before the first DataSync snapshot
+local registering: { [string]: boolean } = {}
+local currentLevel: number? = nil -- nil until the first DataSync snapshot
 
 local ZoneGateController = {}
 
 local function applyGate(refs: GateRefs)
-	if not hasData then
-		return
+	local level = currentLevel
+	if level == nil then
+		return -- never touch gates before the first snapshot
 	end
 	local gateWall = refs.gateWall
 	if not gateWall:IsDescendantOf(workspace) then
 		return -- streamed out / rebuilt; registration will pick it back up
 	end
-	if unlockedSet[refs.zoneId] then
+	if level >= refs.unlockLevel then
 		-- Unlocked: open the gate locally.
 		gateWall.CanCollide = false
 		gateWall.Transparency = 1
-		if refs.billboard then
-			refs.billboard.Enabled = false
-		end
-		if refs.prompt then
-			refs.prompt.Enabled = false
+		for _, billboard in refs.billboards do
+			billboard.Enabled = false
 		end
 	else
 		-- Locked (including re-locked after rebirth): restore the server look.
 		gateWall.CanCollide = refs.originalCanCollide
 		gateWall.Transparency = refs.originalTransparency
-		if refs.billboard then
-			refs.billboard.Enabled = true
-		end
-		if refs.prompt then
-			refs.prompt.Enabled = true
+		for _, billboard in refs.billboards do
+			billboard.Enabled = true
 		end
 	end
 end
@@ -60,81 +56,76 @@ local function applyAll()
 	end
 end
 
--- The gate sign's BillboardGui and the "UnlockPrompt" ProximityPrompt live on
--- parts inside the Gate model (SignPart / PromptPart per the map contract).
--- Scan descendants with a short retry window in case they appear late.
-local function findGatePieces(gate: Instance): (BillboardGui?, ProximityPrompt?)
-	local billboard: BillboardGui? = nil
-	local prompt: ProximityPrompt? = nil
+-- The gate sign's BillboardGui lives on SignPart inside the Gate model (map
+-- contract). Scan descendants with a short retry window in case it appears late.
+local function findGateBillboards(gate: Instance): { BillboardGui }
 	local deadline = os.clock() + 5
 	while true do
+		local found: { BillboardGui } = {}
 		for _, descendant in gate:GetDescendants() do
-			if billboard == nil and descendant:IsA("BillboardGui") then
-				billboard = descendant
-			elseif prompt == nil and descendant:IsA("ProximityPrompt") and descendant.Name == "UnlockPrompt" then
-				prompt = descendant
+			if descendant:IsA("BillboardGui") then
+				table.insert(found, descendant)
 			end
 		end
-		if (billboard and prompt) or os.clock() > deadline then
-			break
+		if #found > 0 or os.clock() > deadline then
+			return found
 		end
 		task.wait(0.25)
 	end
-	return billboard, prompt
 end
 
 local function registerZone(zoneModel: Instance)
 	local zoneId = zoneModel.Name
 	local zoneDef = GameConfig.getZone(zoneId)
-	if not zoneDef or zoneDef.UnlockCost <= 0 then
+	if not zoneDef or zoneDef.UnlockLevel <= 1 then
 		return -- not a zone, or the starting zone (no gate)
 	end
 	local existing = gates[zoneId]
 	if existing and existing.gateWall:IsDescendantOf(workspace) then
 		return -- already registered and alive
 	end
+	if registering[zoneId] then
+		return
+	end
+	registering[zoneId] = true
 
 	local gate = zoneModel:WaitForChild("Gate", 20)
 	if not gate then
+		registering[zoneId] = nil
 		warn(("[ZoneGateController] Zone %s has no Gate model"):format(zoneId))
 		return
 	end
 	local gateWall = gate:WaitForChild("GateWall", 20)
 	if not gateWall or not gateWall:IsA("BasePart") then
+		registering[zoneId] = nil
 		warn(("[ZoneGateController] Gate for %s has no GateWall part"):format(zoneId))
 		return
 	end
 
-	local billboard, prompt = findGatePieces(gate)
+	local billboards = findGateBillboards(gate)
+	registering[zoneId] = nil
 
 	gates[zoneId] = {
 		zoneId = zoneId,
+		unlockLevel = zoneDef.UnlockLevel,
 		gateWall = gateWall,
 		originalTransparency = gateWall.Transparency,
 		originalCanCollide = gateWall.CanCollide,
-		billboard = billboard,
-		prompt = prompt,
+		billboards = billboards,
 	}
 	applyGate(gates[zoneId])
 end
 
-function ZoneGateController.start()
-	-- Keep the unlocked-zone set in sync with the server.
+function ZoneGateController.start(): ()
+	-- Keep the player's level in sync with the server.
 	task.spawn(function()
 		local remotes = ReplicatedStorage:WaitForChild("Remotes")
 		local dataSync = remotes:WaitForChild("DataSync")
 		dataSync.OnClientEvent:Connect(function(snapshot)
-			if type(snapshot) ~= "table" or type(snapshot.UnlockedZones) ~= "table" then
+			if type(snapshot) ~= "table" or type(snapshot.Level) ~= "number" then
 				return
 			end
-			local newSet: { [string]: boolean } = {}
-			for _, zoneId in snapshot.UnlockedZones do
-				if type(zoneId) == "string" then
-					newSet[zoneId] = true
-				end
-			end
-			unlockedSet = newSet
-			hasData = true
+			currentLevel = snapshot.Level
 			applyAll()
 		end)
 	end)

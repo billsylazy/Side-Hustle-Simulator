@@ -1,8 +1,9 @@
--- QuestService: one-time quest claiming. Progress is never tracked here --
--- quests read the lifetime Stats that other services already maintain
--- (HustleCount, TotalCashEarned, WorkersHired, ZonesUnlockedCount,
--- TotalRebirths), so the client renders progress straight from DataSync and
--- the server only validates claims.
+-- QuestService (v2): one-time quest claiming. Progress is never tracked here --
+-- quests read the lifetime Stats that other services already maintain via
+-- quest.Stat, which must be one of the v2 stat names (HustleCount,
+-- AutoHustleCount, TotalCashEarned, WorkersHired, HighestLevel, TotalRebirths),
+-- so the client renders progress straight from DataSync and the server only
+-- validates claims. Stats survive rebirth, so claimed quests stay claimed.
 -- Contract: ARCHITECTURE.md "Remotes" + GameConfig.Quests.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +24,18 @@ local started = false
 
 local function toast(player: Player, message: string, kind: string)
 	RemoteService.fireClient("Toast", player, message, kind)
+end
+
+-- Progress for a quest from the lifetime Stats table (missing/corrupt -> 0).
+-- Generic over quest.Stat so adding a v2 stat name in GameConfig needs no
+-- change here.
+local function questProgress(data: any, quest: GameConfig.QuestDef): number
+	local stats = data.Stats
+	if typeof(stats) ~= "table" then
+		return 0
+	end
+	local progress = stats[quest.Stat]
+	return if typeof(progress) == "number" then progress else 0
 end
 
 ----------------------------------------------------------------------
@@ -49,8 +62,7 @@ local function onClaimQuest(player: Player, questId: string)
 	end
 
 	-- Progress comes from lifetime Stats (survive rebirth).
-	local progress = data.Stats[quest.Stat]
-	if typeof(progress) ~= "number" or progress < quest.Target then
+	if questProgress(data, quest) < quest.Target then
 		toast(player, "Quest not complete yet!", "error")
 		return
 	end

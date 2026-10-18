@@ -41,6 +41,7 @@ local REMOTE_NAMES = {
 	-- S -> C
 	"DataSync",
 	"HustleResult",
+	"LevelUp",
 	"Toast",
 	"WorkerHired",
 	"RebirthResult",
@@ -49,6 +50,7 @@ local REMOTE_NAMES = {
 	"EquipWorker",
 	"UnequipWorker",
 	"BuyUpgrade",
+	"BuyPerk",
 	"RequestRebirth",
 	"ClaimQuest",
 }
