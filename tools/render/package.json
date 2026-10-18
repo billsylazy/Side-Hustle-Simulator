@@ -1,0 +1,10 @@
+{
+  "name": "side-hustle-render",
+  "private": true,
+  "type": "module",
+  "description": "Offline 3D preview of the MapBuilder world (three.js in headless Chromium)",
+  "dependencies": {
+    "playwright-core": "1.48.2",
+    "three": "0.160.0"
+  }
+}
