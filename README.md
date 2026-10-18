@@ -26,13 +26,13 @@ HUSTLE (each zone plays differently) ──> CASH + XP
 | Zone | Unlock | Mechanic | Unique upgrades (Earn / XP / Speed / **Automation**) |
 |---|---|---|---|
 | Lemonade Stand | Lv 1 | **Tap** — mash to build a combo (up to ×2) | Bigger Pitcher / Extra Sugar / Ice Cold / **Auto-Squeezer** |
-| Dog Walking | Lv 4 | **Hold** — slow, big payouts | Extra Leash / Treat Pouch / Comfy Sneakers / **Dog Sitter** |
-| Sneaker Street | Lv 8 | **Timing** — flip when the hype meter peaks | Hype Drops / Sneakerhead Network / Fast Listings / **Reseller Bot** |
-| Car Wash | Lv 13 | **Hold** | Foam Cannon / Wax Finish / Power Washer / **Conveyor Tunnel** |
+| Dog Walking | Lv 4 | **Hold** — 2 s walks, big payouts (Speed upgrade shortens the hold) | Extra Leash / Treat Pouch / Comfy Sneakers / **Dog Sitter** |
+| Sneaker Street | Lv 8 | **Timing** — flip at the hype peak to build a streak (up to ×3); off-peak flips sell cheap and reset it | Hype Drops / Sneakerhead Network / Fast Listings / **Reseller Bot** |
+| Car Wash | Lv 13 | **Hold** — 3 s scrubs, the biggest tips per action | Foam Cannon / Wax Finish / Power Washer / **Conveyor Tunnel** |
 | Food Truck | Lv 19 | **Tap** combo | Double Patty / Secret Sauce / Flat-Top Grill / **Fry Cook Crew** |
 | Creator Studio | Lv 26 | **Charge** — fill the hype bar to GO VIRAL | Ring Light Pro / Viral Editing / Stream Deck / **Content Scheduler** |
-| Stock Desk | Lv 34 | **Timing** — trade at the ticker peak | Insider Newsletter / Market Analyst / Hotkey Trading / **Algo Trader** |
-| Startup HQ | Lv 43 | **Charge** — pitch until FUNDED | Pitch Deck 2.0 / Venture Network / Coffee IV Drip / **Co-Founder** |
+| Stock Desk | Lv 34 | **Timing** — faster ticker; trade at the peak for a streak | Insider Newsletter / Market Analyst / Hotkey Trading / **Algo Trader** |
+| Startup HQ | Lv 43 | **Charge** — 8 pitches fill the round, then FUNDED | Pitch Deck 2.0 / Venture Network / Coffee IV Drip / **Co-Founder** |
 
 Every mechanic is resolved on the server (combo windows, market phase from the shared
 server clock, charge counters), so exploiters can't fake outcomes. Automation stations
@@ -60,12 +60,16 @@ rojo build -o build/SideHustleSimulator.rbxlx   # or `rojo serve` + the Studio p
 ```
 
 The tree is defined in `default.project.json` (it also sets `Lighting.Technology =
-Future`); all code is under `src/`, UI model files under `ui/*/build/`.
+Future` and `Terrain.Decoration`, which scripts cannot set); all code is under `src/`,
+UI model files under `ui/*/build/`.
 
 ### Option C — manual import
 
 Insert the six UI files from `ui/*/build/*.rbxmx` into **StarterGui**, then recreate
-`src/` as instances (folder names map 1:1). Options A/B are much less error-prone.
+`src/` as instances (folder names map 1:1). Also set **Lighting → Technology = Future**
+and **Workspace → Terrain → Decoration = on** (animated grass) by hand: neither can be
+set from a script, so options A/B set them in the place. Options A/B are much less
+error-prone.
 
 ### Using the Roblox Studio MCP with Claude
 
@@ -110,9 +114,11 @@ folder). From such a session Claude can build straight into Studio and playtest.
 
 - [ ] Output shows GameManager/services initialized, no red errors
 - [ ] Squeezing at the Lemonade Stand pays cash + XP, combo counter climbs on mashing
+- [ ] Dog Walking: holding again right after a walk always pays (no eaten holds)
+- [ ] Island has animated grass, turquoise water and no flickering ground
 - [ ] Level 4 banner fires and the Dog Walking gate opens
 - [ ] Hustles panel buys Bigger Pitcher; Auto-Squeezer stations a rig that earns while idle
-- [ ] Sneaker Street hype meter swings; flipping at the peak shows PEAK FLIP!
+- [ ] Sneaker Street hype meter swings; flipping at the peak shows PEAK FLIP! and a streak combo
 - [ ] Creator Studio charge bar fills to a VIRAL! burst
 - [ ] Shop hires a worker; it waddles behind you and cash ticks up
 - [ ] Rebirth at level 50 triggers the celebration and resets level/upgrades
