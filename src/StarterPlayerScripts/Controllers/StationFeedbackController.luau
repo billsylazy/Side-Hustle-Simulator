@@ -71,6 +71,7 @@ type Station = {
 	segments: { Frame },
 	lit: number,
 	flashing: boolean,
+	pendingCharge: number?, -- charge that arrived during a burst flash
 }
 
 local stations: { [string]: Station } = {}
@@ -407,7 +408,10 @@ end
 
 local function setCharge(station: Station, charge: number)
 	if station.flashing then
-		return -- the burst flash will reset the bar when it ends
+		-- A hit can land mid-flash (charge cooldown < flash length): keep it
+		-- and apply it when the flash ends instead of dropping it.
+		station.pendingCharge = charge
+		return
 	end
 	local target = math.clamp(math.floor(charge), 0, #station.segments)
 	for index, segment in station.segments do
@@ -442,6 +446,11 @@ local function flashBurst(station: Station)
 		station.lit = 0
 		task.delay(0.35, function()
 			station.flashing = false
+			local pending = station.pendingCharge
+			station.pendingCharge = nil
+			if pending then
+				setCharge(station, pending)
+			end
 		end)
 	end)
 end

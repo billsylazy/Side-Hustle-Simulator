@@ -206,7 +206,7 @@ local function updateRig(rig: RigState, dt: number, hrpPos: Vector3?, playerYawC
 		if pos == nil then
 			-- First placement (or respawn re-anchor): snap straight to the slot.
 			rig.pos = target
-			rig.yaw = math.atan(-worldDir.X, -worldDir.Z)
+			rig.yaw = math.atan2(-worldDir.X, -worldDir.Z)
 		else
 			local alpha = 1 - math.exp(-dt * FOLLOW_RATE)
 			local newPos = pos:Lerp(target, alpha)
@@ -217,7 +217,7 @@ local function updateRig(rig: RigState, dt: number, hrpPos: Vector3?, playerYawC
 
 			if moving then
 				-- Face travel direction (shortest-arc yaw smoothing).
-				local desiredYaw = math.atan(-vel.X, -vel.Z)
+				local desiredYaw = math.atan2(-vel.X, -vel.Z)
 				local delta = (desiredYaw - rig.yaw + math.pi) % (math.pi * 2) - math.pi
 				rig.yaw += delta * math.min(dt * TURN_RATE, 1)
 			end
@@ -302,7 +302,7 @@ local function onHeartbeat(dt: number)
 	if hrp and hrp.Parent ~= nil then
 		hrpPos = hrp.Position
 		local look = hrp.CFrame.LookVector
-		playerYawCF = CFrame.Angles(0, math.atan(-look.X, -look.Z), 0)
+		playerYawCF = CFrame.Angles(0, math.atan2(-look.X, -look.Z), 0)
 		groundY = hrpPos.Y - groundOffset
 	end
 

@@ -178,11 +178,12 @@ local function previewText(zone: any, upgrades: any, rebirths: number): string
 	local xpLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Xp")
 	local autoLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Auto")
 
+	-- Round to nearest, exactly as HustleService pays.
 	local cash = math.floor(
-		zone.HustleEarn * (1 + effects.Earn.PerLevel * earnLevel) * GameConfig.getRebirthCashMultiplier(rebirths)
+		zone.HustleEarn * (1 + effects.Earn.PerLevel * earnLevel) * GameConfig.getRebirthCashMultiplier(rebirths) + 0.5
 	)
 	local xp = math.floor(
-		zone.XpPerHustle * (1 + effects.Xp.PerLevel * xpLevel) * GameConfig.getRebirthXpMultiplier(rebirths)
+		zone.XpPerHustle * (1 + effects.Xp.PerLevel * xpLevel) * GameConfig.getRebirthXpMultiplier(rebirths) + 0.5
 	)
 	local cooldown = Mechanics.cooldownFor(zone, upgrades)
 
@@ -194,7 +195,7 @@ local function previewText(zone: any, upgrades: any, rebirths: number): string
 		cooldown
 	)
 	if autoLevel > 0 then
-		local autoCash = math.floor(cash * Mechanics.autoPercent(autoLevel))
+		local autoCash = math.floor(cash * Mechanics.autoPercent(autoLevel) + 0.5)
 		text ..= " | Auto: " .. FormatNumber.money(autoCash) .. " every " .. secondsText(effects.Auto.Interval) .. "s"
 	end
 	return text

@@ -24,7 +24,9 @@ local started = false
 
 local HUMANOID_WAIT_TIMEOUT = 10
 local DATA_POLL_INTERVAL = 0.5
-local DATA_POLL_TIMEOUT = 10 -- data loads via DataStore; give it up to ~10 s
+-- A load can retry a busy lock and wait out a same-server leave save, so
+-- allow well past the worst case before giving up on the spawn's WalkSpeed.
+local DATA_POLL_TIMEOUT = 60
 
 -- Player -> CharacterAdded connection; disconnected in cleanupPlayer so no
 -- connection outlives its player (contract convention).

@@ -533,9 +533,14 @@ local function buildTerrain()
 		local center = ringPos(hill.ring, degrees, -hill.radius * 0.6)
 		terrain:FillBall(center, hill.radius, Enum.Material.Grass)
 	end
+end
 
-	terrain.Decoration = true -- animated grass blades
-	-- Cartoon lagoon water: bright turquoise, clear, small lazy waves.
+-- Cartoon lagoon water: bright turquoise, clear, small lazy waves. Kept out of
+-- buildTerrain so a styling error can never trigger the ground fallback.
+-- (Animated grass, Terrain.Decoration, is not scriptable: the Rojo project
+-- sets it on the place.)
+local function styleWater()
+	local terrain = Workspace.Terrain
 	terrain.WaterColor = Color3.fromRGB(52, 182, 230)
 	terrain.WaterTransparency = 0.55
 	terrain.WaterWaveSize = 0.18
@@ -1159,7 +1164,7 @@ end
 
 -- Charge: hype meter column — 5 stacked neon segments on a dark core with a
 -- glowing cap. cf = column base center on the pad top, front (-Z) to the plaza.
-local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, capColor: Color3, title: string)
+local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, capColor: Color3, title: string, segments: number)
 	local frame = Color3.fromRGB(40, 38, 45)
 	makeCylinder({
 		name = "HypeColumnBase", parent = parent, diameter = 3.4, height = 0.6,
@@ -1169,10 +1174,15 @@ local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, c
 		name = "HypeColumnCore", parent = parent, size = Vector3.new(1.2, 9.2, 1.2),
 		cframe = cf * CFrame.new(0, 5.2, 0), color = frame, material = Enum.Material.Metal,
 	})
-	for i = 0, 4 do
+	-- One neon segment per charge step (zone.ChargeMax), packed into the
+	-- same 8.5-stud span so the column height never changes.
+	local count = math.max(1, segments)
+	local step = 8.5 / count
+	for i = 0, count - 1 do
 		makeBlock({
-			name = "HypeSegment", parent = parent, size = Vector3.new(2.4, 1.3, 1.5),
-			cframe = cf * CFrame.new(0, 2.2 + i * 1.7, 0), color = segColor:Lerp(WHITE, i * 0.16),
+			name = "HypeSegment", parent = parent, size = Vector3.new(2.4, step * 0.76, 1.5),
+			cframe = cf * CFrame.new(0, 1.55 + step * (i + 0.5), 0),
+			color = segColor:Lerp(WHITE, if count > 1 then i * 0.64 / (count - 1) else 0),
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
@@ -1208,7 +1218,8 @@ local function buildMechanicProp(zoneModel: Model, cf: CFrame, zone: GameConfig.
 			props, cf,
 			if isStartup then zone.AccentColor else zone.SignColor,
 			if isStartup then zone.SignColor else zone.AccentColor,
-			if isStartup then "FUNDING" else "HYPE"
+			if isStartup then "FUNDING" else "HYPE",
+			zone.ChargeMax
 		)
 	end
 end
@@ -2220,6 +2231,10 @@ function MapBuilder.build(): ()
 	local okTerrain, terrainErr = pcall(buildTerrain)
 	if not okTerrain then
 		warn("[MapBuilder] Terrain generation failed: " .. tostring(terrainErr))
+	end
+	local okWater, waterErr = pcall(styleWater)
+	if not okWater then
+		warn("[MapBuilder] Water styling failed: " .. tostring(waterErr))
 	end
 
 	local map = Instance.new("Folder")

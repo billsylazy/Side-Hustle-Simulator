@@ -50,6 +50,7 @@ src/
     ClientMain.client.luau      -- requires/starts every Controllers ModuleScript
     Controllers/
       ZoneGateController.luau   -- opens gates locally for zones unlocked by level
+      HoldPromptController.luau -- stretches Hold prompts locally to the player's current cooldown
       WorkerVisualsController.luau   -- companion worker rigs following the player
       AutomationVisualsController.luau -- stationed chibi rigs at zones with automation > 0
       StationFeedbackController.luau   -- market needle / charge bar / combo billboards at stations;
@@ -157,7 +158,9 @@ Per zone: `base = zone.HustleEarn`, `xpBase = zone.XpPerHustle`. Upgrade levels
 - `earnMult = 1 + Earn.PerLevel * U[<Earn upgrade>]`, `xpMult = 1 + Xp.PerLevel * U[<Xp upgrade>]`
 - `cooldown = zone.HustleCooldown * max(Speed.MinCooldownFactor, 1 - Speed.PerLevel * U[<Speed>])`
 - `rebirthCash = GameConfig.getRebirthCashMultiplier(Rebirths)`, `rebirthXp = GameConfig.getRebirthXpMultiplier(Rebirths)`
-- `manualCash = floor(base * earnMult * mechMult * rebirthCash)`, `manualXp = floor(xpBase * xpMult * mechXpMult * rebirthXp)`
+- `manualCash = round(base * earnMult * mechMult * rebirthCash)`, `manualXp = round(xpBase * xpMult * mechXpMult * rebirthXp)`
+  (`round(x) = floor(x + 0.5)` everywhere a payout is computed, server and client previews alike:
+  flooring small bases like Lemonade's $5 made the first +25% upgrade and early combo stacks pay nothing)
 
 Each zone's upgrades are found by `Effect` via `GameConfig.getZoneUpgradeByEffect(zoneId, effect)`.
 
@@ -165,19 +168,27 @@ Mechanics (`zone.Mechanic`, params in `GameConfig.Mechanics`):
 - **Tap** (LemonadeStand, FoodTruck): server tracks per-player per-zone `lastHit` and `combo`.
   Trigger within `ComboWindow` of the last accepted hit → `combo = min(combo+1, ComboMax)`,
   else `combo = 0`. `mechMult = 1 + ComboBonusPerStack * combo`. Kind "Manual", Combo sent.
-- **Hold** (DogWalking, CarWash): prompt `HoldDuration = zone.HoldDuration`; one hit per
-  hold; `mechMult = Hold.PayoutMult` (bigger, slower). Kind "Manual".
+- **Hold** (DogWalking 2 s, CarWash 3 s): one hit per completed hold; `mechMult = Hold.PayoutMult`
+  (bigger, slower). Kind "Manual". The server prompt's `HoldDuration = zone.HoldDuration` is the
+  *shortest* hold (the cooldown at max Speed); the client `HoldPromptController` stretches each
+  Hold prompt locally to `Mechanics.cooldownFor(zone, upgrades)`, so the hold itself spans the
+  cooldown (no completed hold is ever silently rejected) and the Speed upgrade shortens the hold.
+  Server cooldown check for Hold zones subtracts `Hold.TriggerGrace` (0.2 s) for network jitter.
 - **Timing** (SneakerFlipping, StockDesk): shared clock —
   `Mechanics.marketFactor(zone, workspace:GetServerTimeNow())` ∈ [0,1] (sine over
-  `zone.MarketPeriod`). `mechMult = Timing.MinMult + (Timing.MaxMult - Timing.MinMult) * factor`.
-  If `mechMult >= Timing.PeakThreshold` → Kind "Peak", `mechXpMult = 1 + Timing.PeakXpBonus`.
-- **Charge** (ContentCreator, StartupHQ): per-player per-zone `charge`. Each hit:
+  `zone.MarketPeriod`). `marketMult = Timing.MinMult + (Timing.MaxMult - Timing.MinMult) * factor`.
+  Peak flip (`marketMult >= Timing.PeakThreshold`): `streak = min(streak+1, StreakMax)` (stored in the
+  per-zone `combo` slot), `streakMult = 1 + StreakBonusPerStack * (streak-1)`, `mechMult = marketMult *
+  streakMult`, `mechXpMult = (1 + PeakXpBonus) * streakMult`, Kind "Peak". Off-peak flip: `streak = 0`,
+  `mechMult = marketMult * OffPeakMult`, `mechXpMult = OffPeakMult`, Kind "Manual". Combo (= streak)
+  is sent. Simulated: timed play out-earns pressing at every cooldown ~2-3x at every Speed level.
+- **Charge** (ContentCreator 5 hits, StartupHQ 8 hits): per-player per-zone `charge`. Each hit:
   `charge += 1`, pays `Charge.HitPercent` of manual (Kind "Manual", Charge/ChargeMax sent).
   When `charge == zone.ChargeMax`: pays `manual * ChargeMax * Charge.BurstMult`, XP
   `manualXp * ChargeMax * (1 + Charge.BurstXpBonus)`, Kind "Burst", charge resets to 0.
 
 Automation (`Auto` upgrade level `A > 0`): every `Auto.Interval` seconds, for every loaded
-player and every unlocked zone with `A > 0`, grant `floor(manualCash_noMech * (Auto.BasePercent +
+player and every unlocked zone with `A > 0`, grant `round(manualCash_noMech * (Auto.BasePercent +
 Auto.PercentPerLevel * (A-1)))` cash and the same fraction of `manualXp_noMech`
 (`mechMult = 1`), Kind "Auto", `Stats.AutoHustleCount += 1`. One `DataSync` per tick per player:
 `DataService.addCash(player, amount, deferSync)` skips its sync when a `LevelService.addXp` follows
@@ -241,7 +252,8 @@ children: `Atmosphere` (Density ~0.32, Offset ~0.3, soft blue haze, Glare ~0.15)
 `SunRaysEffect` (~0.08), `BloomEffect` (subtle), `ColorCorrectionEffect` (Saturation 0.2,
 Contrast 0.08), `Sky` using the built-in `rbxasset://textures/sky/sky512_*.tex` set.
 `Lighting.Technology = Future` is set by `default.project.json` (not scriptable).
-Terrain: island of `Grass` (with `Terrain.Decoration = true` for animated blades) under
+Terrain: island of `Grass` (animated blades via `Terrain.Decoration`, which is NOT scriptable — the
+Rojo project sets it on the place, like `Lighting.Technology`) under
 the plaza/zones, `Sand` beach rim, `Water` ring beyond ~380 studs, a few low hills of Grass
 at the edges. Materials on props: Wood/WoodPlanks, Fabric canopies, Metal/DiamondPlate
 truck, Glass windows (transparency), Marble plaza, Cobblestone road, Neon accents.

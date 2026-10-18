@@ -8,7 +8,6 @@
 -- Pure view layer, client-only: rigs live in a local Workspace Folder
 -- ("AutomationRigs") and are driven by CFrame math on one Heartbeat.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -118,18 +117,16 @@ end
 -- Feet position for a rig standing on the anchor: the ground straight below
 -- the anchor's center when a raycast finds it, else the anchor's bottom face.
 local function findFeetPosition(anchor: BasePart): Vector3
+	-- Only the world counts as ground: any player (not just the local one)
+	-- standing on the anchor when the rig spawns must not become its floor.
 	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local exclude: { Instance } = { anchor }
-	local rigFolder = workspace:FindFirstChild(RIG_FOLDER_NAME)
-	if rigFolder then
-		table.insert(exclude, rigFolder)
+	params.FilterType = Enum.RaycastFilterType.Include
+	local include: { Instance } = { workspace.Terrain }
+	local map = workspace:FindFirstChild("SideHustleMap")
+	if map then
+		table.insert(include, map)
 	end
-	local character = Players.LocalPlayer.Character
-	if character then
-		table.insert(exclude, character)
-	end
-	params.FilterDescendantsInstances = exclude
+	params.FilterDescendantsInstances = include
 
 	local origin = anchor.Position + Vector3.new(0, 2, 0)
 	local result = workspace:Raycast(origin, Vector3.new(0, -12, 0), params)

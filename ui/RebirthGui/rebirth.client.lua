@@ -57,6 +57,8 @@ local function multText(mult: number): string
 	return "x" .. text
 end
 
+local rebirthReady = false -- level requirement met (and not maxed)
+
 local function refresh(snapshot: { [string]: any }?)
 	local data = snapshot or {}
 	local rebirths = math.max(0, math.floor(numberOr(data.Rebirths, 0)))
@@ -77,10 +79,11 @@ local function refresh(snapshot: { [string]: any }?)
 		progressLabel.Text = "Level " .. math.min(level, requiredLevel) .. " / " .. requiredLevel
 	end
 
-	-- Visually disable the button until the level is reached. Active=false
-	-- (plus the guard in the handler) keeps taps from firing.
+	-- Visually disable the button until the level is reached. It stays
+	-- Active so a tap still reaches the handler, which explains the refusal
+	-- locally (shake + notice) instead of asking the server.
 	local canRebirth = level >= requiredLevel and not maxed
-	rebirthButton.Active = canRebirth
+	rebirthReady = canRebirth
 	rebirthButton.AutoButtonColor = canRebirth
 	buttonGrad.Enabled = canRebirth
 	rebirthButton.BackgroundColor3 = if canRebirth then WHITE else DISABLED_GRAY
@@ -172,9 +175,7 @@ RebirthResult.OnClientEvent:Connect(function(result: any, requiredLevel: any)
 end)
 
 rebirthButton.Activated:Connect(function()
-	if not rebirthButton.Active then
-		-- Not ready yet (should Activated still fire on an inactive button):
-		-- explain locally instead of asking the server.
+	if not rebirthReady then
 		refuse(GameConfig.Rebirth.RequiredLevel)
 		return
 	end

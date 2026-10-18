@@ -1,7 +1,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
   <External>null</External>
   <External>nil</External>
-  <Item class="ScreenGui" referent="RBXF6ECEA2127954845B872BDBF8F179895">
+  <Item class="ScreenGui" referent="RBX9F6A20B690284EAF89EEAFB9C6138DFB">
     <Properties>
       <bool name="ResetOnSpawn">false</bool>
       <token name="ZIndexBehavior">1</token>
@@ -9,7 +9,7 @@
       <token name="ScreenInsets">2</token>
       <string name="Name">MainHUD</string>
     </Properties>
-    <Item class="Frame" referent="RBX3D76B48351CD43B197A4CD90311925DE">
+    <Item class="Frame" referent="RBX59BABD3A8287416A9B91526BA13B496C">
       <Properties>
         <Vector2 name="AnchorPoint"><X>0.5</X><Y>0</Y></Vector2>
         <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0</YS><YO>6</YO></UDim2>
@@ -17,14 +17,14 @@
         <float name="BackgroundTransparency">1</float>
         <string name="Name">TopCenter</string>
       </Properties>
-      <Item class="UISizeConstraint" referent="RBX9ADC53EE09EB49F990605F15232F30B7">
+      <Item class="UISizeConstraint" referent="RBX812E599764014D55A659234DB5177845">
         <Properties>
           <Vector2 name="MinSize"><X>270</X><Y>114</Y></Vector2>
           <Vector2 name="MaxSize"><X>440</X><Y>172</Y></Vector2>
           <string name="Name">UISizeConstraint</string>
         </Properties>
       </Item>
-      <Item class="UIListLayout" referent="RBXF7B0391FCB034BB1B527A6F545FB1D69">
+      <Item class="UIListLayout" referent="RBXD047164838AE4C2EA72C534CC75D574E">
         <Properties>
           <token name="FillDirection">1</token>
           <UDim name="Padding"><S>0</S><O>5</O></UDim>
@@ -33,7 +33,7 @@
           <string name="Name">UIListLayout</string>
         </Properties>
       </Item>
-      <Item class="Frame" referent="RBX0A9D89DEEF96430383574A9BB9ED1237">
+      <Item class="Frame" referent="RBX37A8E5C042EE49A2A07D17E4155CF401">
         <Properties>
           <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.36</YS><YO>0</YO></UDim2>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -41,13 +41,13 @@
           <int name="ZIndex">2</int>
           <string name="Name">CashPill</string>
         </Properties>
-        <Item class="UICorner" referent="RBX6935FF82DAD442C3B61B2D5E50683750">
+        <Item class="UICorner" referent="RBX7C0ACAF0946348A4A0A5169F89FE42AD">
           <Properties>
             <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBXCE8A6829591048349F8A6649CAADC74C">
+        <Item class="UIStroke" referent="RBXF14E46B289724F89A15C4330CF200903">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -55,19 +55,19 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBXA635E3C73656468A9F278956EE616D1E">
+        <Item class="UIGradient" referent="RBXF5869B1120CE4603A3CCC21A8C689F97">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.831373 0.121569 0 0.5 0.611765 0.796078 0.188235 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="UIScale" referent="RBX236AE6D36C4947FE8A5869C64F300A1C">
+        <Item class="UIScale" referent="RBX4A197D86FB25483AB10F87957C72D97E">
           <Properties>
             <string name="Name">PopScale</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX80E2CF67DDFD4AB4A8371527C04FA493">
+        <Item class="ImageLabel" referent="RBX30AD890ED39F457FB67598C273CC9C7A">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -80,7 +80,7 @@
             <string name="Name">CashIcon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBXDC98049521A34602B103B07FD4591BF7">
+        <Item class="TextLabel" referent="RBX62437E74E9DB4730BE7D2ED9831F13C5">
           <Properties>
             <string name="Text">$0</string>
             <float name="BackgroundTransparency">1</float>
@@ -93,14 +93,14 @@
             <int name="ZIndex">3</int>
             <string name="Name">Amount</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX04568BDCC5F941B3B386BC4D2B570102">
+          <Item class="UIStroke" referent="RBX20969EDA3E25416FA22A53CF2805E662">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">3</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBX425F32DCBF884467B210F4D4C3A37C1A">
+          <Item class="UITextSizeConstraint" referent="RBX44D00592D0F84FBD83CD44D581B98B22">
             <Properties>
               <int name="MaxTextSize">34</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -108,7 +108,7 @@
           </Item>
         </Item>
       </Item>
-      <Item class="Frame" referent="RBX29AEF7B0CC6B4ADE849E7FBF2E23C503">
+      <Item class="Frame" referent="RBX4D44503FA5884253BAD2E1B413F15404">
         <Properties>
           <UDim2 name="Size"><XS>0.92</XS><XO>0</XO><YS>0.28</YS><YO>0</YO></UDim2>
           <float name="BackgroundTransparency">1</float>
@@ -116,7 +116,7 @@
           <int name="ZIndex">2</int>
           <string name="Name">LevelRow</string>
         </Properties>
-        <Item class="Frame" referent="RBXF8A7DFAD197540DB818D7ECC7333CEB5">
+        <Item class="Frame" referent="RBX4597CEC02E0649BCBA6F720912BE5500">
           <Properties>
             <Vector2 name="AnchorPoint"><X>1</X><Y>0.5</Y></Vector2>
             <UDim2 name="Position"><XS>1</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -125,13 +125,13 @@
             <int name="ZIndex">2</int>
             <string name="Name">XpBar</string>
           </Properties>
-          <Item class="UICorner" referent="RBXADA09751FEB042958949A3A9D609D6B6">
+          <Item class="UICorner" referent="RBX724D6CAB9AD94B98A92F7407B8750F7D">
             <Properties>
               <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
               <string name="Name">UICorner</string>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="RBX17FFB990E9454003B0142C9F0CEB590A">
+          <Item class="UIStroke" referent="RBX90C6F113020C470DA2F850B520349496">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2.5</float>
@@ -139,20 +139,20 @@
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UIGradient" referent="RBX14645971751440428A8934016FA80434">
+          <Item class="UIGradient" referent="RBXACB95AE79B8744EE9DDCA0B4F5ACCC59">
             <Properties>
               <float name="Rotation">90</float>
               <ColorSequence name="Color">0 0.913725 0.894118 0.960784 0 1 0.831373 0.796078 0.909804 0 </ColorSequence>
               <string name="Name">UIGradient</string>
             </Properties>
           </Item>
-          <Item class="UIPadding" referent="RBXC74C64D93F0240B5B8837B5CEEF6E053">
+          <Item class="UIPadding" referent="RBX39CDF7D71E8B4D27BF213896ABD45732">
             <Properties>
               <UDim name="PaddingLeft"><S>0.08</S><O>0</O></UDim>
               <string name="Name">UIPadding</string>
             </Properties>
           </Item>
-          <Item class="Frame" referent="RBXA144D9F889B64871AC7A6C7AC2E39410">
+          <Item class="Frame" referent="RBX3D206B3C74274FFA999C3782C61AA541">
             <Properties>
               <UDim2 name="Size"><XS>0.5</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
               <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -160,13 +160,13 @@
               <int name="ZIndex">3</int>
               <string name="Name">Fill</string>
             </Properties>
-            <Item class="UICorner" referent="RBX7B220E1CE2544940A1407AC4B15B672A">
+            <Item class="UICorner" referent="RBX591D12E19EDC49AC84D5FBF57CEF22D1">
               <Properties>
                 <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
                 <string name="Name">UICorner</string>
               </Properties>
             </Item>
-            <Item class="UIGradient" referent="RBXEC3D044E987A4976B9E5C2F15F618829">
+            <Item class="UIGradient" referent="RBX41ADC132ADE94A539BC58DD3D8052451">
               <Properties>
                 <float name="Rotation">90</float>
                 <ColorSequence name="Color">0 0.435294 0.898039 0.435294 0 0.45 0.278431 0.776471 0.305882 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
@@ -174,7 +174,7 @@
               </Properties>
             </Item>
           </Item>
-          <Item class="TextLabel" referent="RBXB2DFB3C7C39141FAA012D661DB013BFA">
+          <Item class="TextLabel" referent="RBX336777CC036C4690B66022B3EBE95C75">
             <Properties>
               <string name="Text">120 / 238 XP</string>
               <float name="BackgroundTransparency">1</float>
@@ -187,14 +187,14 @@
               <int name="ZIndex">4</int>
               <string name="Name">Label</string>
             </Properties>
-            <Item class="UIStroke" referent="RBXD383DB5DC7E74957BDBA68EB97D43BD0">
+            <Item class="UIStroke" referent="RBX502948D59483402F83A44F3A907EFCD0">
               <Properties>
                 <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                 <float name="Thickness">2</float>
                 <string name="Name">UIStroke</string>
               </Properties>
             </Item>
-            <Item class="UITextSizeConstraint" referent="RBX7D708520F74A475EA3DEE56F346D6A53">
+            <Item class="UITextSizeConstraint" referent="RBX78B14192C5CD4960A65FE5816498AE12">
               <Properties>
                 <int name="MaxTextSize">16</int>
                 <string name="Name">UITextSizeConstraint</string>
@@ -202,7 +202,7 @@
             </Item>
           </Item>
         </Item>
-        <Item class="Frame" referent="RBX7C2A382DE0194E3A828B4DAA7C639643">
+        <Item class="Frame" referent="RBXD06D6DD3437A48608BED1F45B29F58C6">
           <Properties>
             <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
             <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -211,13 +211,13 @@
             <int name="ZIndex">5</int>
             <string name="Name">LevelPill</string>
           </Properties>
-          <Item class="UICorner" referent="RBXF12DA2B923C64D69928428DD6E6A3CEF">
+          <Item class="UICorner" referent="RBX034113D2D0BA47A8B1F1C210580373EB">
             <Properties>
               <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
               <string name="Name">UICorner</string>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="RBX6EFC17C5A35345EFA1D4ED7A9188D0C9">
+          <Item class="UIStroke" referent="RBX2DFD080043CF43A3BB3DAA191327C406">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2.5</float>
@@ -225,19 +225,19 @@
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UIGradient" referent="RBX4F0F61F8F9964FC6B0CC30774ADE507C">
+          <Item class="UIGradient" referent="RBXFF2695F354B341408A53FC1990039C7D">
             <Properties>
               <float name="Rotation">90</float>
               <ColorSequence name="Color">0 0.498039 0.847059 1 0 1 0.184314 0.560784 0.847059 0 </ColorSequence>
               <string name="Name">UIGradient</string>
             </Properties>
           </Item>
-          <Item class="UIScale" referent="RBX8B618147760A4F648694C6F3ECB2903B">
+          <Item class="UIScale" referent="RBX394610AABF4C43438217BFEC77AAAFAA">
             <Properties>
               <string name="Name">PopScale</string>
             </Properties>
           </Item>
-          <Item class="ImageLabel" referent="RBX864C1D8E7936442B91ACFBADC72B846C">
+          <Item class="ImageLabel" referent="RBX35A2141A8157454FA98252558721D4C9">
             <Properties>
               <Content name="Image"><url>rbxassetid://0</url></Content>
               <float name="BackgroundTransparency">1</float>
@@ -250,7 +250,7 @@
               <string name="Name">LevelIcon</string>
             </Properties>
           </Item>
-          <Item class="TextLabel" referent="RBXEAF130BA9E2C4F018C0B0A2F443D5A9D">
+          <Item class="TextLabel" referent="RBX7B78F01F275246228BEBEB69BE9EA4D1">
             <Properties>
               <string name="Text">Lv 1</string>
               <float name="BackgroundTransparency">1</float>
@@ -263,14 +263,14 @@
               <int name="ZIndex">6</int>
               <string name="Name">LevelLabel</string>
             </Properties>
-            <Item class="UIStroke" referent="RBX3E12EB122FC24CCA9CE6E84FF6AD173E">
+            <Item class="UIStroke" referent="RBX1EEB00140871477F910097882244439C">
               <Properties>
                 <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                 <float name="Thickness">2</float>
                 <string name="Name">UIStroke</string>
               </Properties>
             </Item>
-            <Item class="UITextSizeConstraint" referent="RBX825D50898BDB47A49757C191757ED2E1">
+            <Item class="UITextSizeConstraint" referent="RBXEBD4DB8723DA41978AA48C9628BD7A76">
               <Properties>
                 <int name="MaxTextSize">20</int>
                 <string name="Name">UITextSizeConstraint</string>
@@ -279,7 +279,7 @@
           </Item>
         </Item>
       </Item>
-      <Item class="Frame" referent="RBX3A2DB1DEB9E74A789CD5E4385ECB42C7">
+      <Item class="Frame" referent="RBXD3D7828B5733439192FBAEC2859E9B6C">
         <Properties>
           <UDim2 name="Size"><XS>0.46</XS><XO>0</XO><YS>0.24</YS><YO>0</YO></UDim2>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -287,13 +287,13 @@
           <int name="ZIndex">2</int>
           <string name="Name">RebirthPill</string>
         </Properties>
-        <Item class="UICorner" referent="RBX6E7230CF5CFE48858E3931B77067B13A">
+        <Item class="UICorner" referent="RBXA18ACD032BD645469DE5C14A225A4F43">
           <Properties>
             <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBX481F203C6D36430F9314CC43E42E28AD">
+        <Item class="UIStroke" referent="RBXFF238481175D4512B178D3FFF6EF6DDD">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">2.5</float>
@@ -301,14 +301,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX3835991E8ADE4C41BE06AF95CE98F261">
+        <Item class="UIGradient" referent="RBXD02718D9EF1140FFA8EEE390328BFC0D">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 0.501961 0.45098 1 0 1 0.360784 0.2 0.858824 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX5B0F868226124A8D8845797DF1E238F7">
+        <Item class="ImageLabel" referent="RBX3217E45C57BC401DB7621BC369B5422F">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -321,7 +321,7 @@
             <string name="Name">RebirthIcon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBX0662808225E747F5B912ECEBBA946E16">
+        <Item class="TextLabel" referent="RBX4098266D4F0544FD8AD650A5B5E3CADA">
           <Properties>
             <string name="Text">x1</string>
             <float name="BackgroundTransparency">1</float>
@@ -334,14 +334,14 @@
             <int name="ZIndex">3</int>
             <string name="Name">Label</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX66AB1CAC4E6A4A79853DFFC372C426D1">
+          <Item class="UIStroke" referent="RBXAEA176FC3F8641EEA98116B757C53BA1">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBXA3E0811A4F6C4770AFCB388168F60DD4">
+          <Item class="UITextSizeConstraint" referent="RBX2DAA8F8A2737474BB593CBAB4E529720">
             <Properties>
               <int name="MaxTextSize">20</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -350,7 +350,7 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Frame" referent="RBXF724AE0169474D57B08FD464E5C25B6E">
+    <Item class="Frame" referent="RBX3CE6E73D965A4186A997D27CD174528E">
       <Properties>
         <Vector2 name="AnchorPoint"><X>0.5</X><Y>1</Y></Vector2>
         <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>1</YS><YO>-8</YO></UDim2>
@@ -360,20 +360,20 @@
         <int name="ZIndex">10</int>
         <string name="Name">Toast</string>
       </Properties>
-      <Item class="UISizeConstraint" referent="RBX6578EE831E0244A3831563BC95E8A41C">
+      <Item class="UISizeConstraint" referent="RBX6A4CC1481DAF477081BAEA4A92C2692B">
         <Properties>
           <Vector2 name="MinSize"><X>300</X><Y>32</Y></Vector2>
           <Vector2 name="MaxSize"><X>560</X><Y>46</Y></Vector2>
           <string name="Name">UISizeConstraint</string>
         </Properties>
       </Item>
-      <Item class="UICorner" referent="RBXDB6880FBE51F4B4F8E069F22A831A9D2">
+      <Item class="UICorner" referent="RBX5704B2220DDC4E96BB3A93C964E06063">
         <Properties>
           <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
           <string name="Name">UICorner</string>
         </Properties>
       </Item>
-      <Item class="UIStroke" referent="RBX9CCF5C7DF3F2417498A4583710A9AF20">
+      <Item class="UIStroke" referent="RBXEF36FC142E73486CA677667EBDE5263A">
         <Properties>
           <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
           <float name="Thickness">3</float>
@@ -381,19 +381,19 @@
           <string name="Name">UIStroke</string>
         </Properties>
       </Item>
-      <Item class="UIGradient" referent="RBX42D42619BD214BA8A8900BAB2F3B9471">
+      <Item class="UIGradient" referent="RBXDA4F627C47E848098A368E8FC769DD70">
         <Properties>
           <float name="Rotation">90</float>
           <ColorSequence name="Color">0 1 1 1 0 1 0.768627 0.768627 0.768627 0 </ColorSequence>
           <string name="Name">UIGradient</string>
         </Properties>
       </Item>
-      <Item class="UIScale" referent="RBX03DE219F581D4A0C8A4A490AC8CF67CD">
+      <Item class="UIScale" referent="RBX9BFDA176F60644649C6AFCC4AA07194B">
         <Properties>
           <string name="Name">PopScale</string>
         </Properties>
       </Item>
-      <Item class="TextLabel" referent="RBX9C1778D21DBD49D292AC5D6C67CE3681">
+      <Item class="TextLabel" referent="RBXC81D70FA078F46068250A00DDE6B33C3">
         <Properties>
           <string name="Text">Welcome to Side Hustle Simulator!</string>
           <float name="BackgroundTransparency">1</float>
@@ -405,14 +405,14 @@
           <int name="ZIndex">11</int>
           <string name="Name">Message</string>
         </Properties>
-        <Item class="UIStroke" referent="RBX40ED9641ABC54C4484E83C132CFA3B9B">
+        <Item class="UIStroke" referent="RBX19EB29C7AA414C9FB75EAF06B882C636">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">2.5</float>
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UITextSizeConstraint" referent="RBX7004C0ED8B5E4DF782DFC17724AF5407">
+        <Item class="UITextSizeConstraint" referent="RBX984652DD42EF4E8CADEDA38B2E7EECA2">
           <Properties>
             <int name="MaxTextSize">22</int>
             <string name="Name">UITextSizeConstraint</string>
@@ -420,7 +420,7 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Frame" referent="RBX54C16D1D24DB4F4DA251FABFA3ECE981">
+    <Item class="Frame" referent="RBX030496A186134A7DADFBBD2B96B95FE5">
       <Properties>
         <Vector2 name="AnchorPoint"><X>0</X><Y>0</Y></Vector2>
         <UDim2 name="Position"><XS>0</XS><XO>10</XO><YS>0</YS><YO>6</YO></UDim2>
@@ -428,20 +428,20 @@
         <float name="BackgroundTransparency">1</float>
         <string name="Name">SideButtons</string>
       </Properties>
-      <Item class="UIAspectRatioConstraint" referent="RBXD61E88AB761D4EE787DD39789D3E8849">
+      <Item class="UIAspectRatioConstraint" referent="RBXCE507BA063CD4DBC955566A4295EF4C4">
         <Properties>
           <float name="AspectRatio">0.667</float>
           <string name="Name">UIAspectRatioConstraint</string>
         </Properties>
       </Item>
-      <Item class="UISizeConstraint" referent="RBXCCAB87DB1AEE4128A3EF3701ACC3B2C5">
+      <Item class="UISizeConstraint" referent="RBXE42E46E6810F471E8D0EF11DFD8DCCA1">
         <Properties>
           <Vector2 name="MinSize"><X>116</X><Y>174</Y></Vector2>
           <Vector2 name="MaxSize"><X>184</X><Y>276</Y></Vector2>
           <string name="Name">UISizeConstraint</string>
         </Properties>
       </Item>
-      <Item class="UIGridLayout" referent="RBX11466D53CB6B4F0EA25DC3D41A128D1E">
+      <Item class="UIGridLayout" referent="RBX45C604176F3D400EB69D9EB3DE06439B">
         <Properties>
           <UDim2 name="CellSize"><XS>0.5</XS><XO>-3</XO><YS>0.3333</YS><YO>-4</YO></UDim2>
           <UDim2 name="CellPadding"><XS>0</XS><XO>6</XO><YS>0</YS><YO>6</YO></UDim2>
@@ -452,19 +452,19 @@
           <string name="Name">UIGridLayout</string>
         </Properties>
       </Item>
-      <Item class="ImageButton" referent="RBX3B45A73F7EC34E768D7561F5710EB09D">
+      <Item class="ImageButton" referent="RBX3E2AF253FBE14B0696EA1A6AFD49B4D9">
         <Properties>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
           <int name="LayoutOrder">1</int>
           <string name="Name">HustlesButton</string>
         </Properties>
-        <Item class="UICorner" referent="RBXD0A56BBB8ECB40DE8F9414841D4C7DD8">
+        <Item class="UICorner" referent="RBXF622BA285C0F4263853BB5C97A5563D6">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBX06AB1CF22C6A4AA8838788A49E58EBBC">
+        <Item class="UIStroke" referent="RBXFCA1530556A24032B296237D435FB023">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -472,14 +472,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX6D56E14220824CC180C3C71B333779EA">
+        <Item class="UIGradient" referent="RBXB5F1F6246A604A6F97F796BB56D855DE">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.964706 0.839216 0 1 1 0.85098 0.541176 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX9269559FAE35457E824BB44CF5D45464">
+        <Item class="ImageLabel" referent="RBX3D6F4C6FC7164AFAB5068C2AD66BBAD3">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -491,7 +491,7 @@
             <string name="Name">Icon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBXC8851D995F634F40958D219A674E5A11">
+        <Item class="TextLabel" referent="RBX19F8CF97C15447CCB2A3EB73E5C13E7B">
           <Properties>
             <string name="Text">HUSTLES</string>
             <float name="BackgroundTransparency">1</float>
@@ -504,14 +504,14 @@
             <int name="ZIndex">2</int>
             <string name="Name">Caption</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX39CF1BBF3D084EB1A069CE49C4345A07">
+          <Item class="UIStroke" referent="RBXABFF560A9F9A41BDA55A4EEA93BFD805">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBX73CDA9CE904448EA9AB47D325811D092">
+          <Item class="UITextSizeConstraint" referent="RBXD36060A60B314F2B8F5C769884802EBB">
             <Properties>
               <int name="MaxTextSize">15</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -519,19 +519,19 @@
           </Item>
         </Item>
       </Item>
-      <Item class="ImageButton" referent="RBXEBCEAB46766E4E08BD9E50548F5A9681">
+      <Item class="ImageButton" referent="RBXD380494AC6AE4B359F88C655B7491C16">
         <Properties>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
           <int name="LayoutOrder">2</int>
           <string name="Name">ShopButton</string>
         </Properties>
-        <Item class="UICorner" referent="RBXF8D64653895549609506639EC410FB4D">
+        <Item class="UICorner" referent="RBX14F13BB946634E3F85E65A96EEB88C76">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBXDC20F89E24B94C2186396BB897BE68EB">
+        <Item class="UIStroke" referent="RBXC6071EC586E54B5ABF7030698C708FE2">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -539,14 +539,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBXC38BF2FF20364248B40B21F0BF264BCC">
+        <Item class="UIGradient" referent="RBXDE4B46ECFA62408FB30458B75B1988B9">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.992157 0.984314 0 1 0.913725 0.894118 0.960784 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX858B80E9EC6C41BDB19C90C2E541EE5D">
+        <Item class="ImageLabel" referent="RBX80101BE5846643DFB7206AFD93F683F8">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -558,7 +558,7 @@
             <string name="Name">Icon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBX90773AA460B8478FB99CE44DE9E0D101">
+        <Item class="TextLabel" referent="RBXF2C3061FA6D849809248672180B4E961">
           <Properties>
             <string name="Text">SHOP</string>
             <float name="BackgroundTransparency">1</float>
@@ -571,14 +571,14 @@
             <int name="ZIndex">2</int>
             <string name="Name">Caption</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX15E5C4796F7F4229B74AF3B3831BB7E7">
+          <Item class="UIStroke" referent="RBX145B5A2BCC4F4E5088EC537AC86B7244">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBX18AC417A33914EF5B3BA630D86D2A678">
+          <Item class="UITextSizeConstraint" referent="RBXBC106F232FC04061A28E3B9F37D7F6CD">
             <Properties>
               <int name="MaxTextSize">15</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -586,19 +586,19 @@
           </Item>
         </Item>
       </Item>
-      <Item class="ImageButton" referent="RBX9370A45DE641428B85AC1643969FB398">
+      <Item class="ImageButton" referent="RBXC9856E03E3FE4E9988B270CB91B3B1C2">
         <Properties>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
           <int name="LayoutOrder">3</int>
           <string name="Name">WorkersButton</string>
         </Properties>
-        <Item class="UICorner" referent="RBX25A2FE42A3E640458B486ED5BEFB2EA6">
+        <Item class="UICorner" referent="RBXE20A3ACF07AD4AB6A7A7B396F47A98C1">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBXF9D7CFA727594551AB787D96D395C8E2">
+        <Item class="UIStroke" referent="RBXB674DB39A64E4FAF977F6D4628A9D38C">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -606,14 +606,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX802106624B8148B08D2A2D1B0E3C5C01">
+        <Item class="UIGradient" referent="RBX5A30A39A76334255B74CB970C35DD9CF">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.992157 0.984314 0 1 0.913725 0.894118 0.960784 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX3CEA6BC0AF2849CDAE89ED2C857D7E22">
+        <Item class="ImageLabel" referent="RBX3962C6FB7C0B45F784E755890BCB2C4A">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -625,7 +625,7 @@
             <string name="Name">Icon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBXDAFDFC3630B84FE99020C08267F7FC3D">
+        <Item class="TextLabel" referent="RBX52C4A9FF19D4432EAF58160E453F0283">
           <Properties>
             <string name="Text">WORKERS</string>
             <float name="BackgroundTransparency">1</float>
@@ -638,14 +638,14 @@
             <int name="ZIndex">2</int>
             <string name="Name">Caption</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX7F4E4E942F7A428195748729D59D2D8A">
+          <Item class="UIStroke" referent="RBX344A1DC7262D4F4293989B47F157B386">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBXD5A8CDBBCFB545B088B702928EB718B8">
+          <Item class="UITextSizeConstraint" referent="RBXA5798E3CA0C14E8E9F948A7A9C5FB31E">
             <Properties>
               <int name="MaxTextSize">15</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -653,19 +653,19 @@
           </Item>
         </Item>
       </Item>
-      <Item class="ImageButton" referent="RBXF07080DE08864F75AFD6B9B67D48ECA3">
+      <Item class="ImageButton" referent="RBX78676F28C7604DAF9A20D89E270F2A30">
         <Properties>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
           <int name="LayoutOrder">4</int>
           <string name="Name">RebirthButton</string>
         </Properties>
-        <Item class="UICorner" referent="RBXBE0FC78BF6EE4CAF8BEC256CD40CC949">
+        <Item class="UICorner" referent="RBXE9106720FE314AF4B350A9B9B103D100">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBXCCC6470E9D4045DDA61D5AD40D67AEFC">
+        <Item class="UIStroke" referent="RBX54F5FF3125604294904B3DD283A23EAD">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -673,14 +673,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBXF7910E0CA68D427FA28531B62781A42B">
+        <Item class="UIGradient" referent="RBX3085FB9BA7394F3EB2D35A85F33DC04B">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.992157 0.984314 0 1 0.913725 0.894118 0.960784 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX8364075DA237412EA7FC6E3176F6B620">
+        <Item class="ImageLabel" referent="RBX58010B0D7638403591D93150DAE58B0D">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -692,7 +692,7 @@
             <string name="Name">Icon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBX05ABE19301DE4545A36E176F3545297B">
+        <Item class="TextLabel" referent="RBX0F90593B07E2485B83A698A6A8E68F41">
           <Properties>
             <string name="Text">REBIRTH</string>
             <float name="BackgroundTransparency">1</float>
@@ -705,14 +705,14 @@
             <int name="ZIndex">2</int>
             <string name="Name">Caption</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX1501F477F67D4EF78010BA05CBBEFDE6">
+          <Item class="UIStroke" referent="RBXF76EA63132CA488EB2BDAA7FC9860957">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBXD9820F80E0594D93BAB9AFA5847CA00F">
+          <Item class="UITextSizeConstraint" referent="RBXF066CB8401AC4A9488B3773D93768316">
             <Properties>
               <int name="MaxTextSize">15</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -720,19 +720,19 @@
           </Item>
         </Item>
       </Item>
-      <Item class="ImageButton" referent="RBX1F329308A04D477699657A6E6523187B">
+      <Item class="ImageButton" referent="RBX0A71193D415E4758B3C01E8D0222771B">
         <Properties>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
           <int name="LayoutOrder">5</int>
           <string name="Name">QuestsButton</string>
         </Properties>
-        <Item class="UICorner" referent="RBX3D7F0F90D89B4BA9BEE4DBB233EEF26B">
+        <Item class="UICorner" referent="RBX90B2A957868349E5AC1E442E7C77FDEA">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBXEA7D6DBEA2BE43A3A6F07D51070435C1">
+        <Item class="UIStroke" referent="RBXBDA9615FB5D444A7B838B7645075FA38">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">3</float>
@@ -740,14 +740,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX9173C5FFBFC443FEBCF5760A355B55F8">
+        <Item class="UIGradient" referent="RBXCAB33BEBBFB44B69A72E30D23F77192E">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.992157 0.984314 0 1 0.913725 0.894118 0.960784 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="ImageLabel" referent="RBX23EB788CD7484DDD8D88823E1A6C94EB">
+        <Item class="ImageLabel" referent="RBX04C8FBA616E1419C9F17F8D31E63E737">
           <Properties>
             <Content name="Image"><url>rbxassetid://0</url></Content>
             <float name="BackgroundTransparency">1</float>
@@ -759,7 +759,7 @@
             <string name="Name">Icon</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBX8E09F8D210DA47F9811B6424AAC13B66">
+        <Item class="TextLabel" referent="RBXACB870C726954970A06EFDA4CCCDD3E1">
           <Properties>
             <string name="Text">QUESTS</string>
             <float name="BackgroundTransparency">1</float>
@@ -772,14 +772,14 @@
             <int name="ZIndex">2</int>
             <string name="Name">Caption</string>
           </Properties>
-          <Item class="UIStroke" referent="RBX2D85F478B27B419F9B2FCE7ECA15AF2C">
+          <Item class="UIStroke" referent="RBXFBA269C7397E4A659861E787D922F409">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">2</float>
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBX04789E77943D4095AFC312C005DB939C">
+          <Item class="UITextSizeConstraint" referent="RBXD2BC81AC3B124FAABB2AD55C6212A479">
             <Properties>
               <int name="MaxTextSize">15</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -788,7 +788,7 @@
         </Item>
       </Item>
     </Item>
-    <Item class="LocalScript" referent="RBX9FB45994E55F4AEEBFE03D763A489B62">
+    <Item class="LocalScript" referent="RBX5C0AE27C2F5A4B15A558D01121369D40">
       <Properties>
         <string name="Name">HUDController</string>
         <ProtectedString name="Source"><![CDATA[-- HUDController (LocalScript inside MainHUD) — v2

@@ -62,6 +62,12 @@ local warnedMechanics: { [string]: boolean } = {}
 -- Helpers
 ----------------------------------------------------------------------
 
+-- Payouts round to nearest: flooring small bases (Lemonade's $5) would make
+-- the first +25% upgrade and early combo stacks pay exactly nothing extra.
+local function round(x: number): number
+	return math.floor(x + 0.5)
+end
+
 local function toast(player: Player, message: string, kind: string)
 	RemoteService.fireClient("Toast", player, message, kind)
 end
@@ -99,8 +105,8 @@ end
 -- manualCash / manualXp for a zone at the given mechanic multipliers.
 local function computeManual(zone: GameConfig.ZoneDef, data: PlayerData, mechMult: number, mechXpMult: number): (number, number)
 	local earnMult, xpMult, rebirthCash, rebirthXp = getZoneMultipliers(data, zone.Id)
-	local cash = math.floor(zone.HustleEarn * earnMult * mechMult * rebirthCash)
-	local xp = math.floor(zone.XpPerHustle * xpMult * mechXpMult * rebirthXp)
+	local cash = round(zone.HustleEarn * earnMult * mechMult * rebirthCash)
+	local xp = round(zone.XpPerHustle * xpMult * mechXpMult * rebirthXp)
 	return math.max(0, cash), math.max(0, xp)
 end
 
@@ -131,15 +137,30 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 	elseif mechanic == "Timing" then
 		local timing = params.Timing
 		-- Shared clock: the client previews the same curve with the same function.
-		local mechMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
-		local isPeak = mechMult >= timing.PeakThreshold
-		local mechXpMult = if isPeak then 1 + timing.PeakXpBonus else 1
+		local marketMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
+		local isPeak = marketMult >= timing.PeakThreshold
+		-- Peak flips build a streak (stored in state.combo) that multiplies
+		-- cash and XP; an off-peak flip sells cheap and resets it, so timing
+		-- beats spamming at every cooldown.
+		local mechMult: number
+		local mechXpMult: number
+		if isPeak then
+			state.combo = math.min(state.combo + 1, timing.StreakMax)
+			local streakMult = 1 + timing.StreakBonusPerStack * (state.combo - 1)
+			mechMult = marketMult * streakMult
+			mechXpMult = (1 + timing.PeakXpBonus) * streakMult
+		else
+			state.combo = 0
+			mechMult = marketMult * timing.OffPeakMult
+			mechXpMult = timing.OffPeakMult
+		end
 		local cash, xp = computeManual(zone, data, mechMult, mechXpMult)
 		return {
 			Amount = cash,
 			Xp = xp,
 			Kind = if isPeak then "Peak" else "Manual",
 			Mult = mechMult,
+			Combo = state.combo,
 		}
 	elseif mechanic == "Charge" then
 		local charge = params.Charge
@@ -152,8 +173,8 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 			state.charge = 0
 			local burstMult = chargeMax * charge.BurstMult
 			return {
-				Amount = math.floor(manualCash * burstMult),
-				Xp = math.floor(manualXp * chargeMax * (1 + charge.BurstXpBonus)),
+				Amount = round(manualCash * burstMult),
+				Xp = round(manualXp * chargeMax * (1 + charge.BurstXpBonus)),
 				Kind = "Burst",
 				Mult = burstMult,
 				Charge = 0,
@@ -161,8 +182,8 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 			}
 		end
 		return {
-			Amount = math.floor(manualCash * charge.HitPercent),
-			Xp = math.floor(manualXp * charge.HitPercent),
+			Amount = round(manualCash * charge.HitPercent),
+			Xp = round(manualXp * charge.HitPercent),
 			Kind = "Manual",
 			Mult = 1,
 			Charge = state.charge,
@@ -223,6 +244,12 @@ local function onHustleTriggered(zone: GameConfig.ZoneDef, promptPart: BasePart,
 	local state = getZoneState(player, zone.Id)
 	local now = os.clock()
 	local cooldown = Mechanics.cooldownFor(zone, data.Upgrades)
+	if zone.Mechanic == "Hold" then
+		-- HoldPromptController stretches the local hold to the full cooldown,
+		-- so trigger-to-trigger is already >= cooldown on the client; this
+		-- grace only absorbs network jitter between the two triggers.
+		cooldown = math.max(0, cooldown - GameConfig.Mechanics.Hold.TriggerGrace)
+	end
 	if state.lastHit > 0 and now - state.lastHit < cooldown then
 		return
 	end
@@ -308,8 +335,8 @@ local function tickAutomationFor(player: Player)
 		if autoLevel > 0 and LevelService.isZoneUnlocked(player, zone.Id) then
 			local percent = Mechanics.autoPercent(autoLevel)
 			local manualCash, manualXp = computeManual(zone, data, 1, 1)
-			local amount = math.floor(manualCash * percent)
-			local xp = math.floor(manualXp * percent)
+			local amount = round(manualCash * percent)
+			local xp = round(manualXp * percent)
 			totalCash += amount
 			totalXp += xp
 			zonesTicked += 1

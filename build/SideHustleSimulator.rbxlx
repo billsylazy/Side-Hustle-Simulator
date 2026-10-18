@@ -1348,8 +1348,21 @@ GameConfig.UpgradeEffects = {
 
 GameConfig.Mechanics = {
 	Tap = { ComboWindow = 1.8, ComboMax = 10, ComboBonusPerStack = 0.1 }, -- up to x2
-	Hold = { PayoutMult = 1 }, -- payout is tuned via HustleEarn; hold just paces it
-	Timing = { MinMult = 0.5, MaxMult = 1.5, PeakThreshold = 1.35, PeakXpBonus = 1.0 },
+	-- Hold: the client stretches the prompt's hold to the zone's current
+	-- cooldown (Speed upgrade = shorter hold); TriggerGrace absorbs jitter.
+	Hold = { PayoutMult = 1, TriggerGrace = 0.2 },
+	-- Timing: peak flips (marketMult >= PeakThreshold) build a streak worth
+	-- +50% per stack (x3 at StreakMax); off-peak flips pay OffPeakMult and
+	-- reset the streak. Simulated: timed play out-earns spamming ~2-3x.
+	Timing = {
+		MinMult = 0.5,
+		MaxMult = 1.5,
+		PeakThreshold = 1.35,
+		PeakXpBonus = 0,
+		OffPeakMult = 0.5,
+		StreakMax = 5,
+		StreakBonusPerStack = 0.5,
+	},
 	Charge = { HitPercent = 0.3, BurstMult = 1.5, BurstXpBonus = 2.0 },
 }
 
@@ -1416,8 +1429,8 @@ GameConfig.Zones = {
 		Order = 1,
 		UnlockLevel = 1,
 		Mechanic = "Tap",
-		HustleEarn = 3,
-		XpPerHustle = 2,
+		HustleEarn = 5,
+		XpPerHustle = 3,
 		HustleCooldown = 0.6,
 		HoldDuration = 0,
 		MarketPeriod = 0,
@@ -1463,7 +1476,7 @@ GameConfig.Zones = {
 		UnlockLevel = 8,
 		Mechanic = "Timing",
 		HustleEarn = 85,
-		XpPerHustle = 8,
+		XpPerHustle = 12,
 		HustleCooldown = 1.5,
 		HoldDuration = 0,
 		MarketPeriod = 6,
@@ -1471,7 +1484,7 @@ GameConfig.Zones = {
 		SignColor = Color3.fromRGB(128, 115, 255),
 		AccentColor = Color3.fromRGB(180, 160, 255),
 		HustleVerb = "Flip",
-		Tagline = "Watch the hype meter - flip when it peaks!",
+		Tagline = "Flip at the PEAK to build a streak - off-peak flips sell cheap!",
 		Upgrades = upgrades(85, {
 			{ "HypeDrops", "Hype Drops", "+25% cash per flip" },
 			{ "SneakerheadNetwork", "Sneakerhead Network", "+20% XP per flip" },
@@ -1485,16 +1498,16 @@ GameConfig.Zones = {
 		Order = 4,
 		UnlockLevel = 13,
 		Mechanic = "Hold",
-		HustleEarn = 600,
-		XpPerHustle = 30,
-		HustleCooldown = 2,
-		HoldDuration = 1.2,
+		HustleEarn = 900,
+		XpPerHustle = 43,
+		HustleCooldown = 3,
+		HoldDuration = 1.8,
 		MarketPeriod = 0,
 		ChargeMax = 0,
 		SignColor = Color3.fromRGB(64, 200, 224),
 		AccentColor = Color3.fromRGB(140, 230, 255),
 		HustleVerb = "Scrub",
-		Tagline = "Hold to scrub the whole car clean.",
+		Tagline = "Hold to scrub the whole car - the longest job, the biggest tips.",
 		Upgrades = upgrades(600, {
 			{ "FoamCannon", "Foam Cannon", "+25% cash per scrub" },
 			{ "WaxFinish", "Wax Finish", "+20% XP per scrub" },
@@ -1555,7 +1568,7 @@ GameConfig.Zones = {
 		UnlockLevel = 34,
 		Mechanic = "Timing",
 		HustleEarn = 8000,
-		XpPerHustle = 980,
+		XpPerHustle = 1100,
 		HustleCooldown = 1.5,
 		HoldDuration = 0,
 		MarketPeriod = 4,
@@ -1563,7 +1576,7 @@ GameConfig.Zones = {
 		SignColor = Color3.fromRGB(32, 200, 96),
 		AccentColor = Color3.fromRGB(8, 12, 10),
 		HustleVerb = "Trade",
-		Tagline = "Buy low, sell high - trade when the ticker peaks!",
+		Tagline = "Trade at the PEAK for a streak - a bad trade resets it!",
 		Upgrades = upgrades(8000, {
 			{ "InsiderNewsletter", "Insider Newsletter", "+25% cash per trade" },
 			{ "MarketAnalyst", "Market Analyst", "+20% XP per trade" },
@@ -1582,11 +1595,11 @@ GameConfig.Zones = {
 		HustleCooldown = 0.8,
 		HoldDuration = 0,
 		MarketPeriod = 0,
-		ChargeMax = 5,
+		ChargeMax = 8,
 		SignColor = Color3.fromRGB(240, 246, 255),
 		AccentColor = Color3.fromRGB(60, 130, 255),
 		HustleVerb = "Pitch",
-		Tagline = "Pitch investors until the round is FUNDED!",
+		Tagline = "Eight pitches fill the round - then it is FUNDED!",
 		Upgrades = upgrades(11000, {
 			{ "PitchDeck2", "Pitch Deck 2.0", "+25% cash per pitch" },
 			{ "VentureNetwork", "Venture Network", "+20% XP per pitch" },
@@ -2878,6 +2891,12 @@ local warnedMechanics: { [string]: boolean } = {}
 -- Helpers
 ----------------------------------------------------------------------
 
+-- Payouts round to nearest: flooring small bases (Lemonade's $5) would make
+-- the first +25% upgrade and early combo stacks pay exactly nothing extra.
+local function round(x: number): number
+	return math.floor(x + 0.5)
+end
+
 local function toast(player: Player, message: string, kind: string)
 	RemoteService.fireClient("Toast", player, message, kind)
 end
@@ -2915,8 +2934,8 @@ end
 -- manualCash / manualXp for a zone at the given mechanic multipliers.
 local function computeManual(zone: GameConfig.ZoneDef, data: PlayerData, mechMult: number, mechXpMult: number): (number, number)
 	local earnMult, xpMult, rebirthCash, rebirthXp = getZoneMultipliers(data, zone.Id)
-	local cash = math.floor(zone.HustleEarn * earnMult * mechMult * rebirthCash)
-	local xp = math.floor(zone.XpPerHustle * xpMult * mechXpMult * rebirthXp)
+	local cash = round(zone.HustleEarn * earnMult * mechMult * rebirthCash)
+	local xp = round(zone.XpPerHustle * xpMult * mechXpMult * rebirthXp)
 	return math.max(0, cash), math.max(0, xp)
 end
 
@@ -2947,15 +2966,30 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 	elseif mechanic == "Timing" then
 		local timing = params.Timing
 		-- Shared clock: the client previews the same curve with the same function.
-		local mechMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
-		local isPeak = mechMult >= timing.PeakThreshold
-		local mechXpMult = if isPeak then 1 + timing.PeakXpBonus else 1
+		local marketMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
+		local isPeak = marketMult >= timing.PeakThreshold
+		-- Peak flips build a streak (stored in state.combo) that multiplies
+		-- cash and XP; an off-peak flip sells cheap and resets it, so timing
+		-- beats spamming at every cooldown.
+		local mechMult: number
+		local mechXpMult: number
+		if isPeak then
+			state.combo = math.min(state.combo + 1, timing.StreakMax)
+			local streakMult = 1 + timing.StreakBonusPerStack * (state.combo - 1)
+			mechMult = marketMult * streakMult
+			mechXpMult = (1 + timing.PeakXpBonus) * streakMult
+		else
+			state.combo = 0
+			mechMult = marketMult * timing.OffPeakMult
+			mechXpMult = timing.OffPeakMult
+		end
 		local cash, xp = computeManual(zone, data, mechMult, mechXpMult)
 		return {
 			Amount = cash,
 			Xp = xp,
 			Kind = if isPeak then "Peak" else "Manual",
 			Mult = mechMult,
+			Combo = state.combo,
 		}
 	elseif mechanic == "Charge" then
 		local charge = params.Charge
@@ -2968,8 +3002,8 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 			state.charge = 0
 			local burstMult = chargeMax * charge.BurstMult
 			return {
-				Amount = math.floor(manualCash * burstMult),
-				Xp = math.floor(manualXp * chargeMax * (1 + charge.BurstXpBonus)),
+				Amount = round(manualCash * burstMult),
+				Xp = round(manualXp * chargeMax * (1 + charge.BurstXpBonus)),
 				Kind = "Burst",
 				Mult = burstMult,
 				Charge = 0,
@@ -2977,8 +3011,8 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 			}
 		end
 		return {
-			Amount = math.floor(manualCash * charge.HitPercent),
-			Xp = math.floor(manualXp * charge.HitPercent),
+			Amount = round(manualCash * charge.HitPercent),
+			Xp = round(manualXp * charge.HitPercent),
 			Kind = "Manual",
 			Mult = 1,
 			Charge = state.charge,
@@ -3039,6 +3073,12 @@ local function onHustleTriggered(zone: GameConfig.ZoneDef, promptPart: BasePart,
 	local state = getZoneState(player, zone.Id)
 	local now = os.clock()
 	local cooldown = Mechanics.cooldownFor(zone, data.Upgrades)
+	if zone.Mechanic == "Hold" then
+		-- HoldPromptController stretches the local hold to the full cooldown,
+		-- so trigger-to-trigger is already >= cooldown on the client; this
+		-- grace only absorbs network jitter between the two triggers.
+		cooldown = math.max(0, cooldown - GameConfig.Mechanics.Hold.TriggerGrace)
+	end
 	if state.lastHit > 0 and now - state.lastHit < cooldown then
 		return
 	end
@@ -3124,8 +3164,8 @@ local function tickAutomationFor(player: Player)
 		if autoLevel > 0 and LevelService.isZoneUnlocked(player, zone.Id) then
 			local percent = Mechanics.autoPercent(autoLevel)
 			local manualCash, manualXp = computeManual(zone, data, 1, 1)
-			local amount = math.floor(manualCash * percent)
-			local xp = math.floor(manualXp * percent)
+			local amount = round(manualCash * percent)
+			local xp = round(manualXp * percent)
 			totalCash += amount
 			totalXp += xp
 			zonesTicked += 1
@@ -3943,7 +3983,9 @@ local started = false
 
 local HUMANOID_WAIT_TIMEOUT = 10
 local DATA_POLL_INTERVAL = 0.5
-local DATA_POLL_TIMEOUT = 10 -- data loads via DataStore; give it up to ~10 s
+-- A load can retry a busy lock and wait out a same-server leave save, so
+-- allow well past the worst case before giving up on the spawn's WalkSpeed.
+local DATA_POLL_TIMEOUT = 60
 
 -- Player -> CharacterAdded connection; disconnected in cleanupPlayer so no
 -- connection outlives its player (contract convention).
@@ -5137,9 +5179,14 @@ local function buildTerrain()
 		local center = ringPos(hill.ring, degrees, -hill.radius * 0.6)
 		terrain:FillBall(center, hill.radius, Enum.Material.Grass)
 	end
+end
 
-	terrain.Decoration = true -- animated grass blades
-	-- Cartoon lagoon water: bright turquoise, clear, small lazy waves.
+-- Cartoon lagoon water: bright turquoise, clear, small lazy waves. Kept out of
+-- buildTerrain so a styling error can never trigger the ground fallback.
+-- (Animated grass, Terrain.Decoration, is not scriptable: the Rojo project
+-- sets it on the place.)
+local function styleWater()
+	local terrain = Workspace.Terrain
 	terrain.WaterColor = Color3.fromRGB(52, 182, 230)
 	terrain.WaterTransparency = 0.55
 	terrain.WaterWaveSize = 0.18
@@ -5763,7 +5810,7 @@ end
 
 -- Charge: hype meter column — 5 stacked neon segments on a dark core with a
 -- glowing cap. cf = column base center on the pad top, front (-Z) to the plaza.
-local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, capColor: Color3, title: string)
+local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, capColor: Color3, title: string, segments: number)
 	local frame = Color3.fromRGB(40, 38, 45)
 	makeCylinder({
 		name = "HypeColumnBase", parent = parent, diameter = 3.4, height = 0.6,
@@ -5773,10 +5820,15 @@ local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, c
 		name = "HypeColumnCore", parent = parent, size = Vector3.new(1.2, 9.2, 1.2),
 		cframe = cf * CFrame.new(0, 5.2, 0), color = frame, material = Enum.Material.Metal,
 	})
-	for i = 0, 4 do
+	-- One neon segment per charge step (zone.ChargeMax), packed into the
+	-- same 8.5-stud span so the column height never changes.
+	local count = math.max(1, segments)
+	local step = 8.5 / count
+	for i = 0, count - 1 do
 		makeBlock({
-			name = "HypeSegment", parent = parent, size = Vector3.new(2.4, 1.3, 1.5),
-			cframe = cf * CFrame.new(0, 2.2 + i * 1.7, 0), color = segColor:Lerp(WHITE, i * 0.16),
+			name = "HypeSegment", parent = parent, size = Vector3.new(2.4, step * 0.76, 1.5),
+			cframe = cf * CFrame.new(0, 1.55 + step * (i + 0.5), 0),
+			color = segColor:Lerp(WHITE, if count > 1 then i * 0.64 / (count - 1) else 0),
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
@@ -5812,7 +5864,8 @@ local function buildMechanicProp(zoneModel: Model, cf: CFrame, zone: GameConfig.
 			props, cf,
 			if isStartup then zone.AccentColor else zone.SignColor,
 			if isStartup then zone.SignColor else zone.AccentColor,
-			if isStartup then "FUNDING" else "HYPE"
+			if isStartup then "FUNDING" else "HYPE",
+			zone.ChargeMax
 		)
 	end
 end
@@ -6824,6 +6877,10 @@ function MapBuilder.build(): ()
 	local okTerrain, terrainErr = pcall(buildTerrain)
 	if not okTerrain then
 		warn("[MapBuilder] Terrain generation failed: " .. tostring(terrainErr))
+	end
+	local okWater, waterErr = pcall(styleWater)
+	if not okWater then
+		warn("[MapBuilder] Water styling failed: " .. tostring(waterErr))
 	end
 
 	local map = Instance.new("Folder")
@@ -8626,11 +8683,12 @@ local function previewText(zone: any, upgrades: any, rebirths: number): string
 	local xpLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Xp")
 	local autoLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Auto")
 
+	-- Round to nearest, exactly as HustleService pays.
 	local cash = math.floor(
-		zone.HustleEarn * (1 + effects.Earn.PerLevel * earnLevel) * GameConfig.getRebirthCashMultiplier(rebirths)
+		zone.HustleEarn * (1 + effects.Earn.PerLevel * earnLevel) * GameConfig.getRebirthCashMultiplier(rebirths) + 0.5
 	)
 	local xp = math.floor(
-		zone.XpPerHustle * (1 + effects.Xp.PerLevel * xpLevel) * GameConfig.getRebirthXpMultiplier(rebirths)
+		zone.XpPerHustle * (1 + effects.Xp.PerLevel * xpLevel) * GameConfig.getRebirthXpMultiplier(rebirths) + 0.5
 	)
 	local cooldown = Mechanics.cooldownFor(zone, upgrades)
 
@@ -8642,7 +8700,7 @@ local function previewText(zone: any, upgrades: any, rebirths: number): string
 		cooldown
 	)
 	if autoLevel > 0 then
-		local autoCash = math.floor(cash * Mechanics.autoPercent(autoLevel))
+		local autoCash = math.floor(cash * Mechanics.autoPercent(autoLevel) + 0.5)
 		text ..= " | Auto: " .. FormatNumber.money(autoCash) .. " every " .. secondsText(effects.Auto.Interval) .. "s"
 	end
 	return text
@@ -12684,6 +12742,8 @@ local function multText(mult: number): string
 	return "x" .. text
 end
 
+local rebirthReady = false -- level requirement met (and not maxed)
+
 local function refresh(snapshot: { [string]: any }?)
 	local data = snapshot or {}
 	local rebirths = math.max(0, math.floor(numberOr(data.Rebirths, 0)))
@@ -12704,10 +12764,11 @@ local function refresh(snapshot: { [string]: any }?)
 		progressLabel.Text = "Level " .. math.min(level, requiredLevel) .. " / " .. requiredLevel
 	end
 
-	-- Visually disable the button until the level is reached. Active=false
-	-- (plus the guard in the handler) keeps taps from firing.
+	-- Visually disable the button until the level is reached. It stays
+	-- Active so a tap still reaches the handler, which explains the refusal
+	-- locally (shake + notice) instead of asking the server.
 	local canRebirth = level >= requiredLevel and not maxed
-	rebirthButton.Active = canRebirth
+	rebirthReady = canRebirth
 	rebirthButton.AutoButtonColor = canRebirth
 	buttonGrad.Enabled = canRebirth
 	rebirthButton.BackgroundColor3 = if canRebirth then WHITE else DISABLED_GRAY
@@ -12799,9 +12860,7 @@ RebirthResult.OnClientEvent:Connect(function(result: any, requiredLevel: any)
 end)
 
 rebirthButton.Activated:Connect(function()
-	if not rebirthButton.Active then
-		-- Not ready yet (should Activated still fire on an inactive button):
-		-- explain locally instead of asking the server.
+	if not rebirthReady then
 		refuse(GameConfig.Rebirth.RequiredLevel)
 		return
 	end
@@ -16843,7 +16902,6 @@ end
 -- Pure view layer, client-only: rigs live in a local Workspace Folder
 -- ("AutomationRigs") and are driven by CFrame math on one Heartbeat.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -16953,18 +17011,16 @@ end
 -- Feet position for a rig standing on the anchor: the ground straight below
 -- the anchor's center when a raycast finds it, else the anchor's bottom face.
 local function findFeetPosition(anchor: BasePart): Vector3
+	-- Only the world counts as ground: any player (not just the local one)
+	-- standing on the anchor when the rig spawns must not become its floor.
 	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local exclude: { Instance } = { anchor }
-	local rigFolder = workspace:FindFirstChild(RIG_FOLDER_NAME)
-	if rigFolder then
-		table.insert(exclude, rigFolder)
+	params.FilterType = Enum.RaycastFilterType.Include
+	local include: { Instance } = { workspace.Terrain }
+	local map = workspace:FindFirstChild("SideHustleMap")
+	if map then
+		table.insert(include, map)
 	end
-	local character = Players.LocalPlayer.Character
-	if character then
-		table.insert(exclude, character)
-	end
-	params.FilterDescendantsInstances = exclude
+	params.FilterDescendantsInstances = include
 
 	local origin = anchor.Position + Vector3.new(0, 2, 0)
 	local result = workspace:Raycast(origin, Vector3.new(0, -12, 0), params)
@@ -17256,6 +17312,96 @@ return AutomationVisualsController
         </Item>
         <Item class="ModuleScript" referent="550">
           <Properties>
+            <string name="Name">HoldPromptController</string>
+            <string name="Source"><![CDATA[-- HoldPromptController: makes each Hold zone's hold last the player's current
+-- cooldown, LOCALLY. The server prompt carries the shortest possible hold
+-- (zone.HoldDuration = the cooldown at max Speed); here every Hold prompt is
+-- stretched to Mechanics.cooldownFor(zone, upgrades), so a completed hold is
+-- never inside the server cooldown (no silently eaten holds) and the zone's
+-- Speed upgrade visibly shortens the hold. The server still enforces the
+-- cooldown itself; this is purely about the player's local prompt.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Mechanics = require(Shared:WaitForChild("Mechanics"))
+
+local WAIT_TIMEOUT = 20
+
+local prompts: { [string]: ProximityPrompt } = {} -- zoneId -> HustlePrompt
+local lastUpgrades: any = nil
+
+local HoldPromptController = {}
+
+local function holdFor(zone: GameConfig.ZoneDef): number
+	return math.max(zone.HoldDuration, Mechanics.cooldownFor(zone, lastUpgrades))
+end
+
+local function apply(zoneId: string)
+	local prompt = prompts[zoneId]
+	local zone = GameConfig.getZone(zoneId)
+	if not prompt or not zone or lastUpgrades == nil then
+		return
+	end
+	local hold = holdFor(zone)
+	if math.abs(prompt.HoldDuration - hold) > 1e-3 then
+		prompt.HoldDuration = hold
+	end
+end
+
+local function registerZone(zoneModel: Instance)
+	local zone = GameConfig.getZone(zoneModel.Name)
+	if not zone or zone.Mechanic ~= "Hold" or prompts[zone.Id] then
+		return
+	end
+	task.spawn(function()
+		local station = zoneModel:WaitForChild("HustleStation", WAIT_TIMEOUT)
+		local promptPart = station and station:WaitForChild("PromptPart", WAIT_TIMEOUT)
+		local prompt = promptPart and promptPart:WaitForChild("HustlePrompt", WAIT_TIMEOUT)
+		if not prompt or not prompt:IsA("ProximityPrompt") then
+			warn("[HoldPromptController] No HustlePrompt for " .. zone.Id)
+			return
+		end
+		prompts[zone.Id] = prompt
+		apply(zone.Id)
+	end)
+end
+
+function HoldPromptController.start()
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local dataSync = remotes:WaitForChild("DataSync") :: RemoteEvent
+
+	dataSync.OnClientEvent:Connect(function(snapshot: any)
+		if typeof(snapshot) ~= "table" or typeof(snapshot.Upgrades) ~= "table" then
+			return
+		end
+		lastUpgrades = snapshot.Upgrades
+		for zoneId in prompts do
+			apply(zoneId)
+		end
+	end)
+
+	task.spawn(function()
+		local map = workspace:WaitForChild("SideHustleMap", 60)
+		local zones = map and map:WaitForChild("Zones", 30)
+		if not zones then
+			warn("[HoldPromptController] SideHustleMap.Zones not found")
+			return
+		end
+		for _, zoneModel in zones:GetChildren() do
+			registerZone(zoneModel)
+		end
+		zones.ChildAdded:Connect(registerZone)
+	end)
+end
+
+return HoldPromptController
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="551">
+          <Properties>
             <string name="Name">RebirthWatcher</string>
             <string name="Source"><![CDATA[-- RebirthWatcher: fires the big full-screen celebration when the server
 -- confirms a rebirth. INSUFFICIENT and other variants are handled by the
@@ -17287,7 +17433,7 @@ return RebirthWatcher
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="551">
+        <Item class="ModuleScript" referent="552">
           <Properties>
             <string name="Name">StationFeedbackController</string>
             <string name="Source"><![CDATA[-- StationFeedbackController: per-zone BillboardGui on HustleStation.FeedbackPart
@@ -17363,6 +17509,7 @@ type Station = {
 	segments: { Frame },
 	lit: number,
 	flashing: boolean,
+	pendingCharge: number?, -- charge that arrived during a burst flash
 }
 
 local stations: { [string]: Station } = {}
@@ -17699,7 +17846,10 @@ end
 
 local function setCharge(station: Station, charge: number)
 	if station.flashing then
-		return -- the burst flash will reset the bar when it ends
+		-- A hit can land mid-flash (charge cooldown < flash length): keep it
+		-- and apply it when the flash ends instead of dropping it.
+		station.pendingCharge = charge
+		return
 	end
 	local target = math.clamp(math.floor(charge), 0, #station.segments)
 	for index, segment in station.segments do
@@ -17734,6 +17884,11 @@ local function flashBurst(station: Station)
 		station.lit = 0
 		task.delay(0.35, function()
 			station.flashing = false
+			local pending = station.pendingCharge
+			station.pendingCharge = nil
+			if pending then
+				setCharge(station, pending)
+			end
 		end)
 	end)
 end
@@ -17956,7 +18111,7 @@ return StationFeedbackController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="552">
+        <Item class="ModuleScript" referent="553">
           <Properties>
             <string name="Name">WorkerVisualsController</string>
             <string name="Source"><![CDATA[-- WorkerVisualsController: renders the LOCAL player's equipped workers as cute
@@ -18167,7 +18322,7 @@ local function updateRig(rig: RigState, dt: number, hrpPos: Vector3?, playerYawC
 		if pos == nil then
 			-- First placement (or respawn re-anchor): snap straight to the slot.
 			rig.pos = target
-			rig.yaw = math.atan(-worldDir.X, -worldDir.Z)
+			rig.yaw = math.atan2(-worldDir.X, -worldDir.Z)
 		else
 			local alpha = 1 - math.exp(-dt * FOLLOW_RATE)
 			local newPos = pos:Lerp(target, alpha)
@@ -18178,7 +18333,7 @@ local function updateRig(rig: RigState, dt: number, hrpPos: Vector3?, playerYawC
 
 			if moving then
 				-- Face travel direction (shortest-arc yaw smoothing).
-				local desiredYaw = math.atan(-vel.X, -vel.Z)
+				local desiredYaw = math.atan2(-vel.X, -vel.Z)
 				local delta = (desiredYaw - rig.yaw + math.pi) % (math.pi * 2) - math.pi
 				rig.yaw += delta * math.min(dt * TURN_RATE, 1)
 			end
@@ -18263,7 +18418,7 @@ local function onHeartbeat(dt: number)
 	if hrp and hrp.Parent ~= nil then
 		hrpPos = hrp.Position
 		local look = hrp.CFrame.LookVector
-		playerYawCF = CFrame.Angles(0, math.atan(-look.X, -look.Z), 0)
+		playerYawCF = CFrame.Angles(0, math.atan2(-look.X, -look.Z), 0)
 		groundY = hrpPos.Y - groundOffset
 	end
 
@@ -18356,7 +18511,7 @@ return WorkerVisualsController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="553">
+        <Item class="ModuleScript" referent="554">
           <Properties>
             <string name="Name">ZoneGateController</string>
             <string name="Source"><![CDATA[-- ZoneGateController: LOCAL-ONLY gate visuals for the zones the local player
@@ -18519,11 +18674,17 @@ return ZoneGateController
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="554">
+  <Item class="Workspace" referent="555">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
+    <Item class="Terrain" referent="556">
+      <Properties>
+        <string name="Name">Terrain</string>
+        <bool name="Decoration">true</bool>
+      </Properties>
+    </Item>
   </Item>
 </roblox>

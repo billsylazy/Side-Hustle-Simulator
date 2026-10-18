@@ -30,8 +30,21 @@ GameConfig.UpgradeEffects = {
 
 GameConfig.Mechanics = {
 	Tap = { ComboWindow = 1.8, ComboMax = 10, ComboBonusPerStack = 0.1 }, -- up to x2
-	Hold = { PayoutMult = 1 }, -- payout is tuned via HustleEarn; hold just paces it
-	Timing = { MinMult = 0.5, MaxMult = 1.5, PeakThreshold = 1.35, PeakXpBonus = 1.0 },
+	-- Hold: the client stretches the prompt's hold to the zone's current
+	-- cooldown (Speed upgrade = shorter hold); TriggerGrace absorbs jitter.
+	Hold = { PayoutMult = 1, TriggerGrace = 0.2 },
+	-- Timing: peak flips (marketMult >= PeakThreshold) build a streak worth
+	-- +50% per stack (x3 at StreakMax); off-peak flips pay OffPeakMult and
+	-- reset the streak. Simulated: timed play out-earns spamming ~2-3x.
+	Timing = {
+		MinMult = 0.5,
+		MaxMult = 1.5,
+		PeakThreshold = 1.35,
+		PeakXpBonus = 0,
+		OffPeakMult = 0.5,
+		StreakMax = 5,
+		StreakBonusPerStack = 0.5,
+	},
 	Charge = { HitPercent = 0.3, BurstMult = 1.5, BurstXpBonus = 2.0 },
 }
 
@@ -98,8 +111,8 @@ GameConfig.Zones = {
 		Order = 1,
 		UnlockLevel = 1,
 		Mechanic = "Tap",
-		HustleEarn = 3,
-		XpPerHustle = 2,
+		HustleEarn = 5,
+		XpPerHustle = 3,
 		HustleCooldown = 0.6,
 		HoldDuration = 0,
 		MarketPeriod = 0,
@@ -145,7 +158,7 @@ GameConfig.Zones = {
 		UnlockLevel = 8,
 		Mechanic = "Timing",
 		HustleEarn = 85,
-		XpPerHustle = 8,
+		XpPerHustle = 12,
 		HustleCooldown = 1.5,
 		HoldDuration = 0,
 		MarketPeriod = 6,
@@ -153,7 +166,7 @@ GameConfig.Zones = {
 		SignColor = Color3.fromRGB(128, 115, 255),
 		AccentColor = Color3.fromRGB(180, 160, 255),
 		HustleVerb = "Flip",
-		Tagline = "Watch the hype meter - flip when it peaks!",
+		Tagline = "Flip at the PEAK to build a streak - off-peak flips sell cheap!",
 		Upgrades = upgrades(85, {
 			{ "HypeDrops", "Hype Drops", "+25% cash per flip" },
 			{ "SneakerheadNetwork", "Sneakerhead Network", "+20% XP per flip" },
@@ -167,16 +180,16 @@ GameConfig.Zones = {
 		Order = 4,
 		UnlockLevel = 13,
 		Mechanic = "Hold",
-		HustleEarn = 600,
-		XpPerHustle = 30,
-		HustleCooldown = 2,
-		HoldDuration = 1.2,
+		HustleEarn = 900,
+		XpPerHustle = 43,
+		HustleCooldown = 3,
+		HoldDuration = 1.8,
 		MarketPeriod = 0,
 		ChargeMax = 0,
 		SignColor = Color3.fromRGB(64, 200, 224),
 		AccentColor = Color3.fromRGB(140, 230, 255),
 		HustleVerb = "Scrub",
-		Tagline = "Hold to scrub the whole car clean.",
+		Tagline = "Hold to scrub the whole car - the longest job, the biggest tips.",
 		Upgrades = upgrades(600, {
 			{ "FoamCannon", "Foam Cannon", "+25% cash per scrub" },
 			{ "WaxFinish", "Wax Finish", "+20% XP per scrub" },
@@ -237,7 +250,7 @@ GameConfig.Zones = {
 		UnlockLevel = 34,
 		Mechanic = "Timing",
 		HustleEarn = 8000,
-		XpPerHustle = 980,
+		XpPerHustle = 1100,
 		HustleCooldown = 1.5,
 		HoldDuration = 0,
 		MarketPeriod = 4,
@@ -245,7 +258,7 @@ GameConfig.Zones = {
 		SignColor = Color3.fromRGB(32, 200, 96),
 		AccentColor = Color3.fromRGB(8, 12, 10),
 		HustleVerb = "Trade",
-		Tagline = "Buy low, sell high - trade when the ticker peaks!",
+		Tagline = "Trade at the PEAK for a streak - a bad trade resets it!",
 		Upgrades = upgrades(8000, {
 			{ "InsiderNewsletter", "Insider Newsletter", "+25% cash per trade" },
 			{ "MarketAnalyst", "Market Analyst", "+20% XP per trade" },
@@ -264,11 +277,11 @@ GameConfig.Zones = {
 		HustleCooldown = 0.8,
 		HoldDuration = 0,
 		MarketPeriod = 0,
-		ChargeMax = 5,
+		ChargeMax = 8,
 		SignColor = Color3.fromRGB(240, 246, 255),
 		AccentColor = Color3.fromRGB(60, 130, 255),
 		HustleVerb = "Pitch",
-		Tagline = "Pitch investors until the round is FUNDED!",
+		Tagline = "Eight pitches fill the round - then it is FUNDED!",
 		Upgrades = upgrades(11000, {
 			{ "PitchDeck2", "Pitch Deck 2.0", "+25% cash per pitch" },
 			{ "VentureNetwork", "Venture Network", "+20% XP per pitch" },
