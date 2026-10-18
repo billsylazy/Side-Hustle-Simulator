@@ -8,6 +8,31 @@ local roblox = require("@lune/roblox") :: any
 local REPO = require("@lune/process").cwd:gsub("/$", "")
 local Instance, Vector3, CFrame, Enum = roblox.Instance, roblox.Vector3, roblox.CFrame, roblox.Enum
 
+-- Lune 0.8.9 has no Model:GetPivot (the client city-life sim pivots CitySpin
+-- models with it). Mirror Roblox: PrimaryPart's CFrame, else WorldPivot,
+-- else the center of the model's parts' bounding box.
+roblox.implementMethod("Model", "GetPivot", function(self)
+	local primary = self.PrimaryPart
+	if primary then
+		return primary.CFrame
+	end
+	local ok, pivot = pcall(function()
+		return self.WorldPivot
+	end)
+	if ok and pivot then
+		return pivot
+	end
+	local lo, hi
+	for _, d in self:GetDescendants() do
+		if d:IsA("BasePart") then
+			local p = d.CFrame.Position
+			lo = if lo then lo:Min(p) else p
+			hi = if hi then hi:Max(p) else p
+		end
+	end
+	return if lo then roblox.CFrame.new((lo + hi) / 2) else roblox.CFrame.new()
+end)
+
 local game = Instance.new("DataModel")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
@@ -61,7 +86,15 @@ local terrainMock = setmetatable({}, {
 				table.insert(fills, { op = "FillBall", center = center, radius = radius, mat = mat })
 			end
 		end
-		return realTerrain[k]
+		local value = realTerrain[k]
+		if type(value) == "function" then
+			-- Methods (SetMaterialColor, GetMaterialColor, ...) run on the real
+			-- Lune Terrain, which validates their arguments like Roblox.
+			return function(_self, ...)
+				return value(realTerrain, ...)
+			end
+		end
+		return value
 	end,
 	__newindex = function(_, k, v)
 		-- Roblox marks these NotScriptable: a server script writing them errors.
@@ -161,7 +194,12 @@ local function cfArr(cf)
 end
 local function col(c) return { c.R, c.G, c.B } end
 
-local parts, lights, labels, emitters = {}, {}, {}, {}
+local parts, lights, labels, emitters, surfaces = {}, {}, {}, {}, {}
+local FACE_NORMALS = {
+	Front = Vector3.new(0, 0, -1), Back = Vector3.new(0, 0, 1),
+	Top = Vector3.new(0, 1, 0), Bottom = Vector3.new(0, -1, 0),
+	Right = Vector3.new(1, 0, 0), Left = Vector3.new(-1, 0, 0),
+}
 -- Optional client-life preview: tools/render/preview_life.luau returns
 -- function(ctx) that builds representative NPCs/cars (the things client
 -- controllers spawn at runtime) into Workspace so the renders show them.
@@ -194,6 +232,7 @@ for _, root in roots do
 				z = { inst.Size.X, inst.Size.Y, inst.Size.Z },
 				cf = cfArr(inst.CFrame), c = col(inst.Color),
 				m = inst.Material.Name, t = inst.Transparency,
+				ns = if inst.CastShadow then nil else true, -- CastShadow false
 			})
 		elseif inst:IsA("PointLight") or inst:IsA("SurfaceLight") or inst:IsA("SpotLight") then
 			local p = inst.Parent
@@ -206,15 +245,108 @@ for _, root in roots do
 				local kp = inst.Color.Keypoints[1].Value
 				table.insert(emitters, { p = { p.CFrame.Position.X, p.CFrame.Position.Y, p.CFrame.Position.Z }, c = col(kp), rate = inst.Rate })
 			end
+		elseif inst:IsA("SurfaceGui") then
+			-- One face-aligned plane per SurfaceGui: face center (just off the
+			-- face), world normal + up, face size in studs, the "Face" frame
+			-- color (unlit board face) and its text labels with their scale
+			-- boxes. Roblox orients Front/Back/Left/Right guis with the part's
+			-- +Y up; Top with -Z up, Bottom with +Z up.
+			local adornee = inst.Adornee or inst.Parent
+			if adornee and adornee:IsA("BasePart") then
+				local faceName = inst.Face.Name
+				local n = FACE_NORMALS[faceName] or Vector3.new(0, 0, -1)
+				local up = if faceName == "Top" then Vector3.new(0, 0, -1) elseif faceName == "Bottom" then Vector3.new(0, 0, 1) else Vector3.new(0, 1, 0)
+				local half = adornee.Size / 2
+				local depth = math.abs(n.X) * half.X + math.abs(n.Y) * half.Y + math.abs(n.Z) * half.Z
+				local pos = adornee.CFrame:PointToWorldSpace(n * (depth + 0.03))
+				local wn = adornee.CFrame:VectorToWorldSpace(n)
+				local wu = adornee.CFrame:VectorToWorldSpace(up)
+				local size = adornee.Size
+				local w, h
+				if n.X ~= 0 then
+					w, h = size.Z, size.Y
+				elseif n.Y ~= 0 then
+					w, h = size.X, size.Z
+				else
+					w, h = size.X, size.Y
+				end
+				local entry = {
+					p = { pos.X, pos.Y, pos.Z }, n = { wn.X, wn.Y, wn.Z }, u = { wu.X, wu.Y, wu.Z },
+					w = w, h = h, pps = inst.PixelsPerStud, texts = {}, frames = {},
+					li = inst.LightInfluence, br = inst.Brightness,
+				}
+				local faceFrame = inst:FindFirstChild("Face")
+				if faceFrame and faceFrame:IsA("Frame") and faceFrame.BackgroundTransparency < 1 then
+					entry.bg = col(faceFrame.BackgroundColor3)
+				end
+				-- Walk the gui tree: every GuiObject's absolute rect (fractions
+				-- of the gui; scale + offset, AnchorPoint), Rotation, ZIndex and
+				-- tree order; the nearest ClipsDescendants ancestor's rect (+ its
+				-- UICorner) clips it. Painted Frames (windows, murals) go to
+				-- `frames` (UICorner radius as a fraction of the gui height),
+				-- TextLabels to `texts`.
+				local gw, gh = w * inst.PixelsPerStud, h * inst.PixelsPerStud
+				local order = 0
+				local function cornerOf(obj, rw, rh)
+					local corner = obj:FindFirstChildOfClass("UICorner")
+					if not corner then
+						return 0
+					end
+					return (corner.CornerRadius.Scale * math.min(rw, rh) + corner.CornerRadius.Offset) / gh
+				end
+				local function walk(parent, px, py, pw, ph, clip)
+					for _, obj in parent:GetChildren() do
+						if obj:IsA("GuiObject") and obj.Visible then
+							order += 1
+							local rw = obj.Size.X.Scale * pw + obj.Size.X.Offset
+							local rh = obj.Size.Y.Scale * ph + obj.Size.Y.Offset
+							local rx = px + obj.Position.X.Scale * pw + obj.Position.X.Offset - obj.AnchorPoint.X * rw
+							local ry = py + obj.Position.Y.Scale * ph + obj.Position.Y.Offset - obj.AnchorPoint.Y * rh
+							local rect = { x = rx / gw, y = ry / gh, w = rw / gw, h = rh / gh }
+							if obj:IsA("TextLabel") then
+								if obj.Text ~= "" then
+									local stroke = obj:FindFirstChildOfClass("UIStroke")
+									table.insert(entry.texts, {
+										text = obj.Text, c = col(obj.TextColor3),
+										x = rect.x, y = rect.y, w = rect.w, h = rect.h, z = obj.ZIndex, o = order, clip = clip,
+										stroke = if stroke then stroke.Thickness elseif obj.TextStrokeTransparency < 1 then 1 else 0,
+									})
+								end
+							elseif obj:IsA("Frame") and obj ~= faceFrame and obj.BackgroundTransparency < 1 then
+								-- a Border-mode UIStroke on the frame (the spawn mat's white rim)
+								local frameStroke = obj:FindFirstChildOfClass("UIStroke")
+								local st = nil
+								if frameStroke and frameStroke.Enabled and frameStroke.ApplyStrokeMode == Enum.ApplyStrokeMode.Border then
+									st = { t = frameStroke.Thickness, c = col(frameStroke.Color), tr = frameStroke.Transparency }
+								end
+								table.insert(entry.frames, {
+									x = rect.x, y = rect.y, w = rect.w, h = rect.h, z = obj.ZIndex, o = order, clip = clip,
+									c = col(obj.BackgroundColor3), t = obj.BackgroundTransparency,
+									rot = obj.Rotation, r = cornerOf(obj, rw, rh), st = st,
+								})
+							end
+							local childClip = clip
+							if obj.ClipsDescendants and obj.Rotation == 0 then
+								childClip = { x = rect.x, y = rect.y, w = rect.w, h = rect.h, r = cornerOf(obj, rw, rh) }
+							end
+							walk(obj, rx, ry, rw, rh, childClip)
+						end
+					end
+				end
+				walk(inst, 0, 0, gw, gh, nil)
+				if entry.bg or #entry.texts > 0 or #entry.frames > 0 then
+					table.insert(surfaces, entry)
+				end
+			end
 		elseif inst:IsA("TextLabel") then
+			-- BillboardGui text (SurfaceGui text is drawn with its face above)
 			local gui = inst:FindFirstAncestorWhichIsA("LayerCollector")
-			local adornee = gui and (gui:IsA("BillboardGui") and (gui.Adornee or gui.Parent) or gui:IsA("SurfaceGui") and (gui.Adornee or gui.Parent))
+			local adornee = gui and gui:IsA("BillboardGui") and (gui.Adornee or gui.Parent)
 			if adornee and adornee:IsA("BasePart") and inst.Text ~= "" then
-				local off = gui:IsA("BillboardGui") and gui.StudsOffset or Vector3.zero
-				local pos = adornee.CFrame.Position + off
+				local pos = adornee.CFrame.Position + gui.StudsOffset
 				table.insert(labels, {
-					p = { pos.X, pos.Y, pos.Z }, text = inst.Text, c = col(inst.TextColor3),
-					kind = gui.ClassName, size = math.max(adornee.Size.X, adornee.Size.Z),
+					text = inst.Text, c = col(inst.TextColor3), kind = gui.ClassName,
+					size = math.max(adornee.Size.X, adornee.Size.Z), p = { pos.X, pos.Y, pos.Z },
 				})
 			end
 		end
@@ -240,12 +372,12 @@ end
 
 local L = Lighting
 local out = {
-	parts = parts, lights = lights, labels = labels, emitters = emitters, terrain = terrain,
+	parts = parts, lights = lights, labels = labels, surfaces = surfaces, emitters = emitters, terrain = terrain,
 	terrainColors = matColors,
 	water = { c = col(realTerrain.WaterColor), t = realTerrain.WaterTransparency },
 	lighting = {
 		clock = L.ClockTime, brightness = L.Brightness, ambient = col(L.Ambient), outdoor = col(L.OutdoorAmbient),
-		exposure = L.ExposureCompensation,
+		exposure = L.ExposureCompensation, envDiffuse = L.EnvironmentDiffuseScale,
 	},
 }
 local atm = L:FindFirstChildOfClass("Atmosphere")
@@ -253,4 +385,4 @@ if atm then out.atmosphere = { density = atm.Density, offset = atm.Offset, c = c
 local cc = L:FindFirstChildOfClass("ColorCorrectionEffect")
 if cc then out.cc = { sat = cc.Saturation, con = cc.Contrast, bri = cc.Brightness, tint = col(cc.TintColor) } end
 fs.writeFile(outPath, serde.encode("json", out))
-print(("exported %d parts, %d lights, %d labels, %d emitters, %d terrain ops -> %s"):format(#parts, #lights, #labels, #emitters, #terrain, outPath))
+print(("exported %d parts, %d lights, %d labels, %d surface guis, %d emitters, %d terrain ops -> %s"):format(#parts, #lights, #labels, #surfaces, #emitters, #terrain, outPath))
