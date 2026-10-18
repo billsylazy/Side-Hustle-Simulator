@@ -1350,7 +1350,7 @@ GameConfig.Mechanics = {
 	Tap = { ComboWindow = 1.8, ComboMax = 10, ComboBonusPerStack = 0.1 }, -- up to x2
 	-- Hold: the client stretches the prompt's hold to the zone's current
 	-- cooldown (Speed upgrade = shorter hold); TriggerGrace absorbs jitter.
-	Hold = { PayoutMult = 1, TriggerGrace = 0.2 },
+	Hold = { PayoutMult = 1, TriggerGrace = 0.4 },
 	-- Timing: peak flips (marketMult >= PeakThreshold) build a streak worth
 	-- +50% per stack (x3 at StreakMax); off-peak flips pay OffPeakMult and
 	-- reset the streak. Simulated: timed play out-earns spamming ~2-3x.
@@ -1362,6 +1362,7 @@ GameConfig.Mechanics = {
 		OffPeakMult = 0.5,
 		StreakMax = 5,
 		StreakBonusPerStack = 0.5,
+		PeakGrace = 0.2, -- seconds of trailing-edge latency allowance on the server
 	},
 	Charge = { HitPercent = 0.3, BurstMult = 1.5, BurstXpBonus = 2.0 },
 }
@@ -2878,6 +2879,7 @@ type ZoneState = {
 	lastHit: number, -- os.clock() of the last accepted hit (0 = never)
 	combo: number, -- Tap zones: current stack, 0..ComboMax
 	charge: number, -- Charge zones: hits banked toward the next burst
+	nextDue: number, -- Hold zones: os.clock() the next hit is scheduled for
 }
 
 -- Player -> zoneId -> ZoneState; cleared in cleanupPlayer.
@@ -2913,7 +2915,7 @@ local function getZoneState(player: Player, zoneId: string): ZoneState
 	end
 	local state = perPlayer[zoneId]
 	if not state then
-		state = { lastHit = 0, combo = 0, charge = 0 }
+		state = { lastHit = 0, combo = 0, charge = 0, nextDue = 0 }
 		perPlayer[zoneId] = state
 	end
 	return state
@@ -2966,7 +2968,14 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 	elseif mechanic == "Timing" then
 		local timing = params.Timing
 		-- Shared clock: the client previews the same curve with the same function.
-		local marketMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
+		-- The trigger arrives one-way latency after the press, so judge the
+		-- flip at arrival OR PeakGrace earlier: a press the client saw inside
+		-- the green window must not land off-peak and wipe the streak.
+		local serverNow = Workspace:GetServerTimeNow()
+		local marketMult = math.max(
+			Mechanics.marketMult(zone, serverNow),
+			Mechanics.marketMult(zone, serverNow - timing.PeakGrace)
+		)
 		local isPeak = marketMult >= timing.PeakThreshold
 		-- Peak flips build a streak (stored in state.combo) that multiplies
 		-- cash and XP; an off-peak flip sells cheap and resets it, so timing
@@ -3075,11 +3084,15 @@ local function onHustleTriggered(zone: GameConfig.ZoneDef, promptPart: BasePart,
 	local cooldown = Mechanics.cooldownFor(zone, data.Upgrades)
 	if zone.Mechanic == "Hold" then
 		-- HoldPromptController stretches the local hold to the full cooldown,
-		-- so trigger-to-trigger is already >= cooldown on the client; this
-		-- grace only absorbs network jitter between the two triggers.
-		cooldown = math.max(0, cooldown - GameConfig.Mechanics.Hold.TriggerGrace)
-	end
-	if state.lastHit > 0 and now - state.lastHit < cooldown then
+		-- so legit triggers are >= cooldown + re-press time apart. TriggerGrace
+		-- absorbs network jitter, and the schedule advances a full cooldown per
+		-- accepted hit, so the grace never compounds: the long-run rate stays
+		-- capped at 1/cooldown even for a client that skips the hold.
+		if now < state.nextDue - GameConfig.Mechanics.Hold.TriggerGrace then
+			return
+		end
+		state.nextDue = math.max(now, state.nextDue) + cooldown
+	elseif state.lastHit > 0 and now - state.lastHit < cooldown then
 		return
 	end
 
@@ -17875,14 +17888,26 @@ local function flashBurst(station: Station)
 		if station.gui.Parent == nil then
 			return
 		end
+		local fades: { Tween } = {}
 		for _, segment in station.segments do
-			TweenService:Create(segment, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			local fade = TweenService:Create(segment, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 				BackgroundColor3 = DIM,
 				BackgroundTransparency = 0.35,
-			}):Play()
+			})
+			fade:Play()
+			table.insert(fades, fade)
 		end
 		station.lit = 0
 		task.delay(0.35, function()
+			-- Stop the fades first: a fade finishing a frame later would paint
+			-- the replayed pending segment back to dim.
+			for _, fade in fades do
+				fade:Cancel()
+			end
+			for _, segment in station.segments do
+				segment.BackgroundColor3 = DIM
+				segment.BackgroundTransparency = 0.35
+			end
 			station.flashing = false
 			local pending = station.pendingCharge
 			station.pendingCharge = nil

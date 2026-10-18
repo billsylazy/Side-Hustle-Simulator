@@ -61,7 +61,9 @@ rojo build -o build/SideHustleSimulator.rbxlx   # or `rojo serve` + the Studio p
 
 The tree is defined in `default.project.json` (it also sets `Lighting.Technology =
 Future` and `Terrain.Decoration`, which scripts cannot set); all code is under `src/`,
-UI model files under `ui/*/build/`.
+UI model files under `ui/*/build/`. Those two settings only arrive through `rojo build`
+(or the built place): with `rojo serve` into a fresh place, tick **Workspace → Terrain →
+Decoration** and set **Lighting → Technology = Future** once by hand.
 
 ### Option C — manual import
 

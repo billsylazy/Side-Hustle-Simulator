@@ -32,7 +32,7 @@ GameConfig.Mechanics = {
 	Tap = { ComboWindow = 1.8, ComboMax = 10, ComboBonusPerStack = 0.1 }, -- up to x2
 	-- Hold: the client stretches the prompt's hold to the zone's current
 	-- cooldown (Speed upgrade = shorter hold); TriggerGrace absorbs jitter.
-	Hold = { PayoutMult = 1, TriggerGrace = 0.2 },
+	Hold = { PayoutMult = 1, TriggerGrace = 0.4 },
 	-- Timing: peak flips (marketMult >= PeakThreshold) build a streak worth
 	-- +50% per stack (x3 at StreakMax); off-peak flips pay OffPeakMult and
 	-- reset the streak. Simulated: timed play out-earns spamming ~2-3x.
@@ -44,6 +44,7 @@ GameConfig.Mechanics = {
 		OffPeakMult = 0.5,
 		StreakMax = 5,
 		StreakBonusPerStack = 0.5,
+		PeakGrace = 0.2, -- seconds of trailing-edge latency allowance on the server
 	},
 	Charge = { HitPercent = 0.3, BurstMult = 1.5, BurstXpBonus = 2.0 },
 }

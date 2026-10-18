@@ -173,10 +173,14 @@ Mechanics (`zone.Mechanic`, params in `GameConfig.Mechanics`):
   *shortest* hold (the cooldown at max Speed); the client `HoldPromptController` stretches each
   Hold prompt locally to `Mechanics.cooldownFor(zone, upgrades)`, so the hold itself spans the
   cooldown (no completed hold is ever silently rejected) and the Speed upgrade shortens the hold.
-  Server cooldown check for Hold zones subtracts `Hold.TriggerGrace` (0.2 s) for network jitter.
+  Server cooldown for Hold zones is a schedule: accept when `now >= nextDue - Hold.TriggerGrace`
+  (0.4 s jitter allowance, covering retransmit spikes), then `nextDue = max(now, nextDue) + cooldown`, so the grace never
+  compounds into a faster long-run rate (even for a client that skips the hold).
 - **Timing** (SneakerFlipping, StockDesk): shared clock —
   `Mechanics.marketFactor(zone, workspace:GetServerTimeNow())` ∈ [0,1] (sine over
-  `zone.MarketPeriod`). `marketMult = Timing.MinMult + (Timing.MaxMult - Timing.MinMult) * factor`.
+  `zone.MarketPeriod`). `marketMult = Timing.MinMult + (Timing.MaxMult - Timing.MinMult) * factor`, taken
+  as the max of the value at trigger arrival and `Timing.PeakGrace` (0.2 s) earlier, so a press the
+  player saw inside the green window is not judged off-peak because of ping.
   Peak flip (`marketMult >= Timing.PeakThreshold`): `streak = min(streak+1, StreakMax)` (stored in the
   per-zone `combo` slot), `streakMult = 1 + StreakBonusPerStack * (streak-1)`, `mechMult = marketMult *
   streakMult`, `mechXpMult = (1 + PeakXpBonus) * streakMult`, Kind "Peak". Off-peak flip: `streak = 0`,

@@ -49,6 +49,7 @@ type ZoneState = {
 	lastHit: number, -- os.clock() of the last accepted hit (0 = never)
 	combo: number, -- Tap zones: current stack, 0..ComboMax
 	charge: number, -- Charge zones: hits banked toward the next burst
+	nextDue: number, -- Hold zones: os.clock() the next hit is scheduled for
 }
 
 -- Player -> zoneId -> ZoneState; cleared in cleanupPlayer.
@@ -84,7 +85,7 @@ local function getZoneState(player: Player, zoneId: string): ZoneState
 	end
 	local state = perPlayer[zoneId]
 	if not state then
-		state = { lastHit = 0, combo = 0, charge = 0 }
+		state = { lastHit = 0, combo = 0, charge = 0, nextDue = 0 }
 		perPlayer[zoneId] = state
 	end
 	return state
@@ -137,7 +138,14 @@ local function resolveMechanic(zone: GameConfig.ZoneDef, data: PlayerData, state
 	elseif mechanic == "Timing" then
 		local timing = params.Timing
 		-- Shared clock: the client previews the same curve with the same function.
-		local marketMult = Mechanics.marketMult(zone, Workspace:GetServerTimeNow())
+		-- The trigger arrives one-way latency after the press, so judge the
+		-- flip at arrival OR PeakGrace earlier: a press the client saw inside
+		-- the green window must not land off-peak and wipe the streak.
+		local serverNow = Workspace:GetServerTimeNow()
+		local marketMult = math.max(
+			Mechanics.marketMult(zone, serverNow),
+			Mechanics.marketMult(zone, serverNow - timing.PeakGrace)
+		)
 		local isPeak = marketMult >= timing.PeakThreshold
 		-- Peak flips build a streak (stored in state.combo) that multiplies
 		-- cash and XP; an off-peak flip sells cheap and resets it, so timing
@@ -246,11 +254,15 @@ local function onHustleTriggered(zone: GameConfig.ZoneDef, promptPart: BasePart,
 	local cooldown = Mechanics.cooldownFor(zone, data.Upgrades)
 	if zone.Mechanic == "Hold" then
 		-- HoldPromptController stretches the local hold to the full cooldown,
-		-- so trigger-to-trigger is already >= cooldown on the client; this
-		-- grace only absorbs network jitter between the two triggers.
-		cooldown = math.max(0, cooldown - GameConfig.Mechanics.Hold.TriggerGrace)
-	end
-	if state.lastHit > 0 and now - state.lastHit < cooldown then
+		-- so legit triggers are >= cooldown + re-press time apart. TriggerGrace
+		-- absorbs network jitter, and the schedule advances a full cooldown per
+		-- accepted hit, so the grace never compounds: the long-run rate stays
+		-- capped at 1/cooldown even for a client that skips the hold.
+		if now < state.nextDue - GameConfig.Mechanics.Hold.TriggerGrace then
+			return
+		end
+		state.nextDue = math.max(now, state.nextDue) + cooldown
+	elseif state.lastHit > 0 and now - state.lastHit < cooldown then
 		return
 	end
 

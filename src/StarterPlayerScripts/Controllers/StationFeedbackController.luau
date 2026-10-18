@@ -437,14 +437,26 @@ local function flashBurst(station: Station)
 		if station.gui.Parent == nil then
 			return
 		end
+		local fades: { Tween } = {}
 		for _, segment in station.segments do
-			TweenService:Create(segment, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			local fade = TweenService:Create(segment, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 				BackgroundColor3 = DIM,
 				BackgroundTransparency = 0.35,
-			}):Play()
+			})
+			fade:Play()
+			table.insert(fades, fade)
 		end
 		station.lit = 0
 		task.delay(0.35, function()
+			-- Stop the fades first: a fade finishing a frame later would paint
+			-- the replayed pending segment back to dim.
+			for _, fade in fades do
+				fade:Cancel()
+			end
+			for _, segment in station.segments do
+				segment.BackgroundColor3 = DIM
+				segment.BackgroundTransparency = 0.35
+			end
 			station.flashing = false
 			local pending = station.pendingCharge
 			station.pendingCharge = nil
