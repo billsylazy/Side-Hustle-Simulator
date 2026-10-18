@@ -181,6 +181,96 @@ function MapKit.makeMarker(parent: Instance, name: string, cf: CFrame, size: Vec
 end
 
 ----------------------------------------------------------------------
+-- SurfaceGui budget: draw range + texture density
+----------------------------------------------------------------------
+
+-- SurfaceGui.MaxDistance (studs from the camera to the gui's part; 0 = no
+-- limit) per category. The map is not streamed, so every client holds every
+-- gui. Each range was checked with an offline line-of-sight sweep (~3,300
+-- eye / camera points over the island, r 0..306). From the plaza, the ring
+-- road and its sidewalks (r <= 125) nothing visible is culled. Out to r 250
+-- (zones, gaps, parks), only guis that have shrunk to a few pixels are:
+-- blade letters ~3 px, sub-pixel rug checks and lane dashes. Real cuts
+-- happen only from the Back Avenue and the island rim.
+--   Landmark  zone anchor boards, the plaza title billboard, the hero-tower
+--             billboards: skyline landmarks, visible from everywhere
+--   Skyline   painted building windows and rooftop signs. They are seen
+--             across the whole island (outer-ring windows up to ~600 studs),
+--             so 600 only drops them for a camera beyond the island
+--   Sign      storefront / blade / Shop-B rooftop billboards, zone boards and
+--             plaques, street signs (visible to ~420 from r <= 250)
+--   Mural     Back Avenue wall murals: the avenue's curve hides them beyond
+--             ~260 studs
+--   Ground    painted lane-dash decks, café checker rugs, the spawn START
+--             mat: seen at a grazing angle, so ring-road dashes are
+--             sub-pixel beyond ~260 studs. A ~180-stud Back Avenue deck's
+--             center sits up to ~90 studs past its nearest dash, so 300 keeps
+--             every dash that can still be seen down the avenue
+MapKit.GUI_RANGE = {
+	Landmark = 0,
+	Skyline = 600,
+	Sign = 420,
+	Mural = 350,
+	Ground = 300,
+}
+
+-- Texture density of the painted window bands (MapKit.paintBands). It was
+-- 2 px/stud; flat Frames only, seen from >= ~30 studs (Back Avenue) and
+-- mostly from >= 150 studs.
+MapKit.WINDOW_PIXELS_PER_STUD = 1.5
+
+-- Lower the texture density of a SurfaceGui that was LAID OUT at a higher
+-- (design) PixelsPerStud, without changing how it looks in studs. Every
+-- client allocates face studs^2 x pps^2 texels per SurfaceGui, so a board
+-- seen only from afar does not need its design density.
+--   * Frames and labels must be sized in Scale (every builder here is), so
+--     the layout is the same at any density.
+--   * Every UIStroke is scaled by new / old, so an outline keeps its design
+--     width in studs (MapKit.makeTextLabel sized it from the design
+--     PixelsPerStud).
+--   * TextScaled stops at 100 px. A label whose design line height could
+--     reach that cap (>= 100 px per line) gets a UITextSizeConstraint at
+--     100 x new / old, so the capped text keeps its design size in studs.
+--     Below the cap, TextScaled text is fit to its box and does not depend
+--     on the density.
+-- Returns the gui.
+function MapKit.setTextureDensity(gui: SurfaceGui, pixelsPerStud: number): SurfaceGui
+	local design = gui.PixelsPerStud
+	if pixelsPerStud >= design then
+		return gui
+	end
+	local ratio = pixelsPerStud / design
+	local adornee = gui.Adornee or gui.Parent
+	local faceHeight = 0
+	if adornee and adornee:IsA("BasePart") then
+		local _, h = MapKit.faceSize(adornee, gui.Face)
+		faceHeight = h
+	end
+	for _, d in gui:GetDescendants() do
+		if d:IsA("UIStroke") then
+			d.Thickness *= ratio
+		elseif d:IsA("TextLabel") and d.TextScaled then
+			local heightScale = d.Size.Y.Scale
+			local node = d.Parent
+			while node and node ~= gui do
+				if node:IsA("GuiObject") then
+					heightScale *= (node :: GuiObject).Size.Y.Scale
+				end
+				node = node.Parent
+			end
+			local lines = #string.split(d.Text, "\n")
+			if faceHeight * design * heightScale / lines >= 100 and not d:FindFirstChildOfClass("UITextSizeConstraint") then
+				local cap = Instance.new("UITextSizeConstraint")
+				cap.MaxTextSize = math.max(1, math.floor(100 * ratio))
+				cap.Parent = d
+			end
+		end
+	end
+	gui.PixelsPerStud = pixelsPerStud
+	return gui
+end
+
+----------------------------------------------------------------------
 -- Text + light
 ----------------------------------------------------------------------
 
@@ -288,7 +378,8 @@ end
 
 -- PAINTED window bands (zero parts) on one face of a building body whose
 -- bottom sits on the ground: a lit SurfaceGui "Windows" (LightInfluence 1,
--- so the paint shades with its wall; 2 px/stud, no Face frame) with one
+-- so the paint shades with its wall; MapKit.WINDOW_PIXELS_PER_STUD, drawn to
+-- MapKit.GUI_RANGE.Skyline, no Face frame) with one
 -- Frame per band (centered at height y studs above the body's bottom,
 -- opts.width wide, opts.height (3.6) tall, opts.color), a 0.3-stud sill in
 -- the band color 35% toward navy under each, and optional mullions
@@ -312,7 +403,8 @@ function MapKit.paintBands(part: BasePart, face: Enum.NormalId, rows: { number }
 	gui.Name = "Windows"
 	gui.Face = face
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 2
+	gui.PixelsPerStud = MapKit.WINDOW_PIXELS_PER_STUD
+	gui.MaxDistance = MapKit.GUI_RANGE.Skyline
 	gui.LightInfluence = 1
 	gui.Brightness = 1
 	local bandH = opts.height or 3.6
@@ -349,7 +441,8 @@ end
 
 -- PAINTED ground deck (road markings, the spawn mat): an invisible, flat,
 -- non-colliding, non-queryable part (Transparency 1, 0.05 thick) whose BACK
--- face points up and carries a SurfaceGui `guiName`. `cf` is a horizontal
+-- face points up and carries a SurfaceGui `guiName` (drawn to
+-- MapKit.GUI_RANGE.Ground). `cf` is a horizontal
 -- frame at the deck's center (its Y = the deck's center height): the gui's
 -- up runs along cf's -Z and its right along cf's +X. A side face is used on
 -- purpose: Roblox orients side-face guis unambiguously (up = part +Y, Back
@@ -388,6 +481,7 @@ function MapKit.makeGroundDeck(
 	gui.Face = Enum.NormalId.Back
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = pixelsPerStud
+	gui.MaxDistance = MapKit.GUI_RANGE.Ground
 	gui.LightInfluence = lightInfluence or 1
 	gui.Brightness = brightness or 1
 	gui.Parent = part
@@ -409,12 +503,16 @@ function MapKit.deckRotation(cf: CFrame, dir: Vector3): number
 	return math.deg(math.atan2(l.Z, l.X))
 end
 
--- SurfaceGui text on one face of a part. `pixelsPerStud` defaults to 30; big
--- far-away boards pass less to keep texture memory small.
+-- SurfaceGui text on one face of a part. `pixelsPerStud` (the design
+-- density: label stroke + text size) defaults to 30; big far-away boards pass
+-- less, or lower their texture density afterwards (MapKit.setTextureDensity),
+-- to keep texture memory small.
 -- `faceColor` (sign boards): a full-face Frame "Face" in that color under the
 -- text. The gui is unlit (LightInfluence 0, Brightness 1.1), so the board
 -- face shows its true color from every angle whatever the sun does: a sign
 -- turned away from the sun never reads as a switched-off grey slab.
+-- `maxDistance`: the draw range (default MapKit.GUI_RANGE.Sign; landmarks
+-- pass MapKit.GUI_RANGE.Landmark).
 function MapKit.addSurfaceText(
 	part: BasePart,
 	text: string,
@@ -422,12 +520,14 @@ function MapKit.addSurfaceText(
 	textColor: Color3,
 	face: Enum.NormalId,
 	pixelsPerStud: number?,
-	faceColor: Color3?
+	faceColor: Color3?,
+	maxDistance: number?
 ): SurfaceGui
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = pixelsPerStud or 30
+	gui.MaxDistance = maxDistance or MapKit.GUI_RANGE.Sign
 	gui.LightInfluence = 0
 	if faceColor then
 		gui.Brightness = 1.1

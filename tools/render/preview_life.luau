@@ -46,7 +46,7 @@ return function(ctx)
 	folder.Name = "LifePreview"
 	folder.Parent = ctx.Workspace
 
-	local sim = CityLifeSim.new(folder)
+	local sim = CityLifeSim.new(folder, "High") -- the default (desktop) crowd the players see
 	local map = ctx.Workspace:FindFirstChild("SideHustleMap")
 	if map then
 		-- traffic light colors, rooftop coins, CitySpin models, the zone

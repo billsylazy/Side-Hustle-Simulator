@@ -286,9 +286,9 @@ Workspace.SideHustleMap (Folder)
     Street      curbs, zebra crosswalks on every zone axis, PAINTED lane dashes: 8 invisible
                 flat MarkingDeck<k> parts (one per gap octant, 48 x 26 at r 84, CanCollide /
                 CanQuery / CanTouch false) whose lit SurfaceGui "Markings" (LightInfluence 1,
-                10 px/stud) holds one Frame per yellow center / white lane dash (120 in all,
+                5 px/stud, decks trimmed to their dashes) holds one Frame per yellow center / white lane dash (120 in all,
                 `CityLayout.roadDashes` / `markingDecks`) + 8 BackMarkingDeck<k> (205 x 25,
-                5 px/stud) painting the Back Avenue's 72 yellow center dashes (r 260); no dash
+                4 px/stud) painting the Back Avenue's 72 yellow center dashes (r 260); no dash
                 parts. TrafficLight (Model, attribute ZoneId; cobalt mast, cartoon-yellow
                 SignalHead; Neon SignalRed / SignalAmber / SignalGreen parts that clients may
                 recolor locally)
@@ -351,7 +351,12 @@ face (zone signature color, shop accent, white or gold) with white or colored Fr
 LuckiestGuy text; `MapKit.makeTextLabel` gives every TextLabel a navy `UIStroke`: on SurfaceGuis
 clamp(round(0.055 · labelPx), 4, 9) px with labelPx = face height (studs) · PixelsPerStud · the
 label's height scale (through parent frames), so big boards keep a readable outline from the
-plaza; 3 px on BillboardGuis. **Face-frame rule:** every
+plaza; 3 px on BillboardGuis. `MapKit.setTextureDensity(gui, pps)` lowers a gui's PixelsPerStud and
+rescales every UIStroke by new/old, so outlines keep their size in studs (never under 2 px).
+**SurfaceGui MaxDistance by category** (`MapKit.GUI_RANGE`, enforced by check_map): Landmark 0 =
+unlimited (8 zone anchor boards, plaza title, 2 hero-tower billboards), Skyline 600 (painted
+windows, RoofSigns), Sign 420 (storefront, blade, Shop B and zone/street signs), Mural 350, Ground
+300 (lane-dash decks, cafe rugs, START mat). Map texture total ~5.5 M texels (was 9.2 M). **Face-frame rule:** every
 Block sign board passes its own color as `faceColor` (7th argument) to `MapKit.addSurfaceText`,
 which parents a full-face Frame "Face" (ZIndex 1, text ZIndex 2) to an unlit SurfaceGui
 (LightInfluence 0, Brightness 1.1), so a board shows its true color whatever the sun angle (never
@@ -419,7 +424,7 @@ are a deep ticker green (`MapKit.STOCK_DEEP_GREEN` (18,84,58), a local override:
 its near-black AccentColor). Plaza floor: peach inlay (255,186,140) with (255,158,112) /
 (112,214,200) sunburst rays. **Paint, don't build:** faces seen only from >= 150 studs (outer-
 ring fronts + sides, mid-ring sides above the rowhouses) carry painted windows —
-`MapKit.paintBands` (a lit SurfaceGui "Windows": LightInfluence 1, 2 px/stud, one Frame per band
+`MapKit.paintBands` (a lit SurfaceGui "Windows": LightInfluence 1, 1.5 px/stud, one Frame per band
 + a sill, front mullions) — and the mid-ring backs a painted `Mural` (LightInfluence 0.4,
 Brightness 1.4); near faces (mid-ring fronts, anchors, hero towers, shops, rowhouses) keep
 chunky part bands. Flat ground markings are painted too: every lane dash is a Frame on a
@@ -454,22 +459,73 @@ window-washer cradles)).
 
 Rules: every CityLife part is Anchored with CanCollide / CanQuery / CanTouch false, CastShadow false
 except a vehicle's chassis / the bus body / the truck's cab and cargo box. One Heartbeat connection
-and one `workspace:BulkMoveTo` (`FireCFrameChanged`) per frame over reused arrays: no Instance creation
-or table allocation per frame. Property writes: a dog leash's Size (only when its hand -> collar
-length changes by > 0.06), a window-washer cable's Size (at most every 0.25 s), the car-wash car's 2
-body colors once per pass, and the city pulse's Color / Transparency sets on the map's own neon (10 Hz,
-only on change). The zone life also moves map parts LOCALLY by CFrame (the hero-prop spinners) - only
-non-colliding, non-contract parts (see Zone life); `sim:unbindMap()` puts them back. Distance LOD from
-the camera: citizens and pigeons update every frame with limb animation within 140 studs, every 2nd
-frame (still animated) to 260, every 4th frame in a rest pose to 400, and are parked out of sight
-beyond; idlers other than the street dancer pose every 2nd frame; resting pigeons and stopped
-(settled) vehicles are emitted once, not every frame; vehicles update every frame within 260
-(suspension bob / brake pitch), every 2nd frame to 400 and hide beyond; birds hide beyond 400, the
-blimp and clouds beyond 1500 (clouds move every 2nd frame). Zone customers, the car-wash car and the
-agility dogs follow the citizen LOD (standing customers pose every 2nd frame); the zone spinners turn
-only within 260 studs of the camera (beyond that they hold their pose); the window washers move every
-2nd frame and hide beyond 400; the balloons move every 2nd frame (the other parity from the clouds)
-and hide beyond 1500 like the blimp.
+(`sim:heartbeat(dt, cameraPos, cameraLook)`) and at most one `workspace:BulkMoveTo` (`FireCFrameChanged`,
+inside a pcall like the step) per Heartbeat, only on a Heartbeat that ran a sim step, over reused
+arrays: no Instance creation or table allocation per frame. Property writes: a dog leash's Size (only
+when its hand -> collar length changes by > 0.06), a window-washer cable's Size (at most every 0.25 s),
+the car-wash car's 2 body colors once per pass, the CityLife folder's `DeviceTier` / `RuntimeTier`
+attributes (at start / when the governor steps), and the city pulse's Color / Transparency sets on the
+map's own neon (10 Hz, only on change). The zone life also moves map parts LOCALLY by CFrame (the
+hero-prop spinners) - only non-colliding, non-contract parts (see Zone life); `sim:unbindMap()` puts
+them back.
+
+- **Device tiers + performance** (`CityLifeSim.TIERS`; the High tier is exactly the pre-tier city the
+  renders show - `preview_life` builds "High" and its snapshot is unchanged):
+  - The DEVICE tier is picked once at controller start by `CityLifeSim.detectTier` (every
+    `UserSettings()` / `UserGameSettings` read in a pcall): **Low** when `UserInputService.TouchEnabled`
+    and not `KeyboardEnabled` (phones / tablets) or `SavedQualityLevel` is 1-4; **Medium** for 5-7, or
+    Automatic on a touch device with a keyboard; **High** otherwise (Automatic on desktop, 8-10). It
+    fixes the crowd at `CityLifeSim.new(folder, tier)`: Low builds every 2nd sidewalk walker per lane
+    (19 incl. both dog-walkers) and every 2nd shopper (6), 2 crossers per zebra (A / C, their own
+    checked lines: 16), no storefront loiterers, café sitters or window washers, 1 pigeon flock, 6 clouds,
+    2 balloons (yellow + pink) and 10 ring-road vehicles (`FLEET` entries with `low`, incl. the police
+    car, bus and truck) + both Back Avenue ones: 59 citizens + 33 customers, 12 vehicles, 1,633 life
+    parts (High / Medium: 107 + 33, 20, 2,510).
+  - The RUNTIME tier (starts at the device tier) sets only per-step knobs, so it never rebuilds:
+    | tier | full / mid radius | mid cadence | vehicle + sky radius | part cap / step | sim rate |
+    | --- | --- | --- | --- | --- | --- |
+    | High | 140 / 260 | every 2nd | 260 | 1,200 | every Heartbeat |
+    | Medium | 90 / 180 | every 3rd | 180 | 800 | every Heartbeat |
+    | Low | 60 / 140 | every 3rd | 140 | 450 | at most 30 Hz, time-based (remainder carried; every Heartbeat at <= 30 FPS) |
+    The governor in `sim:heartbeat` keeps an EMA (0.5 s) of the Heartbeat dt (ignoring the first 5 s,
+    one hitch counting at most 0.25 s): above 1/50 for 3 s -> one runtime tier down (floor Low); under
+    1/58 for 10 s -> one back up, never above the device tier (a tier that drops again within 30 s of a
+    recovery doubles that wait, up to 80 s). The population stays as built.
+  - LOD (distance from the camera, plus FACING from its LookVector): citizens (walkers, shoppers,
+    crossers, idlers, customers, washers), pigeons, the car-wash car and the agility dogs animate every
+    step within the full radius, every 2nd (High) / 3rd step to the mid radius, every 4th step in a rest
+    pose beyond it - and also, at any distance, when more than 25 studs away AND behind the camera
+    (dot(look, toAgentUnit) < -0.2, well outside the view frustum, so a camera swing never shows a
+    stale pose) - and are parked out of sight beyond 400. Idlers (but the street dancer), standing
+    customers and the window washers pose at most every 2nd step. Vehicles move every step with
+    suspension bob / brake pitch within the vehicle radius in front, every 2nd / 3rd step beyond, every
+    4th behind the camera, hide beyond 400; stopped (settled) vehicles and resting pigeons are emitted
+    once. Sky + spinners use the same rules against the sky radius: the blimp, bird Vs (one decision
+    per V), rooftop coins and every `CitySpin` / zone-spinner model (one decision per model, so a model
+    never shears); clouds and balloons at most every 2nd step; the blimp / clouds / balloons park
+    beyond 1,500, birds beyond 400, coins hold beyond 700 and the zone spinners beyond 260.
+  - Part cap: a hard limit on the parts emitted per step (High 1,200 / Medium 800 / Low 450; only the
+    forced full pose of the first step and the step after `bindMap` is exempt). Every poser asks
+    `_admit` before computing its CFrames, in priority class 1 (within the full radius), 2 (to the mid
+    radius) or 3 (beyond / behind / far sky). Each step every class gets a share of the cap from what
+    the classes asked for last step (1 first); a class over its share passes `share / 13` of its
+    requests, evenly per poser (a per-poser accumulator: a turn within 13 requests even at the minimum
+    share), and a lower class always leaves room for what the higher classes have still to ask for. A
+    poser the hard limit refuses is `owed`: next step it skips its LOD cadence and goes first. Parks
+    obey the cap too (a refused park simply retries next step). Nobody starves (checked: a cap of 120
+    never exceeded and no walker waits more than 52 steps).
+  - Allocation: a still idler emits only the pose groups whose angles changed (a head turn: the head
+    group; nothing at all in its rest pose), checked exactly equal to full re-poses; constant pivots /
+    offsets and `CFrame.Angles` are folded into one matrix per limb / root / wing / dog part
+    (`yawRollCF`, `yawPitchCF`, `limbCF`, `hingeZ`, cached offsets; a still idler reuses its root).
+  - Measured in Lune (`MapBuilder` + `CityLifeSim` + `bindMap`, one player at the SpawnLocation, the
+    camera 12 behind / 7 above it looking at the player, 1,200 Heartbeats; Lune userdata is several
+    times slower than Roblox, compare the ratios): parts per Heartbeat before 1,900 (max 2,113, every
+    device) -> High 1,121 (max 1,200; moving citizens in front within 140 still posed every step),
+    Medium 754 (max 800), Low 212 per Heartbeat = 423 per 30 Hz step (max 450); Lune time per
+    Heartbeat before 6.5-7.8 ms -> High 2.9-3.3, Medium 2.5-2.9, Low 0.7-0.85; CFrame constructors per
+    Heartbeat 2,007 -> 383 / 249 / 71; largest heap growth per step 380 KB -> 120 / 81 / 46 KB.
+
 Budgets: <= 108 citizens (incl. 12 shoppers and 2 window washers) + 33 zone customers, <= 20 vehicles,
 customers <= 435 parts (417 today), zone life <= 40 parts (34), <= 2,520 life parts (2,510 today; map
 4,338 + life = 6,848 exported, under the 6,930 envelope and the 7,000 cap). No sounds (only ever via
@@ -485,8 +541,11 @@ first life cuts are the window washers (-32 parts), then 4 shoppers (~-56), then
   never counted at a zebra). Each keeps an evenly spaced schedule slot (catch-up <= +30%), a 5-stud
   bumper gap to the vehicle ahead, eases speed exponentially (6/s) and never overshoots a stop (hard
   clamp). Ring-road vehicles stop at amber / red crosswalk lights (commit through amber only when they
-  cannot stop at 40 studs/s^2); every vehicle stops for any player standing in its lane ahead or beside
-  it; the bus dwells 3 s at every `CityLayout.busStops` stop. The truck's box tops out at Y 9.6 (+ <=
+  cannot stop at 40 studs/s^2); every vehicle stops for a player standing ON its lane's asphalt (r 66-104
+  on the ring, the Back Avenue asphalt there; never one on the sidewalk next to the curb) ahead of or
+  beside it - for at most 3 s (`PlayerYieldMax`): then it gives a little 0.35-stud "honk" hop and
+  creeps THROUGH the player at 4 studs/s (life parts never collide) until they are behind it, so an idle
+  player can never stop a lane; the bus dwells 3 s at every `CityLayout.busStops` stop. The truck's box tops out at Y 9.6 (+ <=
   0.27 bob / pitch) under the signal heads (bottom 10.2); the ice-cream van's cone (13) only drives the
   inner lanes, which no signal part overhangs. The police car (`VehicleRig` kind `Police`, Outer1 at
   180 degrees, the Car's dimensions, speed and rules) is WHITE with a blue hood, blue doors painted
@@ -498,7 +557,9 @@ first life cuts are the window washers (-32 parts), then 4 shoppers (~-56), then
   the zebra band. Rush hour: at that moment every ready crosser of the zebra goes, joined by every
   idle one there whose wait ends within 8 s (`CrossJoinWindow`), each after a 0-0.8 s hash delay, so
   groups pour across from both sides; committed crossers hold the light red until each is off the
-  asphalt (the rest of the walk is on the sidewalk). A player on a zebra holds it red. The controller
+  asphalt (the rest of the walk is on the sidewalk). A player on a zebra holds / extends the red at
+  most 6 s per red phase (`PlayerHoldMax`; then the lights cycle normally and the cars yield to a player
+  on their lane as above), so one idle player never stops the ring. The controller
   recolors the map's `TrafficLight` lamps (`SignalRed` / `SignalAmber` / `SignalGreen`, matched by the
   model's `ZoneId`) LOCALLY: the lit lamp is Neon, the others dimmed SmoothPlastic. Each light is red
   ~35-39% of the time (a group every ~25 s); 66-75 crossings per zebra per 10 minutes.
@@ -641,7 +702,10 @@ first life cuts are the window washers (-32 parts), then 4 shoppers (~-56), then
     holds the map's own collidable demo car (`CarBody` / `CarCabin` / `CarWheel` directly under
     `Zones.CarWash`), which may never move: the moving car stops nose-to-tail behind it and continues
     from just past its front bumper - a swap hidden by the tunnel roof, its 4.5-tall front wall and the
-    taller demo car. A player standing on the conveyor ahead holds it. Validated in `bindMap`: its +-4
+    taller demo car. A player standing on the conveyor just ahead of its nose (within 2.5 studs) holds it;
+    one already inside its footprint does not (it rolls on through them, never parking inside anyone),
+    and the car never appears on top of a player: a new pass at the -X end, or the swap past the demo
+    car, waits while one stands there (at most 5 s, `WashSpawnHoldMax`). Validated in `bindMap`: its +-4
     wide footprint (h 0.3-6) >= 4.5 (XZ) from `PromptPart` (18.9), >= 4 from `AutoAnchor` (16.0), >= 2.4
     from every customer spot and walk path (3.2); it passes between the tunnel walls and the brushes
     scrub its flank. The snapshot catches it (yellow) 85% down its exit roll, half out of the tunnel

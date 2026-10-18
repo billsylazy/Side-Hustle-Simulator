@@ -112,6 +112,17 @@ local ACCENTS = {
 
 local ROOF_SIGNS = { "HUSTLE", "CASH CO", "BIG BANK", "PIZZA", "HOTEL", "24/7" }
 
+-- Texture densities of far-seen text boards. Each board is laid out (stroke,
+-- text size) at its design density, then textured at this lower one by
+-- MapKit.setTextureDensity, so it looks the same in studs. Their text is
+-- fit to its box, well under TextScaled's 100 px cap. Blade signs (mid-ring
+-- street wall, seen from >= ~90 studs on the outer sidewalk): 20 -> 10 px/stud.
+-- Rooftop signs (>= ~60 studs below them): 20 -> 12. Storefront name boards
+-- (seen from the sidewalk, >= ~10 studs): 24 -> 20.
+local BLADE_TEXTURE_PPS = 10
+local ROOF_SIGN_TEXTURE_PPS = 12
+local SHOP_SIGN_TEXTURE_PPS = 20
+
 -- Shop B rooftop billboard per gap: chosen so no billboard shares a hue with
 -- either neighbouring zone (gap k sits between zone k and zone k + 1), so a
 -- zone's own rooftop board is the only one in its color in its sector.
@@ -229,24 +240,48 @@ local DASH_COLORS = {
 	Back = Color3.fromRGB(255, 214, 50),
 }
 
+-- Texture density of the marking decks: the dashes are flat Frames, so a
+-- deck only needs a few whole pixels across its thinnest dash (ring 0.8
+-- studs -> 4 px, Back Avenue 0.5 -> 2 px), not CityLayout's 10 / 5 px per stud.
+local RING_DECK_PIXELS_PER_STUD = 5
+local BACK_DECK_PIXELS_PER_STUD = 4
+local DECK_MARGIN = 0.5 -- studs of deck around the outermost dash corner
+
 -- PAINTED lane dashes: one invisible flat deck per gap octant
 -- (CityLayout.markingDecks / backMarkingDecks) whose lit SurfaceGui
 -- "Markings" holds one Frame per dash (same size, color, center and tangent
 -- as the old 0.1-thick dash parts), so the markings shade like the asphalt
--- and cost 1 part per octant instead of 15 (ring) / 9 (Back Avenue).
-local function buildMarkingDecks(parent: Instance, decks)
+-- and cost 1 part per octant instead of 15 (ring) / 9 (Back Avenue). Each
+-- deck is trimmed to the bounding box of its own dashes (+ DECK_MARGIN) in
+-- the layout deck's frame, at `pixelsPerStud`: the texture covers the paint,
+-- not the empty asphalt around it.
+local function buildMarkingDecks(parent: Instance, decks, pixelsPerStud: number)
 	for _, deck in decks do
-		local _, gui = MapKit.makeGroundDeck(parent, deck.name, deck.cframe, deck.width, deck.depth, deck.pixelsPerStud, "Markings", 1, 1)
-		-- scale (float) positions and sizes: UDim offsets are whole pixels
-		local pps = deck.pixelsPerStud
-		local gw, gh = deck.width * pps, deck.depth * pps
+		local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 		for _, dash in deck.dashes do
-			local px, py = MapKit.deckPixel(deck.cframe, deck.width, deck.depth, pps, dash.cframe.Position)
+			for _, corner in {
+				Vector3.new(dash.length / 2, 0, dash.width / 2), Vector3.new(-dash.length / 2, 0, dash.width / 2),
+				Vector3.new(dash.length / 2, 0, -dash.width / 2), Vector3.new(-dash.length / 2, 0, -dash.width / 2),
+			} do
+				local l = deck.cframe:PointToObjectSpace(dash.cframe:PointToWorldSpace(corner))
+				minX, maxX = math.min(minX, l.X), math.max(maxX, l.X)
+				minZ, maxZ = math.min(minZ, l.Z), math.max(maxZ, l.Z)
+			end
+		end
+		local width = maxX - minX + 2 * DECK_MARGIN
+		local depth = maxZ - minZ + 2 * DECK_MARGIN
+		local deckCF = deck.cframe * CFrame.new((minX + maxX) / 2, 0, (minZ + maxZ) / 2)
+		local pps = pixelsPerStud
+		local _, gui = MapKit.makeGroundDeck(parent, deck.name, deckCF, width, depth, pps, "Markings", 1, 1)
+		-- scale (float) positions and sizes: UDim offsets are whole pixels
+		local gw, gh = width * pps, depth * pps
+		for _, dash in deck.dashes do
+			local px, py = MapKit.deckPixel(deckCF, width, depth, pps, dash.cframe.Position)
 			MapKit.makeGuiFrame({
 				name = "Dash", parent = gui, anchor = Vector2.new(0.5, 0.5),
 				position = UDim2.fromScale(px / gw, py / gh),
-				size = UDim2.fromScale(dash.length / deck.width, dash.width / deck.depth),
-				rotation = MapKit.deckRotation(deck.cframe, dash.cframe.RightVector),
+				size = UDim2.fromScale(dash.length / width, dash.width / depth),
+				rotation = MapKit.deckRotation(deckCF, dash.cframe.RightVector),
 				color = DASH_COLORS[dash.kind] or WHITE,
 			})
 		end
@@ -256,7 +291,7 @@ end
 local function buildMarkings(parent: Instance)
 	-- Painted dashes (no dash comes within 9 degrees of a zone axis: the
 	-- crosswalks live there), then the zebra crosswalks on every zone axis.
-	buildMarkingDecks(parent, CityLayout.markingDecks)
+	buildMarkingDecks(parent, CityLayout.markingDecks, RING_DECK_PIXELS_PER_STUD)
 	local markingY = S.MarkingTop - 0.05
 	for _, cw in CityLayout.crosswalks do
 		for j = 0, S.CrosswalkBars - 1 do
@@ -323,7 +358,7 @@ local function buildStreet(city: Instance)
 	buildMarkings(street)
 	-- Back Avenue (between the skyline rings): painted yellow center dashes
 	-- every 5 degrees (the asphalt + white edge rings are MapBuilder's discs)
-	buildMarkingDecks(street, CityLayout.backMarkingDecks)
+	buildMarkingDecks(street, CityLayout.backMarkingDecks, BACK_DECK_PIXELS_PER_STUD)
 	for _, spec in CityLayout.trafficLights do
 		buildTrafficLight(street, spec)
 	end
@@ -382,7 +417,11 @@ local function buildRoofProp(model: Instance, cf: CFrame, spec, variant: number,
 			name = "RoofSign", parent = model, size = Vector3.new(20, 5, 1),
 			cframe = signCF, color = WHITE,
 		})
-		addSurfaceText(board, ROOF_SIGNS[math.floor(spec.index / 4) % #ROOF_SIGNS + 1], Enum.Font.LuckiestGuy, accent, Enum.NormalId.Front, 20, WHITE)
+		local gui = addSurfaceText(
+			board, ROOF_SIGNS[math.floor(spec.index / 4) % #ROOF_SIGNS + 1], Enum.Font.LuckiestGuy, accent,
+			Enum.NormalId.Front, 20, WHITE, MapKit.GUI_RANGE.Skyline
+		)
+		MapKit.setTextureDensity(gui, ROOF_SIGN_TEXTURE_PPS)
 		decoBlock({
 			name = "RoofSignNeon", parent = model, size = Vector3.new(20.4, 0.5, 0.4),
 			cframe = signCF * CFrame.new(0, -2.75, -0.4), color = accent, material = Enum.Material.Neon,
@@ -428,7 +467,7 @@ local function buildBladeSign(model: Instance, cf: CFrame, spec)
 	end
 	local text = table.concat(letters, "\n")
 	for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
-		addSurfaceText(blade, text, Enum.Font.LuckiestGuy, WHITE, face, 20, color)
+		MapKit.setTextureDensity(addSurfaceText(blade, text, Enum.Font.LuckiestGuy, WHITE, face, 20, color), BLADE_TEXTURE_PPS)
 	end
 	decoBlock({
 		name = "BladeSignNeon", parent = model, size = Vector3.new(0.4, 14.4, 0.4),
@@ -457,7 +496,9 @@ local function buildOuterShopfront(model: Instance, cf: CFrame, W: number, D: nu
 end
 
 -- Giant painted wall ad (zero parts) on a mid-ring building's back face, the
--- inner wall of the Back Avenue: SurfaceGui "Mural" (5 px/stud, LightInfluence
+-- inner wall of the Back Avenue: SurfaceGui "Mural" (laid out at 5 px/stud,
+-- textured at MURAL_TEXTURE_PPS by MapKit.setTextureDensity, drawn to
+-- MapKit.GUI_RANGE.Mural; LightInfluence
 -- 0.4, Brightness 1.4) with an accent Panel from x 3 .. W-3 and y 11 (over the
 -- BackAwning / BackDoor) .. H-3, three soft circles + a diagonal stripe
 -- clipped to it and a two-line LuckiestGuy slogan. The panel color is two
@@ -466,7 +507,8 @@ local MURAL_SLOGANS = {
 	"DREAM\nBIG", "HUSTLE\nHARD", "BOSS\nMODE", "LEVEL\nUP!", "CASH\nFLOW", "GO GET\nIT!",
 	"BIG\nMONEY", "TO THE\nMOON", "STAY\nHUNGRY", "SIDE\nHUSTLE", "GRIND\nTIME", "YOU GOT\nTHIS",
 }
-local MURAL_PPS = 5
+local MURAL_PPS = 5 -- design density (slogan stroke below)
+local MURAL_TEXTURE_PPS = 3 -- flat paint + 5.6..12.8-stud slogan lines
 local BUTTER = Color3.fromRGB(255, 228, 140)
 local SKY = Color3.fromRGB(140, 192, 255)
 local function buildMural(body: BasePart, spec)
@@ -476,6 +518,7 @@ local function buildMural(body: BasePart, spec)
 	gui.Face = Enum.NormalId.Back
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = MURAL_PPS
+	gui.MaxDistance = MapKit.GUI_RANGE.Mural
 	gui.LightInfluence = 0.4
 	gui.Brightness = 1.4
 	gui.ClipsDescendants = true
@@ -514,7 +557,7 @@ local function buildMural(body: BasePart, spec)
 		local linePx = ph * MURAL_PPS * 0.56 / 2
 		stroke.Thickness = math.clamp(math.floor(0.14 * linePx + 0.5), 4, 6)
 	end
-	return gui
+	return MapKit.setTextureDensity(gui, MURAL_TEXTURE_PPS)
 end
 
 -- Slewing yellow tower crane on an outer-ring roof (CityLayout.TowerCranes /
@@ -569,7 +612,8 @@ local function buildCrane(model: Instance, cf: CFrame, spec, crane)
 			color = CRANE_WHITE,
 		})
 	end
-	decoBlock({ name = "Counterweight", parent = top, size = Vector3.new(6, 5, 4.6), cframe = at(-9, 4.5), color = Color3.fromRGB(120, 128, 160) })
+	-- counterweight x -11.92 .. -6: its back face stays 0.08 inside the jib's end (x -12)
+	decoBlock({ name = "Counterweight", parent = top, size = Vector3.new(5.92, 5, 4.6), cframe = at(-8.96, 4.5), color = Color3.fromRGB(120, 128, 160) })
 	decoBlock({ name = "CraneTrolley", parent = top, size = Vector3.new(3, 1.2, 3), cframe = at(tx, 4.9), color = CRANE_SLATE })
 	decoBlock({ name = "HookLine", parent = top, size = Vector3.new(0.3, 12, 0.3), cframe = at(tx, -1.7), color = CRANE_SLATE })
 	decoBlock({ name = "CraneLoad", parent = top, size = Vector3.new(7, 1.2, 2.4), cframe = at(tx, -8.4), color = Color3.fromRGB(255, 150, 40) })
@@ -756,7 +800,7 @@ local function buildBillboardTower(model: Instance, cf: CFrame, style)
 		name = "Billboard", parent = model, size = Vector3.new(30, 12, 1.2),
 		cframe = boardCF, color = style.accent, castShadow = true,
 	})
-	addSurfaceText(board, style.text or "HUSTLE CITY", Enum.Font.LuckiestGuy, WHITE, Enum.NormalId.Front, 16, style.accent)
+	addSurfaceText(board, style.text or "HUSTLE CITY", Enum.Font.LuckiestGuy, WHITE, Enum.NormalId.Front, 16, style.accent, MapKit.GUI_RANGE.Landmark)
 	neonFrame(model, boardCF, 30, 12, 1.5, NEON_WHITE, 0.7)
 	buildOuterShopfront(model, cf, W, D, -D / 2 - 0.5, style.accent)
 end
@@ -976,8 +1020,8 @@ local function buildShopFront(model: Instance, cf: CFrame, spec, frontWidth: num
 	})
 	-- warm "lights on inside" panel, seen through the glass (its face sits
 	-- between the glass front and the white frame)
-	decoBlock({
-		name = "WindowGlow", parent = model, size = Vector3.new(windowW, 6.6, 0.1),
+	decoBlock({ -- ends 0.04 inside the glass's ends (not in their plane)
+		name = "WindowGlow", parent = model, size = Vector3.new(windowW - 0.08, 6.6, 0.1),
 		cframe = cf * CFrame.new(windowX, 4.9, front - 0.3), color = WINDOW_WARM,
 	})
 	decoBlock({
@@ -1002,7 +1046,7 @@ local function buildShopFront(model: Instance, cf: CFrame, spec, frontWidth: num
 		name = "ShopSign", parent = model, size = Vector3.new(boardW, 3.4, 0.8),
 		cframe = cf * CFrame.new(0, 12.4, front - 0.4), color = accent,
 	})
-	addSurfaceText(board, spec.name, Enum.Font.FredokaOne, WHITE, Enum.NormalId.Front, 24, accent)
+	MapKit.setTextureDensity(addSurfaceText(board, spec.name, Enum.Font.FredokaOne, WHITE, Enum.NormalId.Front, 24, accent), SHOP_SIGN_TEXTURE_PPS)
 	decoBlock({
 		name = "ShopSignNeon", parent = model, size = Vector3.new(boardW, 0.4, 0.3),
 		cframe = cf * CFrame.new(0, 10.5, front - 0.7), color = NEON_WHITE, material = Enum.Material.Neon,
@@ -1076,8 +1120,8 @@ local function buildShopB(parent: Instance, spec)
 	-- marquee. 20 x 8.5: smaller than every zone's 40 x 11.5 anchor board.
 	local roofY = H + 0.8
 	for _, x in { -7, 7 } do
-		decoBlock({
-			name = "BillboardLeg", parent = model, size = Vector3.new(1, 6, 1),
+		decoBlock({ -- 0.92 deep: its faces stay 0.04 inside the 1-deep board's
+			name = "BillboardLeg", parent = model, size = Vector3.new(1, 6, 0.92),
 			cframe = cf * CFrame.new(x, roofY + 3, -D / 2 + 3), color = POLE,
 		})
 	end
@@ -1246,7 +1290,7 @@ ICONS.StartupHQ = function(parent, cf, zone)
 		local yaw = math.rad(i * 120)
 		decoWedge({
 			name = "IconRocketFin", parent = parent, size = Vector3.new(0.6, 4, 3),
-			cframe = bodyCF * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -6, -3.6), color = blue,
+			cframe = bodyCF * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -5.96, -3.6), color = blue, -- fin bottoms 0.04 above the body's end cap
 		})
 	end
 	decoBall({
@@ -1343,7 +1387,7 @@ local function buildAnchor(parent: Instance, spec, zone: GameConfig.ZoneDef)
 		name = "AnchorSign", parent = model, size = Vector3.new(40, 11.5, 1.2),
 		cframe = boardCF, color = zoneSignFace(zone), castShadow = true,
 	})
-	addSurfaceText(board, zone.Name, Enum.Font.FredokaOne, WHITE, Enum.NormalId.Front, 20, board.Color)
+	addSurfaceText(board, zone.Name, Enum.Font.FredokaOne, WHITE, Enum.NormalId.Front, 20, board.Color, MapKit.GUI_RANGE.Landmark)
 	addPointLight(board, frameColor, 20, 0.8)
 	neonFrame(model, boardCF, 40, 11.5, 1.5, NEON_WHITE, 0.8)
 
@@ -1387,7 +1431,8 @@ local FURNITURE: { [string]: (Instance, CFrame, any?) -> () } = {}
 FURNITURE.Planter = function(parent, cf)
 	decoCylinder({ name = "Planter", parent = parent, diameter = 5.6, height = 1.4, cframe = cf * CFrame.new(0, 0.7, 0), color = Color3.fromRGB(226, 214, 192) })
 	decoCylinder({ name = "PlanterRim", parent = parent, diameter = 6, height = 0.3, cframe = cf * CFrame.new(0, 1.45, 0), color = Color3.fromRGB(250, 248, 240) })
-	decoCylinder({ name = "PlanterSoil", parent = parent, diameter = 4.8, height = 0.2, cframe = cf * CFrame.new(0, 1.5, 0), color = Color3.fromRGB(110, 80, 60) })
+	-- soil top 0.08 over the solid rim's top (1.6): never in the rim's plane
+	decoCylinder({ name = "PlanterSoil", parent = parent, diameter = 4.8, height = 0.1, cframe = cf * CFrame.new(0, 1.63, 0), color = Color3.fromRGB(110, 80, 60) })
 	MapKit.buildTree(parent, cf.Position + Vector3.new(0, 1.5, 0), 1.1)
 end
 
@@ -1458,11 +1503,13 @@ local function buildBusStop(parent: Instance, stop)
 	for _, x in { -5, 3 } do
 		decoBlock({ name = "BusBenchLeg", parent = model, size = Vector3.new(0.5, 1.4, 1.6), cframe = cf * CFrame.new(x, 0.7, 1.3), color = POLE })
 	end
-	-- Neon-framed ad panel on the glass
-	local adCF = cf * CFrame.new(4.4, 4.4, 2.3)
+	-- Neon-framed ad panel on the glass. The frame's outer edge (x 6.65) and
+	-- its 0.32-deep road face (z 2.14) stay 0.05 / 0.04 inside the post
+	-- (x 6.1..6.7, z 2.1..2.7): never in the post's faces (no flicker).
+	local adCF = cf * CFrame.new(4.35, 4.4, 2.3)
 	local ad = decoBlock({ name = "BusAd", parent = model, size = Vector3.new(4, 6, 0.3), cframe = adCF, color = WHITE })
 	addSurfaceText(ad, "HUSTLE\nBUS", Enum.Font.LuckiestGuy, Color3.fromRGB(255, 110, 190), Enum.NormalId.Front, 24, WHITE)
-	neonFrame(model, adCF, 4, 6, 0.4, Color3.fromRGB(255, 110, 190), 0.3)
+	neonFrame(model, adCF, 4, 6, 0.32, Color3.fromRGB(255, 110, 190), 0.3)
 	-- round BUS sign on a pole at the curb end
 	decoCylinder({ name = "BusSignPole", parent = model, diameter = 0.4, height = 10, cframe = cf * CFrame.new(-8.5, 5, -2), color = POLE })
 	local disc = decoCylinder({
@@ -1507,7 +1554,7 @@ local function buildCafeSet(parent: Instance, cf: CFrame, accent: Color3)
 		cframe = cf * CFrame.new(0, C.canopyY, 0), color = accent, castShadow = true,
 	})
 	decoCylinder({
-		name = "CafeUmbrellaTop", parent = parent, diameter = 5, height = 0.52,
+		name = "CafeUmbrellaTop", parent = parent, diameter = 5, height = 0.58, -- 0.04 proud of the canopy, both faces
 		cframe = cf * CFrame.new(0, C.canopyY, 0), color = WHITE,
 	})
 	decoBall({
@@ -1539,7 +1586,8 @@ local function buildCafeTerrace(parent: Instance, terrace)
 	gui.Name = "Checker"
 	gui.Face = Enum.NormalId.Top
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 8
+	gui.PixelsPerStud = 6 -- flat Frames; the 0.4-stud border is 2.4 px
+	gui.MaxDistance = MapKit.GUI_RANGE.Ground
 	gui.LightInfluence = 1
 	gui.Brightness = 1
 	local w, d = size.X, size.Z
@@ -1745,7 +1793,7 @@ local function buildFoodCart(parent: Instance, prop)
 	-- the cart faces the plaza center (-Z): tangential 6 wide, radial 3.4 deep
 	makeBlock({ name = "CartBody", parent = model, size = Vector3.new(6, 3, 3.4), cframe = cf * CFrame.new(0, 2.3, 0), color = cart.color })
 	decoBlock({ name = "CartTop", parent = model, size = Vector3.new(6.4, 0.4, 3.8), cframe = cf * CFrame.new(0, 4, 0), color = WHITE })
-	decoBlock({ name = "CartStripe", parent = model, size = Vector3.new(6.05, 0.5, 3.45), cframe = cf * CFrame.new(0, 3.2, 0), color = WHITE })
+	decoBlock({ name = "CartStripe", parent = model, size = Vector3.new(6.08, 0.5, 3.48), cframe = cf * CFrame.new(0, 3.2, 0), color = WHITE })
 	for _, z in { -1.95, 1.95 } do
 		decoCylinder({ name = "CartWheel", parent = model, diameter = 2.2, height = 0.5, axis = "Z", cframe = cf * CFrame.new(-1.6, 1.1, z), color = MapKit.WHEEL_DARK })
 	end

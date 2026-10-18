@@ -12,7 +12,10 @@
 --
 -- API
 --   CityLifeSim.Config                         -- tuning (radii, speeds, LOD, timings)
---   CityLifeSim.new(folder) -> sim             -- builds every rig into `folder`
+--   CityLifeSim.TIERS / TIER_ORDER             -- device tiers "High" / "Medium" / "Low"
+--   CityLifeSim.detectTier(info) -> tier       -- pure: { touch, keyboard, quality } -> tier
+--   CityLifeSim.new(folder, tier?) -> sim      -- builds every rig into `folder` (tier
+--       "Low": about half the crowd; default "High", what the renders show)
 --   sim:bindMap(map)                           -- once SideHustleMap exists: traffic
 --       light lamps (recolored locally by state), entrance carpets, rooftop coins
 --       on every DomeFinial, parts/models carrying the "CitySpin" attribute
@@ -23,8 +26,13 @@
 --       transparency the city pulse changed and the spun zone props' CFrames
 --       (the shell calls it on stop)
 --   sim.playerPos: { Vector3 }, sim.playerCount -- filled by the shell before step()
---   sim:step(dt, cameraPos?, forceAll?) -> n   -- advances the world; the moved parts are
---       sim.outParts[1..n] with sim.outCFrames[1..n] (feed straight to BulkMoveTo)
+--   sim:heartbeat(dt, cameraPos?, cameraLook?) -> n -- the shell's per-Heartbeat entry: the
+--       runtime governor (Heartbeat dt EMA -> runtime tier) + the tier's step rate
+--       (Low: one step every 2nd Heartbeat); n = 0 on a Heartbeat without a step
+--   sim:step(dt, cameraPos?, forceAll?, cameraLook?) -> n -- advances the world; the
+--       moved parts are sim.outParts[1..n] with sim.outCFrames[1..n] (feed straight
+--       to BulkMoveTo; at most the runtime tier's part cap unless forceAll)
+--   sim:setRuntimeTier(tier)                   -- LOD radii / part cap / step rate only
 --   sim:advance(seconds, dt)                   -- simulate without posing (warm-up)
 --   sim:getCounts() -> { citizens, walkers, shoppers, crossers, customers, customerParts,
 --       vehicles, police, zoneSpinGroups, zoneSkipped, washCar, courseDogs, zoneLifeParts,
@@ -37,14 +45,27 @@
 --     lightbar flashes) + a taxi and a car on the Back Avenue
 --     (CityLayout.backLaneLoops, no lights). Each keeps a slot on an evenly
 --     spaced schedule (catch-up up to +30%), keeps MinGap to the vehicle ahead,
---     stops for amber/red crosswalk lights (ring road only), for any player
---     standing in its lane ahead, and the bus dwells at CityLayout.busStops.
---     Speed eases exponentially (rate 6/s) and never overshoots a stop (hard clamp).
+--     stops for amber/red crosswalk lights (ring road only), for a player
+--     standing ON its asphalt lane ahead (at most PlayerYieldMax 3 s, then it
+--     creeps through at PlayerCreepSpeed with a little hop: life parts never
+--     collide, so one idle player can never stop a lane), and the bus dwells
+--     at CityLayout.busStops. Speed eases exponentially (rate 6/s) and never
+--     overshoots a stop (hard clamp).
 --   Crosswalk lights: one per zone axis. A waiting crosser requests -> amber ->
 --     red for cars -> once the zebra band is clear every ready crosser of that
 --     zebra steps off, joined by everyone there whose wait ends within
 --     CrossJoinWindow s (each after a 0..0.8 s hash delay) -> the light holds
 --     red until the last of them is off the asphalt -> green (>= MinGo 10 s).
+--     A player on the zebra holds / extends the red at most PlayerHoldMax 6 s
+--     per red phase, then the lights cycle normally.
+--   Performance (see TIERS): device tier at start ("Low" builds about half the
+--     crowd and steps at 30 Hz), a runtime governor that steps the LOD / part
+--     cap / step rate down one tier while frames are slow (and back up),
+--     distance + facing LOD (agents behind the camera update every 4th frame
+--     in a rest pose), a hard per-step BulkMoveTo part cap shared fairly
+--     (near agents first, an even share per poser, deferred poses first next
+--     step), still idlers emitting only the limbs that move, and constant
+--     pivot CFrames folded into one matrix.
 --   Citizens (107): 35 sidewalk walkers (24 on the outer sidewalk incl. a
 --     dog-walker, 10 on the inner one, BackInner's dog-walker; pausing to
 --     window-shop at the zones, waving; keeping FollowGap behind whoever walks
@@ -108,7 +129,8 @@ local clamp, min, max, atan2 = math.clamp, math.min, math.max, math.atan2
 local Config = {
 	CitizenScale = 1.25, -- adults read at player height (workers stay 1.0)
 	KidScale = 1.0,
-	-- level of detail (distance from the camera)
+	-- level of detail (distance from the camera; the High tier's radii - every
+	-- tier's own are in TIERS)
 	PedFullRadius = 140, -- every frame + limb animation
 	PedMidRadius = 260, -- every 2nd frame + limb animation; beyond: every 4th frame, rest pose
 	PedLowEvery = 4,
@@ -116,15 +138,31 @@ local Config = {
 	VehicleDetailRadius = 260, -- suspension bob + brake pitch
 	SkyHideRadius = 1500,
 	CoinRadius = 700,
+	BehindRadius = 25, -- beyond this, an agent behind the camera...
+	BehindDot = -0.2, -- ...(dot(look, toAgentUnit) < this) takes the low tier (rest pose, every 4th frame)
+	-- runtime governor (sim:heartbeat): an EMA of the Heartbeat dt steps the runtime
+	-- tier down one notch after GovernorSlowFor s above GovernorSlowDt and back up
+	-- one (never above the device tier) after GovernorFastFor s under GovernorFastDt
+	GovernorTau = 0.5, -- EMA time constant (s)
+	GovernorSlowDt = 1 / 50,
+	GovernorSlowFor = 3,
+	GovernorFastDt = 1 / 58,
+	GovernorFastFor = 10, -- doubled (up to GovernorFastMax) when a recovered tier drops again within 30 s
+	GovernorFastMax = 80,
+	GovernorWarmup = 5, -- s of Heartbeats ignored after start (join hitches)
+	GovernorMaxDt = 0.25, -- one hitch counts at most this much
 	-- traffic
 	VehicleEase = 6, -- exponential speed easing rate (1/s)
 	BrakeProfile = 14, -- studs/s^2 used to plan stops (v = sqrt(2 a d))
 	BrakeHard = 40, -- amber: commit through when it cannot stop with this decel
 	MinGap = 5, -- bumper-to-bumper gap kept to the vehicle ahead (cars ~16 center-to-center)
 	CatchUpStuds = 40, -- schedule lag (studs) that maps to +100% catch-up (capped at +30%)
-	PlayerLaneMargin = 2, -- a player within half-width + this of the lane center blocks it
+	PlayerLaneMargin = 2, -- a player ON the lane's asphalt within half-width + this of the lane center blocks it...
 	PlayerLookAhead = 30,
 	PlayerStopGap = 3,
+	PlayerYieldMax = 3, -- ...for at most this many s; then the vehicle creeps through (life parts never collide)
+	PlayerCreepSpeed = 4, -- studs/s while passing through a player
+	PlayerHoldMax = 6, -- a player on a zebra holds / extends its red light at most this many s per red phase
 	BusDwell = 3,
 	-- crosswalk lights
 	MinGo = 10, -- traffic always keeps at least a 10 s green between crossings
@@ -230,6 +268,7 @@ local Config = {
 	WashScrubBob = 0.15,
 	WashHold = 0.5, -- s parked at the exit before it vanishes
 	WashHidden = 4, -- s hidden between passes
+	WashSpawnHoldMax = 5, -- a new pass / the swap past the demo car waits at most this long for a player standing there
 	CourseDogSpeed = 6, -- agility dogs (Dog Walking)
 	CourseDogHop = 1.5, -- hop height through each hoop...
 	CourseDogHopTime = 0.4, -- ...and its duration
@@ -242,6 +281,53 @@ local Config = {
 	WasherCableEvery = 0.25, -- s between cable resizes
 }
 CityLifeSim.Config = Config
+
+-- Device / runtime tiers. The DEVICE tier is chosen once by the shell
+-- (CityLifeSim.detectTier) and fixes the crowd at CityLifeSim.new: "half" (Low)
+-- builds every 2nd sidewalk walker and shopper, 2 crossers per zebra (A / C),
+-- no storefront loiterers, café sitters or window washers, 1 pigeon flock, 6
+-- clouds, 2 balloons and 10 ring-road vehicles. The RUNTIME tier (starts at the
+-- device tier; sim:heartbeat's governor moves it down / back up, never above the
+-- device tier) sets only the per-step knobs, so no rebuild is ever needed:
+--   full / mid: citizen LOD radii (animated every frame within `full`, every
+--     `midEvery` frames to `mid`, every 4th frame in a rest pose beyond, and
+--     behind the camera beyond BehindRadius); vehicle / sky: the radius within
+--     which vehicles (bob + brake pitch) and sky / spinner parts move every
+--     frame (every `midEvery` frames beyond, every 4th behind the camera);
+--   cap: hard limit of parts per step through BulkMoveTo (shared fairly, see
+--     _admit); stepEvery: 1 = step every Heartbeat, 2 = cap the sim at 30 Hz
+--     (time-based, see heartbeat).
+local TIER_ORDER = { "High", "Medium", "Low" }
+local TIERS = {
+	High = { index = 1, crowd = "full", full = Config.PedFullRadius, mid = Config.PedMidRadius, vehicle = Config.VehicleDetailRadius, sky = 260, midEvery = 2, cap = 1200, stepEvery = 1 },
+	Medium = { index = 2, crowd = "full", full = 90, mid = 180, vehicle = 180, sky = 180, midEvery = 3, cap = 800, stepEvery = 1 },
+	Low = { index = 3, crowd = "half", full = 60, mid = 140, vehicle = 140, sky = 140, midEvery = 3, cap = 450, stepEvery = 2 },
+}
+CityLifeSim.TIERS = TIERS
+CityLifeSim.TIER_ORDER = TIER_ORDER
+
+-- Device tier from what the shell can read (pure, so tests can drive it):
+--   info.touch / info.keyboard: UserInputService.TouchEnabled / KeyboardEnabled
+--   info.quality: UserGameSettings.SavedQualityLevel as a number (0 or nil =
+--     Automatic, 1..10 = QualityLevel1..10)
+-- Low: touch without a keyboard (phones / tablets) or a saved quality 1-4;
+-- Medium: saved quality 5-7, or Automatic on a touch device with a keyboard;
+-- High: everything else (Automatic on desktop, quality 8-10).
+function CityLifeSim.detectTier(info): string
+	local quality = if type(info) == "table" and type(info.quality) == "number" then info.quality else 0
+	local touch = type(info) == "table" and info.touch == true
+	local keyboard = type(info) == "table" and info.keyboard == true
+	if touch and not keyboard then
+		return "Low"
+	elseif quality >= 1 and quality <= 4 then
+		return "Low"
+	elseif quality >= 5 and quality <= 7 then
+		return "Medium"
+	elseif quality < 1 and touch then
+		return "Medium"
+	end
+	return "High"
+end
 
 -- tools/render/preview_life.luau: warm-up (4.5 s) + one posed step. Phases
 -- that should land on a given picture in the renders are set against it.
@@ -279,6 +365,39 @@ local function yawCF(x: number, y: number, z: number, yaw: number): CFrame
 	return CFrame.new(x, y, z, c, 0, s, 0, 1, 0, -s, 0, c)
 end
 
+-- The pose helpers below fold constant pivots / offsets and CFrame.Angles into
+-- ONE matrix (one allocation instead of 3-5 per call; same result to float
+-- precision).
+-- yawCF(x, y, z, yaw) * CFrame.Angles(0, 0, roll)
+local function yawRollCF(x: number, y: number, z: number, yaw: number, roll: number): CFrame
+	local c, s = cos(yaw), sin(yaw)
+	local cr, sr = cos(roll), sin(roll)
+	return CFrame.new(x, y, z, c * cr, -c * sr, s, sr, cr, 0, -s * cr, s * sr, c)
+end
+
+-- yawCF(x, y, z, yaw) * CFrame.Angles(pitch, 0, 0)
+local function yawPitchCF(x: number, y: number, z: number, yaw: number, pitch: number): CFrame
+	local c, s = cos(yaw), sin(yaw)
+	local ca, sa = cos(pitch), sin(pitch)
+	return CFrame.new(x, y, z, c, s * sa, s * ca, 0, ca, -sa, -s, c * sa, c * ca)
+end
+
+-- CFrame.new(px, py, 0) * CFrame.Angles(pitch, 0, roll) * CFrame.new(-px, -py, 0):
+-- a limb turned about its shoulder / hip (rig pivots have z = 0).
+local function limbCF(px: number, py: number, pitch: number, roll: number): CFrame
+	local ca, sa = cos(pitch), sin(pitch)
+	local cb, sb = cos(roll), sin(roll)
+	local r10, r11, r20, r21 = ca * sb, ca * cb, sa * sb, sa * cb
+	return CFrame.new(px - (cb * px - sb * py), py - (r10 * px + r11 * py), -(r20 * px + r21 * py), cb, -sb, 0, r10, r11, -sa, r20, r21, ca)
+end
+
+-- CFrame.new(hx, hy, hz) * CFrame.Angles(0, 0, a) * CFrame.new(ox, 0, 0): a wing
+-- flapping about its hinge.
+local function hingeZ(hx: number, hy: number, hz: number, a: number, ox: number): CFrame
+	local c, s = cos(a), sin(a)
+	return CFrame.new(hx + ox * c, hy + ox * s, hz, c, -s, 0, s, c, 0, 0, 0, 1)
+end
+
 -- Yaw whose -Z (LookVector) points along the ring tangent at `a` (radians).
 local function tangentYaw(a: number, dir: number): number
 	return if dir > 0 then math.pi - a else -a
@@ -300,6 +419,14 @@ end
 
 -- Distance LOD for a ground agent: "hide" | "low" | "full" | "skip".
 local LOD_HIDE, LOD_SKIP, LOD_LOW, LOD_FULL = 0, 1, 2, 3
+-- Part cap: while a priority class is over its share of the cap, it gets
+-- share / CAP_SLOTS of its requests through, spread evenly per poser by a
+-- small accumulator (capSlot, 0..CAP_SLOTS-1, seeded per poser so the phases
+-- differ): see _admit.
+local CAP_SLOTS = 13
+local BEHIND_DOT2 = Config.BehindDot * Config.BehindDot
+-- LOD stagger slots ("low"): 12 divides evenly by every cadence (2, 3, 4)
+local LOD_SLOTS = 12
 
 ----------------------------------------------------------------------
 -- Palettes + plan (who drives / walks where at t = 0)
@@ -319,33 +446,35 @@ local BRIGHTS = { rgb(255, 70, 70), rgb(255, 200, 40), rgb(70, 180, 255), rgb(12
 
 -- Vehicles: lane (CityLayout.laneLoops / backLaneLoops name), kind, color,
 -- start angle (deg). Evenly spaced per lane so every ring view holds 2-4.
+-- `low`: kept by the Low device tier (10 of the 18 ring-road vehicles, the
+-- police car and the bus among them, + both Back Avenue ones).
 local FLEET = {
 	-- Inner1 (r 70.75, +angle)
-	{ lane = "Inner1", kind = "Taxi", angle = 330 },
+	{ lane = "Inner1", kind = "Taxi", angle = 330, low = true },
 	{ lane = "Inner1", kind = "Car", color = rgb(255, 90, 90), angle = 60 },
-	{ lane = "Inner1", kind = "Car", color = rgb(110, 215, 120), angle = 150 },
+	{ lane = "Inner1", kind = "Car", color = rgb(110, 215, 120), angle = 150, low = true },
 	{ lane = "Inner1", kind = "Car", color = rgb(90, 200, 255), angle = 240 },
 	-- Inner2 (r 80.25, +angle)
-	{ lane = "Inner2", kind = "IceCreamVan", angle = 20 },
+	{ lane = "Inner2", kind = "IceCreamVan", angle = 20, low = true },
 	{ lane = "Inner2", kind = "Car", color = rgb(70, 150, 255), angle = 110 },
-	{ lane = "Inner2", kind = "Taxi", angle = 200 },
+	{ lane = "Inner2", kind = "Taxi", angle = 200, low = true },
 	{ lane = "Inner2", kind = "Taxi", angle = 290 },
 	-- Outer1 (r 89.75, -angle)
 	{ lane = "Outer1", kind = "Car", color = rgb(140, 230, 110), angle = 0 },
-	{ lane = "Outer1", kind = "Car", color = rgb(170, 120, 255), angle = 60 },
+	{ lane = "Outer1", kind = "Car", color = rgb(170, 120, 255), angle = 60, low = true },
 	{ lane = "Outer1", kind = "Taxi", angle = 120 },
-	{ lane = "Outer1", kind = "Police", angle = 180 }, -- flashing lightbar (city pulse)
+	{ lane = "Outer1", kind = "Police", angle = 180, low = true }, -- flashing lightbar (city pulse)
 	{ lane = "Outer1", kind = "Car", color = rgb(255, 150, 60), angle = 240 },
-	{ lane = "Outer1", kind = "Taxi", angle = 300 },
+	{ lane = "Outer1", kind = "Taxi", angle = 300, low = true },
 	-- Outer2 (r 99.25, -angle): the slow lane (bus + delivery truck)
 	{ lane = "Outer2", kind = "Car", color = rgb(255, 120, 170), angle = 20 },
-	{ lane = "Outer2", kind = "Bus", angle = 110 },
-	{ lane = "Outer2", kind = "Truck", angle = 200 },
-	{ lane = "Outer2", kind = "Car", color = rgb(80, 210, 210), angle = 290 },
+	{ lane = "Outer2", kind = "Bus", angle = 110, low = true },
+	{ lane = "Outer2", kind = "Truck", angle = 200, low = true },
+	{ lane = "Outer2", kind = "Car", color = rgb(80, 210, 210), angle = 290, low = true },
 	-- Back Avenue (between the skyline rings; no lights, no crosswalks): one
 	-- per lane (the r2_backstreet view frames the taxi)
-	{ lane = "Back1", kind = "Taxi", angle = 356 },
-	{ lane = "Back2", kind = "Car", color = rgb(170, 120, 255), angle = 42 },
+	{ lane = "Back1", kind = "Taxi", angle = 356, low = true },
+	{ lane = "Back2", kind = "Car", color = rgb(170, 120, 255), angle = 42, low = true },
 }
 -- Lane cruise speeds (studs/s): the outermost ring lane is the slow bus /
 -- truck lane (the delivery truck cruises at 13).
@@ -735,7 +864,14 @@ local function buildCitizen(parent: Instance, index: number, look: Look)
 	local scale = if look.kid then Config.KidScale else Config.CitizenScale
 	local rig = {
 		model = model, parts = {}, rest = {}, group = {}, n = 0, scale = scale,
-		pivot = {}, gcf = {}, hidden = false, holdsBalloon = look.balloon,
+		pivot = {}, px = {}, py = {}, gcf = {}, hidden = false, holdsBalloon = look.balloon,
+		-- per pose group: the part indices + their count (a still idler emits only
+		-- the groups whose angles changed, see _poseCitizen)
+		gidx = { {}, {}, {}, {}, {}, {} }, gn = { 0, 0, 0, 0, 0, 0 },
+		-- last emitted pose (posed = false: emit every part next time)
+		posed = false, lastRoot = IDENTITY, lHead = 0, lLa = 0, lLaRoll = 0, lRa = 0, lRaRoll = 0, lLl = 0, lRl = 0,
+		bagPark = false, lBagPark = false,
+		capSlot = index % CAP_SLOTS, owed = false,
 	}
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -746,7 +882,10 @@ local function buildCitizen(parent: Instance, index: number, look: Look)
 			rig.n += 1
 			rig.parts[rig.n] = d
 			rig.rest[rig.n] = rest
-			rig.group[rig.n] = GROUP_OF[d.Name] or G_ROOT
+			local g = GROUP_OF[d.Name] or G_ROOT
+			rig.group[rig.n] = g
+			rig.gn[g] += 1
+			rig.gidx[g][rig.gn[g]] = rig.n
 			if look.shopBag and d.Name == "ShoppingBag" then
 				rig.bagIndex = rig.n
 			end
@@ -754,6 +893,7 @@ local function buildCitizen(parent: Instance, index: number, look: Look)
 	end
 	for g = G_HEAD, G_RLEG do
 		rig.pivot[g] = PIVOTS[g] * scale
+		rig.px[g], rig.py[g] = rig.pivot[g].X, rig.pivot[g].Y
 	end
 	for g = 1, 6 do
 		rig.gcf[g] = IDENTITY
@@ -792,9 +932,12 @@ local function plazaFeetY(position: Vector3): number
 	return CityLayout.surfaceY(position)
 end
 
-function CityLifeSim.new(folder: Instance)
+function CityLifeSim.new(folder: Instance, tier: string?)
 	local self = setmetatable({}, CityLifeSim)
 	self.folder = folder
+	-- device tier (fixes the crowd) + runtime tier (per-step knobs, see TIERS)
+	self.tier = if tier and TIERS[tier] then tier else "High"
+	self.half = TIERS[self.tier].crowd == "half"
 	self.t = 0
 	self.frame = 0
 	self.simOnly = false
@@ -802,6 +945,22 @@ function CityLifeSim.new(folder: Instance)
 	self.outCFrames = {}
 	self.outCount = 0
 	self.prevCount = 0
+	self.camera = nil
+	self.cameraLook = nil
+	-- part cap (see _admit): per priority class (1 near, 2 mid, 3 low / behind /
+	-- sky) the parts requested this step / last step and this step's share
+	-- (of CAP_SLOTS)
+	self.capOn = false
+	self.capDemand = { 0, 0, 0 }
+	self.capShare = { CAP_SLOTS, CAP_SLOTS, CAP_SLOTS }
+	self.capPrev = { 0, 0, 0 } -- last step's demand per class
+	self.capDenied = 0 -- parts the hard cap deferred this step (owed: first next time)
+	self.capReserve = 0
+	self.lodPrio = 1
+	-- runtime governor (sim:heartbeat)
+	self.gov = { ema = 1 / 60, slowT = 0, fastT = 0, t = 0, acc = 0, beat = 0,
+		recoverAfter = Config.GovernorFastFor, lastRecover = -math.huge, changes = 0 }
+	self:setRuntimeTier(self.tier)
 	self.playerPos = {}
 	self.playerCount = 0
 	self.vehicles = {}
@@ -816,7 +975,8 @@ function CityLifeSim.new(folder: Instance)
 	self.reserved = {} -- plaza circles kept free of other idlers / pigeons
 	self.staticSpots = {} -- feet of every idler (pigeons keep their distance)
 	self.coins = {}
-	self.spinners = {}
+	self.spinners = {} -- every spun map part (unbindMap restores the zone ones)
+	self.spinGroups = {} -- the same parts grouped per model (what _stepSky turns)
 	self.balloons = {}
 	self.dogs = {}
 	self.customers = {} -- queue + browse customers (sitters are idlers)
@@ -893,6 +1053,8 @@ function CityLifeSim:_buildCrosswalks()
 			timer = Config.MinGo, -- the first request goes amber at once
 			requests = 0,
 			occupants = 0,
+			players = 0, -- players on the zebra while it is red...
+			playerHoldT = 0, -- ...and how long they have held this red phase (<= PlayerHoldMax)
 			crossers = {}, -- this zebra's crosser group (A, B, C)
 			lamps = nil, -- { Red = { {part, color} }, Amber = ..., Green = ... } after bindMap
 		}
@@ -911,6 +1073,9 @@ function CityLifeSim:_buildVehicles()
 		local loop, lights = laneByName(spec.lane)
 		if loop == nil then
 			continue -- e.g. no Back Avenue in this layout: skip its vehicles
+		end
+		if self.half and not spec.low then
+			continue -- Low device tier: 10 ring-road vehicles
 		end
 		local kind = VehicleRig.KINDS[spec.kind] and spec.kind or "Car"
 		local def = VehicleRig.KINDS[kind]
@@ -933,6 +1098,10 @@ function CityLifeSim:_buildVehicles()
 			bandHalf = CityLayout.crosswalkHalfAngle(loop.radius),
 			stopHalf = CityLayout.crosswalkHalfAngle(loop.radius) + S.CrosswalkStopMargin / loop.radius / DEG,
 			dwell = 0, lastStop = 0, phase = i * 1.7, hidden = false, still = false, laneMates = {},
+			-- a player on the lane ahead: yieldT s waited; `through`: creeping through
+			-- them (after PlayerYieldMax), hopT: the little "honk" hop as it starts
+			yieldT = 0, through = false, hopT = 0,
+			slot = #self.vehicles + 1, capSlot = (#self.vehicles + 1) % CAP_SLOTS, owed = false,
 		}
 		table.insert(self.vehicles, v)
 		if kind == "Police" then
@@ -959,12 +1128,14 @@ end
 
 function CityLifeSim:_buildWalkers()
 	for laneIndex, lane in WALK_LANES do
-		for k = 0, lane.count - 1 do
+		-- Low device tier: every 2nd walker (the lane's spacing doubles)
+		local count = if self.half and not lane.angles then math.ceil(lane.count / 2) else lane.count
+		for k = 0, count - 1 do
 			local hasDog = lane.dogAt == k
 			-- the dog-walker holds the leash in the left hand (no balloon there)
 			local rig = self:_newCitizen(if hasDog then { balloon = false, kid = false } else nil)
 			-- evenly spread, with a small deterministic jitter (+-14% of the spacing)
-			local spacing = 360 / lane.count
+			local spacing = 360 / count
 			local jitter = ((9 * k * k + laneIndex * 5) % 20 - 10) / 10 * 0.14 * spacing
 			local theta = if lane.angles then lane.angles[k + 1] % 360 else (lane.start + k * spacing + jitter) % 360
 			local seed = laneIndex * 31 + k * 7
@@ -975,7 +1146,7 @@ function CityLifeSim:_buildWalkers()
 				lateral = 0, pause = 0, wave = false, seed = seed, pauseCount = 0, avoidSide = 0, ghost = false, waitT = 0,
 				r = lane.radius, crossWait = 0,
 				sector = floor((theta + lane.dir * (lane.pauseLead or 5)) / ZONE_STEP) % ZONE_COUNT, phase = hash01(seed, 1) * 6.28,
-				walkClock = hash01(seed, 2) * 6.28, amp = 1, yaw = tangentYaw(a, lane.dir), low = k % Config.PedLowEvery,
+				walkClock = hash01(seed, 2) * 6.28, amp = 1, yaw = tangentYaw(a, lane.dir), low = k % LOD_SLOTS,
 				nextDoor = if lane.doorChance and #OUTER_DOORS > 0 then nextDoorIndex(theta, lane.dir) else 0, doorCount = 0,
 				dog = nil, dogTheta = theta, dogR = lane.radius, dogLead = 0,
 				onLane = true, index = #self.walkers + 1, moving = false, holdT = 0, mates = nil,
@@ -999,6 +1170,15 @@ local DOG_EAR = rgb(176, 118, 70)
 local DOG_COLLAR = Vector3.new(0, 1.0, -0.42)
 local DOG_TAIL_PIVOT = Vector3.new(0, 1.0, 0.55)
 local LEASH_COLOR = rgb(235, 60, 90)
+local DOG_PARTS = 7 -- body, head, nose, 2 ears, tail + the leash (or the collar)
+-- constant offsets of the dog parts (dog space)
+local DOG_BODY_OFF = CFrame.new(0, 0.72, 0)
+local DOG_HEAD_OFF = CFrame.new(0, 1.42, -0.62)
+local DOG_NOSE_OFF = CFrame.new(0, -0.08, -0.5)
+local DOG_EAR_L_OFF = CFrame.new(-0.42, 0.18, 0.05) * CFrame.Angles(0, 0, 0.35)
+local DOG_EAR_R_OFF = CFrame.new(0.42, 0.18, 0.05) * CFrame.Angles(0, 0, -0.35)
+local DOG_COLLAR_OFF = CFrame.new(0, 1.13, -0.46) * CFrame.Angles(-0.72, 0, 0)
+local DOG_TAIL_C, DOG_TAIL_S = math.cos(0.75), math.sin(0.75) -- the tail's fixed 0.75 rad lift
 
 function CityLifeSim:_buildDog(index: number, opts: { fur: Color3?, ear: Color3?, collar: boolean?, parent: Instance? }?)
 	local o = opts or {}
@@ -1035,6 +1215,9 @@ function CityLifeSim:_buildShoppers()
 		if i > Config.ShopperCount then
 			break
 		end
+		if self.half and i % 2 == 0 then
+			continue -- Low device tier: every 2nd shopper
+		end
 		local lane = lanes[plan.lane]
 		local front = FRONTAGES[plan.gap]
 		if lane == nil or front == nil or front.theta[lane.name] == nil then
@@ -1056,7 +1239,7 @@ function CityLifeSim:_buildShoppers()
 			lateral = 0, pause = 0, wave = false, seed = seed, pauseCount = 0, avoidSide = 0, ghost = false, waitT = 0,
 			r = lane.radius, crossWait = 0,
 			sector = floor((theta + lane.dir * 5) / ZONE_STEP) % ZONE_COUNT, phase = hash01(seed, 1) * 6.28,
-			walkClock = hash01(seed, 2) * 6.28, amp = 1, yaw = tangentYaw(a, lane.dir), low = i % Config.PedLowEvery,
+			walkClock = hash01(seed, 2) * 6.28, amp = 1, yaw = tangentYaw(a, lane.dir), low = i % LOD_SLOTS,
 			nextDoor = 0, doorCount = 0,
 			dog = nil, dogTheta = theta, dogR = lane.radius, dogLead = 0,
 			onLane = true, index = #self.walkers + 1, moving = false, holdT = 0, mates = nil,
@@ -1096,6 +1279,9 @@ function CityLifeSim:_buildCrossers()
 			end
 			local a = spec.angle * DEG
 			for m = 1, #laterals do
+				if self.half and m == 2 then
+					continue -- Low device tier: A and C only (their own checked lines)
+				end
 				local kid = group.kid == m
 				local rig = self:_newCitizen(if kid then { kid = true } else nil)
 				local i = #self.crossers + 1
@@ -1114,8 +1300,9 @@ function CityLifeSim:_buildCrossers()
 					timer = group.wait[m] or 0, speed = speed, holdT = 0,
 					along = if outer then outerRadii[m] else Config.CrossInnerRadius,
 					yaw = radialYaw(a, not outer), seed = seed, waits = 0,
-					phase = hash01(seed, 5) * 6.28, walkClock = i, amp = 0, low = i % Config.PedLowEvery,
+					phase = hash01(seed, 5) * 6.28, walkClock = i, amp = 0, low = i % LOD_SLOTS,
 					pointer = m == 2, -- B points across the road now and then
+					y = S.OuterSidewalkTop, -- feet height at the last pose (for the LOD test)
 				}
 				table.insert(self.crossers, c)
 				table.insert(cw.crossers, c)
@@ -1153,8 +1340,8 @@ function CityLifeSim:_addIdler(feet: Vector3, faceAt: Vector3?, opts)
 		rig = rig, kind = opts.kind or "Stand", x = feet.X, y = feet.Y, z = feet.Z,
 		yaw = opts.yaw or (if faceAt then yawToward(faceAt.X - feet.X, faceAt.Z - feet.Z) else 0),
 		hop = opts.hop == true, wave = opts.wave == true, talk = opts.talk == true,
-		phase = index * 1.9, low = index % Config.PedLowEvery, slow = opts.slow == true,
-		seed = 900 + index * 17,
+		phase = index * 1.9, low = index % LOD_SLOTS, slow = opts.slow == true,
+		seed = 900 + index * 17, rootY = math.huge, rootYaw = 0, -- the last posed root's inputs
 	}
 	for k, v in opts do
 		if d[k] == nil and k ~= "look" then
@@ -1328,6 +1515,9 @@ end
 local LOITER_SPOT = Vector3.new(4.5, 0, -10.5)
 CityLifeSim.LOITER_SPOT = LOITER_SPOT
 function CityLifeSim:_buildStorefronts()
+	if self.half then
+		return -- Low device tier: no storefront loiterers
+	end
 	for _, shop in CityLayout.shops do
 		if shop.kind == "A" then
 			local spot = shop.cframe:PointToWorldSpace(LOITER_SPOT)
@@ -1356,8 +1546,8 @@ end
 -- (CityLayout.cafeSeats), seated, facing the table, sipping a coffee.
 function CityLifeSim:_buildCafeSitters()
 	local seats = CityLayout.cafeSeats
-	if seats == nil then
-		return
+	if seats == nil or self.half then
+		return -- (Low device tier: no café sitters)
 	end
 	local taken = {}
 	for _, seat in seats do
@@ -1873,7 +2063,7 @@ function CityLifeSim:_bindZoneCustomers(zone, zoneModel: Instance, plan)
 		local coinW = zoneCF:PointToWorldSpace(coinL)
 		local coin = newPart(self.customerFolder, "CustomerCoin", Enum.PartType.Ball, Vector3.new(1, 1, 1), PARK, COIN_GOLD, Enum.Material.Neon)
 		coin.Name = "CustomerCoin" .. order
-		zr.coin = { part = coin, x = coinW.X, y = coinW.Y, z = coinW.Z, t0 = -100, parked = true }
+		zr.coin = { part = coin, x = coinW.X, y = coinW.Y, z = coinW.Z, t0 = -100, parked = true, capSlot = (order * 3) % CAP_SLOTS, owed = false }
 		-- the queue members (head first)
 		for k = 1, #spots do
 			local kid = plan.kidSlot == k
@@ -1972,7 +2162,7 @@ function CityLifeSim:_newCustomer(rig, zr, w: Vector3, state: number)
 		rig = rig, zr = zr, state = state, slot = 0, t0 = 0, wp = 0,
 		x = w.X, y = w.Y, z = w.Z, yaw = 0,
 		walkClock = hash01(index, 3) * 6.28, amp = 0, moving = false,
-		phase = hash01(index, 5) * 6.28, seed = 1300 + index * 23, low = index % Config.PedLowEvery,
+		phase = hash01(index, 5) * 6.28, seed = 1300 + index * 23, low = index % LOD_SLOTS,
 		ax = 0, az = 0, axGoal = 0, azGoal = 0, asideT = 0,
 		nextWave = 3 + 10 * hash01(index, 7), waveUntil = -1, waves = 0,
 		holdT = 0, phoneUp = false,
@@ -2252,10 +2442,8 @@ function CityLifeSim:_stepCustomers(dt: number)
 			continue
 		end
 		local x, z = c.x + c.ax, c.z + c.az
-		local visible, animate = self:_citizenVisible(c.rig, x, c.y, z, c.low)
-		if visible and not c.moving and not armsUp and animate and not self.forceAll and (self.frame + c.low) % 2 == 1 then
-			visible = false -- standing customers: every 2nd frame is plenty
-		end
+		-- standing customers: every 2nd frame is plenty
+		local visible, animate = self:_citizenVisible(c.rig, x, c.y, z, c.low, if not c.moving and not armsUp then 2 else nil)
 		if visible then
 			self:_poseCustomer(c, x, z, t, animate, hopY, armsUp)
 		end
@@ -2266,12 +2454,12 @@ function CityLifeSim:_stepCustomers(dt: number)
 		local u = (t - coin.t0) / COIN_RISE
 		if u >= 0 and u < 1 and not self.simOnly then
 			local lod = self:_pedLod(coin.x, coin.y, coin.z, 0)
-			if lod ~= LOD_HIDE then
+			if lod ~= LOD_HIDE and self:_admit(coin, 1) then
 				local k = 1 - (1 - u) * (1 - u)
 				self:_emit(coin.part, CFrame.new(coin.x, coin.y + 3 * k, coin.z))
 				coin.parked = false
 			end
-		elseif not coin.parked and not self.simOnly then
+		elseif not coin.parked and not self.simOnly and self:_capRoom(1) then
 			coin.parked = true
 			self:_emit(coin.part, PARK)
 		end
@@ -2314,10 +2502,7 @@ function CityLifeSim:_poseCustomer(c, x: number, z: number, t: number, animate: 
 	if c.phoneUp then
 		ra, raRoll = 2.3, 0.5 -- filming the drop
 	end
-	local root = yawCF(x, y, z, c.yaw)
-	if roll ~= 0 then
-		root *= CFrame.Angles(0, 0, roll)
-	end
+	local root = if roll ~= 0 then yawRollCF(x, y, z, c.yaw, roll) else yawCF(x, y, z, c.yaw)
 	self:_poseCitizen(c.rig, root, la, laRoll, ra, raRoll, ll, rl, head)
 end
 
@@ -2520,12 +2705,16 @@ end
 
 function CityLifeSim:_addZoneSpinner(parts: { BasePart }, pivot: Vector3, rate: number, snap: number)
 	local a0 = snap - rate * SNAPSHOT_T -- turned `snap` degrees at the render snapshot
+	local group = {}
 	for _, p in parts do
-		table.insert(self.spinners, {
+		local sp = {
 			part = p, pivot = pivot, offset = CFrame.new(-pivot) * p.CFrame, rate = rate, a0 = a0,
 			zone = true, orig = p.CFrame,
-		})
+		}
+		table.insert(self.spinners, sp)
+		table.insert(group, sp)
 	end
+	self:_addSpinGroup(group, pivot, rate, a0, true)
 	self.zoneSpinGroups += 1
 end
 
@@ -2807,6 +2996,7 @@ function CityLifeSim:_bindCarWash(zone, zoneModel: Instance, zoneCF: CFrame, byN
 		-- the yellow car is the one in the snapshot
 		colorBase = -floor((clock0 + SNAPSHOT_T) / cycle), color = 0,
 		x = startX, phase = WASH_HIDDEN, hidden = true, still = false, low = 1,
+		spawnWait = 0, capSlot = 7, owed = false,
 	}
 end
 
@@ -2832,26 +3022,48 @@ function CityLifeSim:_washState(car): (number, number, number)
 	return car.endX, 0, WASH_HIDDEN
 end
 
+-- True when a player stands on the conveyor lane (+-4 of its centerline,
+-- body band) between zone-local x0 and x1.
+function CityLifeSim:_washPlayerIn(car, x0: number, x1: number): boolean
+	local players = self.playerPos
+	for p = 1, self.playerCount do
+		local l = car.zoneCF:PointToObjectSpace(players[p])
+		if l.X > x0 and l.X < x1 and abs(l.Z - car.cz) < 4 and l.Y > -2 and l.Y < 9 then
+			return true
+		end
+	end
+	return false
+end
+
 function CityLifeSim:_stepWashCar(dt: number)
 	local car = self.washCar
 	if car == nil then
 		return
 	end
-	-- a player standing on the conveyor ahead holds the car (it never drives through anyone)
 	local x0, _, phase0 = self:_washState(car)
-	local blocked = false
+	local L = car.halfLen
+	local hold = false
 	if phase0 == WASH_IN or phase0 == WASH_OUT then
-		local players = self.playerPos
-		for p = 1, self.playerCount do
-			local l = car.zoneCF:PointToObjectSpace(players[p])
-			local ahead = l.X - x0
-			if ahead > -car.halfLen and ahead < car.halfLen + 2.5 and abs(l.Z - car.cz) < 4 and l.Y > -2 and l.Y < 9 then
-				blocked = true
-				break
+		car.spawnWait = 0
+		-- a player standing on the conveyor just ahead of the nose holds the car;
+		-- one already inside its footprint does not (it rolls on through them:
+		-- life parts never collide, and it never parks inside anyone)
+		hold = self:_washPlayerIn(car, x0 + L, x0 + L + 2.5)
+	elseif phase0 == WASH_HIDDEN or phase0 == WASH_SCRUB then
+		-- never appear on top of a player: a new pass (at startX) / the swap
+		-- past the demo car (to swapX) waits while one stands there, at most
+		-- WashSpawnHoldMax s
+		local tau = car.clock % car.cycle
+		local boundary = if phase0 == WASH_HIDDEN then car.cycle else car.tIn + Config.WashScrub
+		if tau + dt >= boundary and car.spawnWait < Config.WashSpawnHoldMax then
+			local x = if phase0 == WASH_HIDDEN then car.startX else car.swapX
+			if self:_washPlayerIn(car, x - L - 1, x + L + 1) then
+				car.spawnWait += dt
+				hold = true
 			end
 		end
 	end
-	if not blocked then
+	if not hold then
 		car.clock += dt
 	end
 	if self.simOnly then
@@ -2872,11 +3084,10 @@ function CityLifeSim:_stepWashCar(dt: number)
 	end
 	local cf = car.frame * CFrame.new(0, car.rideY + bob, -x)
 	local at = cf.Position
-	local lod = self:_pedLod(at.X, at.Y, at.Z, car.low)
+	local lod = self:_pedLod(at.X, at.Y, at.Z, car.low, nil, car.owed)
 	if phase == WASH_HIDDEN or lod == LOD_HIDE then
-		if not car.hidden then
-			car.hidden = true
-			self:_park(car.parts, car.n)
+		if not car.hidden and self:_tryPark(car.parts, car.n) then
+			car.hidden, car.owed = true, false
 		end
 		return
 	end
@@ -2886,6 +3097,9 @@ function CityLifeSim:_stepWashCar(dt: number)
 	local moving = phase == WASH_IN or phase == WASH_OUT or phase == WASH_SCRUB
 	if not moving and car.still and not car.hidden and not self.forceAll then
 		return -- parked at the exit: posed once
+	end
+	if not self:_admit(car, car.n) then
+		return
 	end
 	car.still = not moving
 	car.hidden = false
@@ -3140,7 +3354,8 @@ function CityLifeSim:_bindCourse(zone, zoneModel: Instance, zoneCF: CFrame, byNa
 		-- dog 1 mid-hop through the snapshot hoop at the snapshot, dog 2 half a lap behind
 		local s0 = (snapHoop - Config.CourseDogSpeed * SNAPSHOT_T - (i - 1) * length / 2) % length
 		table.insert(self.courseDogs, {
-			dog = dog, s = s0, k = 1, sitT = 0, phase = i * 2.1, low = i % Config.PedLowEvery, moving = true, x = 0, z = 0,
+			dog = dog, s = s0, k = 1, sitT = 0, phase = i * 2.1, low = i % LOD_SLOTS, moving = true, x = 0, z = 0,
+			capSlot = (i * 6 + 5) % CAP_SLOTS, owed = false,
 		})
 	end
 end
@@ -3217,15 +3432,18 @@ function CityLifeSim:_stepCourseDogs(dt: number)
 		if self.simOnly then
 			continue
 		end
-		local lod = self:_pedLod(w.X, w.Y, w.Z, d.low)
+		local lod = self:_pedLod(w.X, w.Y, w.Z, d.low, nil, d.owed)
 		local dog = d.dog
 		if lod == LOD_HIDE then
-			if not dog.hidden then
+			if not dog.hidden and self:_capRoom(DOG_PARTS) then
 				dog.hidden = true
 				self:_parkDog(dog)
 			end
 			continue
 		elseif lod == LOD_SKIP and not dog.hidden then
+			continue
+		end
+		if not self:_admit(d, DOG_PARTS) then
 			continue
 		end
 		dog.hidden = false
@@ -3241,13 +3459,10 @@ function CityLifeSim:_stepCourseDogs(dt: number)
 		if not d.moving then
 			pitch = 0.18 -- sitting: nose up a little
 		end
-		local cf = c.zoneCF * yawCF(x, y + hopY + bob, z, yaw)
-		if pitch ~= 0 then
-			cf *= CFrame.Angles(pitch, 0, 0)
-		end
+		local cf = c.zoneCF * (if pitch ~= 0 then yawPitchCF(x, y + hopY + bob, z, yaw, pitch) else yawCF(x, y + hopY + bob, z, yaw))
 		local wag = (if d.moving then 0.5 else 0.75) * sin(2 * math.pi * (if d.moving then 6 else 8) * t + d.phase)
 		self:_emitDog(dog, cf, wag)
-		self:_emit(dog.collar, cf * CFrame.new(0, 1.13, -0.46) * CFrame.Angles(-0.72, 0, 0))
+		self:_emit(dog.collar, cf * DOG_COLLAR_OFF)
 	end
 end
 
@@ -3274,6 +3489,9 @@ local CABLE_GREY = rgb(70, 74, 96)
 
 function CityLifeSim:_buildWashers()
 	self.washers = {}
+	if self.half then
+		return -- Low device tier: no window washers
+	end
 	local specs = {}
 	for _, spec in CityLayout.skyline do
 		specs[spec.name] = spec
@@ -3330,25 +3548,34 @@ function CityLifeSim:_stepWashers(dt: number)
 		local y = self:_washerY(w, t)
 		local base = w.cf * CFrame.new(w.x, y, w.z)
 		local at = base.Position
-		local lod = self:_pedLod(at.X, at.Y, at.Z, w.low)
+		-- a slow ride: every 2nd frame is plenty
+		local lod = self:_pedLod(at.X, at.Y, at.Z, w.low, 2, w.rig.owed)
 		if lod == LOD_HIDE then
-			if not w.hidden then
+			if not w.hidden and self:_capRoom(3 + w.rig.n) then
 				w.hidden = true
 				self:_emit(w.platform, PARK)
 				self:_emit(w.cables[1], PARK)
 				self:_emit(w.cables[2], PARK)
-				self:_park(w.rig.parts, w.rig.n)
+				self:_parkRig(w.rig)
 			end
 			continue
 		end
-		if (lod == LOD_SKIP or (self.frame + w.low) % 2 == 1) and not w.hidden and not self.forceAll then
-			continue -- a slow ride: every 2nd frame is plenty
+		if lod == LOD_SKIP and not w.hidden then
+			continue
+		end
+		-- the worker faces the wall (+Z) and scrubs in circles with the right
+		-- arm, the left hand on the cable side; admitted with the cradle + cables
+		local platformTop = y + 0.5
+		local scrub = 6 * t + i
+		local root = w.cf * CFrame.new(w.x + 1.6, platformTop + 0.02 * abs(sin(scrub)), w.z + 0.2) * CFrame.Angles(0, math.pi, 0)
+		local head = 0.2 * sin(0.7 * t + i)
+		if not self:_poseCitizen(w.rig, root, 0.4, -0.25, 1.75 + 0.3 * sin(scrub), 0.35 * cos(scrub), 0, 0, head, 3) then
+			continue
 		end
 		w.hidden = false
 		w.y = y
 		self:_emit(w.platform, base)
 		-- cables: from just above the cornice down to the platform top
-		local platformTop = y + 0.5
 		if t - w.cableT >= Config.WasherCableEvery or self.forceAll then
 			w.cableT = t
 			local len = w.cableTop - platformTop
@@ -3361,12 +3588,6 @@ function CityLifeSim:_stepWashers(dt: number)
 		local cy = w.cableTop - w.cableLen / 2
 		self:_emit(w.cables[1], w.cf * CFrame.new(w.x - 4.6, cy, w.z + 0.95))
 		self:_emit(w.cables[2], w.cf * CFrame.new(w.x + 4.6, cy, w.z + 0.95))
-		-- the worker faces the wall (+Z) and scrubs in circles with the right
-		-- arm, the left hand on the cable side
-		local scrub = 6 * t + i
-		local root = w.cf * CFrame.new(w.x + 1.6, platformTop + 0.02 * abs(sin(scrub)), w.z + 0.2) * CFrame.Angles(0, math.pi, 0)
-		local head = 0.2 * sin(0.7 * t + i)
-		self:_poseCitizen(w.rig, root, 0.4, -0.25, 1.75 + 0.3 * sin(scrub), 0.35 * cos(scrub), 0, 0, head)
 	end
 end
 
@@ -3407,8 +3628,8 @@ function CityLifeSim:_buildPigeons()
 		return
 	end
 	for f, pref in PIGEON_START do
-		if f > Config.PigeonFlocks then
-			break
+		if f > (if self.half then 1 else Config.PigeonFlocks) then
+			break -- (Low device tier: 1 flock)
 		end
 		local want = CityLayout.ringPos(pref[1], pref[2], 0)
 		local best, bestD = nil, math.huge
@@ -3428,7 +3649,7 @@ function CityLifeSim:_buildPigeons()
 			local flock = {
 				cx = best.x, cz = best.z, cy = best.y, fx = best.x, fz = best.z, fy = best.y, tx = best.x, tz = best.z, ty = best.y,
 				flying = false, t0 = 0, landedAt = -10, nextSpont = 14 + 22 * hash01(f, 91), flights = 0,
-				hidden = false, low = f % Config.PedLowEvery, birds = {},
+				hidden = false, low = f % LOD_SLOTS, birds = {}, capSlot = f % CAP_SLOTS, owed = false,
 			}
 			for k, off in PIGEON_OFFSETS do
 				local a = (off[2] + 14 * (hash01(f, k) - 0.5)) * DEG
@@ -3439,6 +3660,8 @@ function CityLifeSim:_buildPigeons()
 					baseYaw = hash01(k, f + 3) * 6.28, phase = hash01(f * 7 + k, 5) * 9,
 					peck = 1 + 2 * hash01(f + k * 3, 7), hopEvery = 3.5 + 3 * hash01(k + f * 5, 9),
 					delay = (k - 1) * 0.05, still = false,
+					-- this step's pose (see _posePigeons)
+					emitNow = false, stillNext = false, px = 0, py = 0, pz = 0, yaw = 0, pitch = 0, dip = 0, wing = 0,
 					body = newPart(model, "PigeonBody", Enum.PartType.Ball, Vector3.new(1, 1, 1), IDENTITY, PIGEON_BODY),
 					head = newPart(model, "PigeonHead", Enum.PartType.Ball, Vector3.new(0.55, 0.55, 0.55), IDENTITY, PIGEON_HEAD),
 					wingL = newPart(model, "PigeonWing", Enum.PartType.Block, Vector3.new(0.66, 0.1, 0.55), IDENTITY, PIGEON_WING),
@@ -3529,7 +3752,7 @@ function CityLifeSim:_buildSky()
 	local blimp = VehicleRig.buildBlimp()
 	blimp.Parent = self.skyFolder
 	local parts, rest = collect(blimp)
-	self.blimp = { model = blimp, parts = parts, rest = rest, n = #parts, theta0 = 330, hidden = false }
+	self.blimp = { model = blimp, parts = parts, rest = rest, n = #parts, theta0 = 330, hidden = false, slot = 0, capSlot = 0, owed = false }
 
 	-- Bird flocks: V of five white cartoon birds each
 	local FLOCKS = {
@@ -3540,7 +3763,8 @@ function CityLifeSim:_buildSky()
 	local V = { Vector3.new(0, 0, 0), Vector3.new(-3.2, 0.4, 3.2), Vector3.new(3.2, 0.4, 3.2), Vector3.new(-6.4, 0.8, 6.4), Vector3.new(6.4, 0.8, 6.4) }
 	local white = rgb(248, 248, 244)
 	for f, spec in FLOCKS do
-		local flock = { spec = spec, birds = {} }
+		-- a flock's 5 birds move on the same steps (the V never shears)
+		local flock = { spec = spec, birds = {}, slot = f, capSlot = (f * 5) % CAP_SLOTS, owed = false, hidden = false }
 		for b, offset in V do
 			local model = Instance.new("Model")
 			model.Name = "Bird" .. f .. "_" .. b
@@ -3569,6 +3793,9 @@ function CityLifeSim:_buildSky()
 	}
 	local cloudWhite = rgb(255, 255, 255)
 	for k = 0, 11 do
+		if self.half and k % 2 == 1 then
+			continue -- Low device tier: 6 clouds (5 on the ring + 1 high one)
+		end
 		local angle, radius, height
 		if k < 10 then
 			angle = 36 * k + 15 * hash01(k, 41)
@@ -3591,12 +3818,15 @@ function CityLifeSim:_buildSky()
 		model.Parent = self.skyFolder
 		table.insert(self.clouds, {
 			parts = parts, rest = rest, n = #parts, angle0 = angle, radius = radius, height = height,
-			phase = hash01(k, 53) * 6.28, hidden = false,
+			phase = hash01(k, 53) * 6.28, hidden = false, slot = k, capSlot = (k * 3 + 1) % CAP_SLOTS, owed = false,
 		})
 	end
 
 	-- Hot-air balloons in the zone colors
 	for k, spec in BALLOONS do
+		if self.half and k ~= 1 and k ~= 4 then
+			continue -- Low device tier: the spawn view's yellow and the plaza view's pink
+		end
 		local model = VehicleRig.buildBalloon(spec.color)
 		model.Name = "Balloon" .. k
 		model.Parent = self.skyFolder
@@ -3606,7 +3836,7 @@ function CityLifeSim:_buildSky()
 			parts = parts, rest = rest, n = #parts, dir = dir, radius = spec.radius, height = spec.height,
 			-- placed so the render snapshot (t = SNAPSHOT_T) frames them where wanted
 			angle0 = spec.snapAngle - dir * Config.BalloonOrbit * SNAPSHOT_T,
-			phase = hash01(k, 61) * 6.28, hidden = false,
+			phase = hash01(k, 61) * 6.28, hidden = false, slot = k, capSlot = (k * 7 + 2) % CAP_SLOTS, owed = false,
 		})
 	end
 end
@@ -3644,6 +3874,9 @@ end
 function CityLifeSim:_setLight(cw, state: number)
 	cw.state = state
 	cw.timer = 0
+	if state == STOP then
+		cw.playerHoldT = 0 -- a fresh red phase: players may hold it PlayerHoldMax s again
+	end
 	self:_applyLight(cw)
 end
 
@@ -3731,7 +3964,7 @@ function CityLifeSim:bindMap(map: Instance)
 				label.Parent = gui
 			end
 			model.Parent = self.skyFolder
-			table.insert(self.coins, { rim = rim, face = face, center = center, phase = i * 0.77 })
+			table.insert(self.coins, { rim = rim, face = face, center = center, phase = i * 0.77, slot = i, capSlot = (i * 4) % CAP_SLOTS, owed = false })
 		end
 	end
 
@@ -3753,20 +3986,42 @@ function CityLifeSim:bindMap(map: Instance)
 		if type(rate) == "number" and rate ~= 0 then
 			if d:IsA("BasePart") then
 				local pivot = d.CFrame.Position
-				table.insert(self.spinners, { part = d, pivot = pivot, offset = CFrame.new(-pivot) * d.CFrame, rate = rate, a0 = 0 })
+				local sp = { part = d, pivot = pivot, offset = CFrame.new(-pivot) * d.CFrame, rate = rate, a0 = 0 }
+				table.insert(self.spinners, sp)
+				self:_addSpinGroup({ sp }, pivot, rate, 0, false)
 			elseif d:IsA("Model") then
 				local okPivot, pivotCF = pcall(function()
 					return d:GetPivot()
 				end)
 				local pivot = if okPivot then pivotCF.Position else Vector3.zero
+				local group = {}
 				for _, p in d:GetDescendants() do
 					if p:IsA("BasePart") then
-						table.insert(self.spinners, { part = p, pivot = pivot, offset = CFrame.new(-pivot) * p.CFrame, rate = rate, a0 = 0 })
+						local sp = { part = p, pivot = pivot, offset = CFrame.new(-pivot) * p.CFrame, rate = rate, a0 = 0 }
+						table.insert(self.spinners, sp)
+						table.insert(group, sp)
 					end
+				end
+				if #group > 0 then
+					self:_addSpinGroup(group, pivot, rate, 0, false)
 				end
 			end
 		end
 	end
+end
+
+-- One spinning model / part set: its parts turn together about `pivot` (one
+-- LOD decision, one cap admission, so a model never shears apart).
+function CityLifeSim:_addSpinGroup(list, pivot: Vector3, rate: number, a0: number, zone: boolean)
+	local index = #self.spinGroups + 1
+	local parts, offsets = {}, {}
+	for k, sp in list do
+		parts[k], offsets[k] = sp.part, sp.offset
+	end
+	self.spinGroups[index] = {
+		parts = parts, offsets = offsets, n = #parts, pivot = pivot, rate = rate, a0 = a0, zone = zone,
+		slot = index, capSlot = (index * 5 + 3) % CAP_SLOTS, owed = false,
+	}
 end
 
 ----------------------------------------------------------------------
@@ -4145,68 +4400,389 @@ function CityLifeSim:_park(parts, n: number)
 	end
 end
 
+-- True when `n` more parts still fit under the part cap this step.
+function CityLifeSim:_capRoom(n: number): boolean
+	return not self.capOn or self.outCount + n <= self.partCap
+end
 
-function CityLifeSim:_pedLod(x: number, y: number, z: number, lowSlot: number): number
-	if self.forceAll or self.camera == nil then
+-- Parks `n` parts unless that would break the part cap this step (false: the
+-- caller leaves its hidden flag off and simply tries again next step).
+function CityLifeSim:_tryPark(parts, n: number): boolean
+	if not self:_capRoom(n) then
+		return false
+	end
+	self:_park(parts, n)
+	return true
+end
+
+-- Parks a citizen rig out of sight (its next pose emits every part).
+function CityLifeSim:_parkRig(rig): boolean
+	if not self:_tryPark(rig.parts, rig.n) then
+		return false
+	end
+	rig.hidden, rig.posed, rig.owed = true, false, false
+	return true
+end
+
+----------------------------------------------------------------------
+-- Runtime tier, governor and part cap
+----------------------------------------------------------------------
+
+-- The per-step knobs of a tier (TIERS); the crowd stays as built.
+function CityLifeSim:setRuntimeTier(name: string)
+	local valid = TIERS[name] ~= nil
+	local spec = if valid then TIERS[name] else TIERS.High
+	self.runtimeTier = if valid then name else "High"
+	self.lodFull, self.lodMid = spec.full, spec.mid
+	self.lodFull2, self.lodMid2 = spec.full * spec.full, spec.mid * spec.mid
+	self.lodVehicle2 = spec.vehicle * spec.vehicle
+	self.lodSky2 = spec.sky * spec.sky
+	self.midEvery = spec.midEvery
+	self.partCap = spec.cap
+	self.stepEvery = spec.stepEvery
+end
+
+-- One notch down (+1) / back up (-1): never above the device tier, never below Low.
+function CityLifeSim:_shiftRuntimeTier(delta: number): boolean
+	local g = self.gov
+	local index = clamp(TIERS[self.runtimeTier].index + delta, TIERS[self.tier].index, #TIER_ORDER)
+	local name = TIER_ORDER[index]
+	if name == self.runtimeTier then
+		return false
+	end
+	if delta > 0 and g.t - g.lastRecover < 30 then
+		-- slow again soon after recovering: wait longer before the next try
+		g.recoverAfter = min(g.recoverAfter * 2, Config.GovernorFastMax)
+	elseif delta < 0 then
+		g.lastRecover = g.t
+	end
+	g.changes += 1
+	self:setRuntimeTier(name)
+	return true
+end
+
+-- The shell's per-Heartbeat entry: the governor (an EMA of the Heartbeat dt:
+-- above GovernorSlowDt for GovernorSlowFor s -> one runtime tier down; under
+-- GovernorFastDt for GovernorFastFor s -> one back up), then one sim step every
+-- Heartbeat (stepEvery 1) or at most 30 times a second (stepEvery 2, time-based)
+-- over the accumulated dt. Returns the number of parts
+-- to move: 0 on a Heartbeat without a step (move nothing then).
+function CityLifeSim:heartbeat(dt: number, cameraPos: Vector3?, cameraLook: Vector3?): number
+	local g = self.gov
+	local d = clamp(dt, 0, Config.GovernorMaxDt)
+	g.t += d
+	if g.t > Config.GovernorWarmup then
+		g.ema += (d - g.ema) * (1 - exp(-d / Config.GovernorTau))
+		if g.ema > Config.GovernorSlowDt then
+			g.slowT += d
+			g.fastT = 0
+			if g.slowT >= Config.GovernorSlowFor then
+				g.slowT = 0
+				self:_shiftRuntimeTier(1)
+			end
+		elseif g.ema < Config.GovernorFastDt then
+			g.fastT += d
+			g.slowT = 0
+			if g.fastT >= g.recoverAfter then
+				g.fastT = 0
+				self:_shiftRuntimeTier(-1)
+			end
+		else
+			g.slowT, g.fastT = 0, 0
+		end
+	end
+	-- Time-based cadence (not a Heartbeat count): stepEvery > 1 caps the sim
+	-- at 30 Hz. The remainder carries over, so 45 FPS still steps ~30 times
+	-- a second; at 30 FPS or below every Heartbeat steps with all the time
+	-- accumulated since the last step (never slower than the frame rate).
+	g.acc += dt
+	local interval = if self.stepEvery > 1 then 1 / 30 else 0
+	if g.acc < interval - 1e-3 then
+		return 0
+	end
+	local stepDt = if interval > 0 and g.acc < 2 * interval then interval else g.acc
+	g.acc = math.max(0, g.acc - stepDt)
+	return self:step(stepDt, cameraPos, false, cameraLook)
+end
+
+-- Start of a posing step: each priority class's window width from what the
+-- classes asked for last step (class 1 near, 2 mid, 3 low / behind / far
+-- sky, in that order, after the parts the hard cap deferred last step: those
+-- are owed and go first).
+function CityLifeSim:_capBegin()
+	self.capOn = not self.forceAll and not self.simOnly and self.partCap > 0
+	if not self.capOn then
+		return
+	end
+	local demand, share, prev = self.capDemand, self.capShare, self.capPrev
+	local budget = self.partCap - self.capDenied
+	self.capReserve = self.capDenied
+	self.capDenied = 0
+	for c = 1, 3 do
+		local want = demand[c]
+		if want <= budget then
+			share[c] = CAP_SLOTS
+			budget -= want
+		else
+			share[c] = max(1, floor(CAP_SLOTS * max(budget, 0) / want))
+			budget = 0
+		end
+		prev[c] = want
+		demand[c] = 0
+	end
+end
+
+-- Part-cap admission of a poser (`obj`: rig / vehicle / sky object with
+-- capSlot and owed) about to emit `k` parts, at the priority (self.lodPrio)
+-- of its LOD test just before. A class over its share passes share / 13 of
+-- its requests (evenly, per poser: everyone's turn comes round); the hard cap
+-- defers anything past partCap minus the room kept for last step's deferred
+-- posers and for the higher classes still to come - a deferred poser is
+-- `owed`: it skips its LOD cadence and is admitted first next time. Never
+-- allocates.
+function CityLifeSim:_admit(obj, k: number): boolean
+	if not self.capOn or k <= 0 then
+		return true
+	end
+	if obj.owed then
+		if self.outCount + k > self.partCap then
+			self.capDenied += k
+			return false
+		end
+		obj.owed = false
+		self.capReserve = max(0, self.capReserve - k)
+		return true
+	end
+	local c = self.lodPrio
+	local demand = self.capDemand
+	demand[c] += k
+	local share = self.capShare[c]
+	if share < CAP_SLOTS then
+		-- this class gets share / CAP_SLOTS of its requests through: each poser
+		-- adds `share` to its own accumulator (capSlot) per request and passes
+		-- when it reaches CAP_SLOTS - an even cadence, and a turn within 13
+		-- requests even at the minimum share of 1
+		local acc = obj.capSlot + share
+		if acc < CAP_SLOTS then
+			obj.capSlot = acc
+			return false
+		end
+		obj.capSlot = acc - CAP_SLOTS
+	end
+	-- room left after the owed reserve and what the higher classes asked for
+	-- last step but have not asked for yet this step (posers come in a fixed
+	-- order, so a far vehicle never takes a near walker's place)
+	local need = self.capReserve
+	if c > 1 then
+		local prev = self.capPrev
+		for h = 1, c - 1 do
+			local left = prev[h] - demand[h]
+			if left > 0 then
+				need += left
+			end
+		end
+	end
+	if self.outCount + k + need > self.partCap then
+		obj.owed = true
+		self.capDenied += k
+		return false
+	end
+	return true
+end
+
+-- True when (dx, dy, dz) from the camera (d2 = its squared length) is more
+-- than BehindRadius away and behind it: dot(look, toAgentUnit) < BehindDot.
+function CityLifeSim:_isBehind(dx: number, dy: number, dz: number, d2: number): boolean
+	local look = self.cameraLook
+	if look == nil or d2 <= Config.BehindRadius * Config.BehindRadius then
+		return false
+	end
+	local dot = dx * look.X + dy * look.Y + dz * look.Z
+	return dot < 0 and dot * dot > BEHIND_DOT2 * d2
+end
+
+-- Distance + facing LOD of a ground agent at (x, y, z) for the runtime tier:
+-- LOD_HIDE beyond HideRadius; LOD_LOW (rest pose, every PedLowEvery-th step)
+-- beyond the tier's mid radius or behind the camera; animated every
+-- midEvery-th step to the mid radius and every step within the full radius
+-- (LOD_FULL). `slot` staggers the steps, `minEvery` (slow idlers, standing
+-- customers: 2) caps the rate and `owed` (a pose the part cap deferred) skips
+-- the cadence (LOD_SKIP: not this step). Sets self.lodPrio for _admit.
+function CityLifeSim:_pedLod(x: number, y: number, z: number, slot: number, minEvery: number?, owed: boolean?): number
+	if self.forceAll then
+		self.lodPrio = 1
 		return LOD_FULL
 	end
+	local every, lod, prio = 1, LOD_FULL, 1
 	local c = self.camera
-	local dx, dy, dz = x - c.X, y - c.Y, z - c.Z
-	local d2 = dx * dx + dy * dy + dz * dz
-	if d2 > Config.HideRadius * Config.HideRadius then
-		return LOD_HIDE
-	elseif d2 > Config.PedMidRadius * Config.PedMidRadius then
-		return if (self.frame + lowSlot) % Config.PedLowEvery == 0 then LOD_LOW else LOD_SKIP
-	elseif d2 > Config.PedFullRadius * Config.PedFullRadius then
-		return if (self.frame + lowSlot) % 2 == 0 then LOD_FULL else LOD_SKIP
+	if c then
+		local dx, dy, dz = x - c.X, y - c.Y, z - c.Z
+		local d2 = dx * dx + dy * dy + dz * dz
+		if d2 > Config.HideRadius * Config.HideRadius then
+			return LOD_HIDE
+		end
+		if d2 > self.lodMid2 or self:_isBehind(dx, dy, dz, d2) then
+			every, lod, prio = Config.PedLowEvery, LOD_LOW, 3
+		elseif d2 > self.lodFull2 then
+			every, prio = self.midEvery, 2
+		end
+	end
+	self.lodPrio = prio
+	if minEvery and minEvery > every then
+		every = minEvery
+	end
+	if every > 1 and not owed and (self.frame + slot) % every ~= 0 then
+		return LOD_SKIP
+	end
+	return lod
+end
+
+-- The same rules for sky objects and spinners, against the tier's `sky`
+-- radius (every step within it in front, every midEvery-th step beyond, every
+-- 4th behind the camera); LOD_HIDE beyond `hide` studs. Sets self.lodPrio.
+function CityLifeSim:_skyLod(x: number, y: number, z: number, slot: number, minEvery: number?, owed: boolean?, hide: number): number
+	if self.forceAll then
+		self.lodPrio = 1
+		return LOD_FULL
+	end
+	local every, prio = 1, 1
+	local c = self.camera
+	if c then
+		local dx, dy, dz = x - c.X, y - c.Y, z - c.Z
+		local d2 = dx * dx + dy * dy + dz * dz
+		if d2 > hide * hide then
+			return LOD_HIDE
+		end
+		if self:_isBehind(dx, dy, dz, d2) then
+			every, prio = Config.PedLowEvery, 3
+		elseif d2 > self.lodSky2 then
+			every, prio = self.midEvery, 3
+		elseif d2 > self.lodFull2 then
+			prio = 2
+		end
+	end
+	self.lodPrio = prio
+	if minEvery and minEvery > every then
+		every = minEvery
+	end
+	if every > 1 and not owed and (self.frame + slot) % every ~= 0 then
+		return LOD_SKIP
 	end
 	return LOD_FULL
 end
 
-local function limb(pivot: Vector3, pitch: number, roll: number): CFrame
-	-- rotation about a pivot point (pivots carry no rotation)
-	return CFrame.new(pivot) * CFrame.Angles(pitch, 0, roll) * CFrame.new(-pivot)
-end
-
--- Poses a citizen: root CFrame (feet) + limb angles (radians, about the
--- shoulders / hips / head center), then emits every part.
-function CityLifeSim:_poseCitizen(rig, rootCF: CFrame, la: number, laRoll: number, ra: number, raRoll: number, ll: number, rl: number, headYaw: number)
-	local g, pv = rig.gcf, rig.pivot
-	g[G_ROOT] = rootCF
-	g[G_HEAD] = if headYaw ~= 0 then rootCF * CFrame.new(pv[G_HEAD]) * CFrame.Angles(0, headYaw, 0) * CFrame.new(-pv[G_HEAD]) else rootCF
-	g[G_LARM] = if la ~= 0 or laRoll ~= 0 then rootCF * limb(pv[G_LARM], la, laRoll) else rootCF
-	g[G_RARM] = if ra ~= 0 or raRoll ~= 0 then rootCF * limb(pv[G_RARM], ra, raRoll) else rootCF
-	g[G_LLEG] = if ll ~= 0 then rootCF * limb(pv[G_LLEG], ll, 0) else rootCF
-	g[G_RLEG] = if rl ~= 0 then rootCF * limb(pv[G_RLEG], rl, 0) else rootCF
-	local parts, rest, group = rig.parts, rig.rest, rig.group
+-- Emits the parts of one pose group (a still idler's changed limb).
+local function emitGroup(self, rig, gi: number, bagI: number)
+	local list, gcf = rig.gidx[gi], rig.gcf[gi]
+	local parts, rest = rig.parts, rig.rest
 	local outP, outC = self.outParts, self.outCFrames
 	local n = self.outCount
-	for i = 1, rig.n do
+	for j = 1, #list do
+		local i = list[j]
 		n += 1
 		outP[n] = parts[i]
-		outC[n] = g[group[i]] * rest[i]
+		outC[n] = if i == bagI then PARK else gcf * rest[i]
 	end
 	self.outCount = n
 end
 
--- Applies LOD bookkeeping for a citizen; returns true when it should be posed
--- now and whether limbs animate.
-function CityLifeSim:_citizenVisible(rig, x: number, y: number, z: number, lowSlot: number): (boolean, boolean)
-	local lod = self:_pedLod(x, y, z, lowSlot)
+-- Poses a citizen: root CFrame (feet) + limb angles (radians, about the
+-- shoulders / hips / head center). When the root has not moved since its
+-- last pose (a still idler) only the groups whose angles changed are emitted
+-- (a head turn: the head group only). A shopper's bag (rig.bagPark) goes out
+-- parked. `extra`: parts the caller emits right after (a dog, the boombox, a
+-- cradle), admitted together. Returns false when the part cap deferred it
+-- (nothing emitted; the caller skips its extras too).
+function CityLifeSim:_poseCitizen(rig, rootCF: CFrame, la: number, laRoll: number, ra: number, raRoll: number, ll: number, rl: number, headYaw: number, extra: number?): boolean
+	local full = not rig.posed or self.forceAll or self.noDelta == true or rootCF ~= rig.lastRoot
+	local bagPark = rig.bagPark
+	local chHead, chL, chR, chLL, chRL = true, true, true, true, true
+	local k = rig.n
+	if not full then
+		local gn = rig.gn
+		chHead = headYaw ~= rig.lHead
+		chL = la ~= rig.lLa or laRoll ~= rig.lLaRoll
+		chR = ra ~= rig.lRa or raRoll ~= rig.lRaRoll or bagPark ~= rig.lBagPark
+		chLL = ll ~= rig.lLl
+		chRL = rl ~= rig.lRl
+		k = (if chHead then gn[G_HEAD] else 0) + (if chL then gn[G_LARM] else 0) + (if chR then gn[G_RARM] else 0)
+			+ (if chLL then gn[G_LLEG] else 0) + (if chRL then gn[G_RLEG] else 0)
+	end
+	local total = k + (extra or 0)
+	if total == 0 then
+		return true -- nothing moved since the last pose
+	end
+	if not self:_admit(rig, total) then
+		return false
+	end
+	local g, px, py = rig.gcf, rig.px, rig.py
+	if full then
+		g[G_ROOT] = rootCF
+	end
+	if chHead then
+		-- the head pivot lies on the rig's Y axis: a head turn is a plain yaw
+		g[G_HEAD] = if headYaw ~= 0 then rootCF * yawCF(0, 0, 0, headYaw) else rootCF
+	end
+	if chL then
+		g[G_LARM] = if la ~= 0 or laRoll ~= 0 then rootCF * limbCF(px[G_LARM], py[G_LARM], la, laRoll) else rootCF
+	end
+	if chR then
+		g[G_RARM] = if ra ~= 0 or raRoll ~= 0 then rootCF * limbCF(px[G_RARM], py[G_RARM], ra, raRoll) else rootCF
+	end
+	if chLL then
+		g[G_LLEG] = if ll ~= 0 then rootCF * limbCF(px[G_LLEG], py[G_LLEG], ll, 0) else rootCF
+	end
+	if chRL then
+		g[G_RLEG] = if rl ~= 0 then rootCF * limbCF(px[G_RLEG], py[G_RLEG], rl, 0) else rootCF
+	end
+	local bagI = if bagPark and rig.bagIndex then rig.bagIndex else 0
+	if full then
+		local parts, rest, group = rig.parts, rig.rest, rig.group
+		local outP, outC = self.outParts, self.outCFrames
+		local n = self.outCount
+		for i = 1, rig.n do
+			n += 1
+			outP[n] = parts[i]
+			outC[n] = if i == bagI then PARK else g[group[i]] * rest[i]
+		end
+		self.outCount = n
+	else
+		if chHead then
+			emitGroup(self, rig, G_HEAD, bagI)
+		end
+		if chL then
+			emitGroup(self, rig, G_LARM, bagI)
+		end
+		if chR then
+			emitGroup(self, rig, G_RARM, bagI)
+		end
+		if chLL then
+			emitGroup(self, rig, G_LLEG, bagI)
+		end
+		if chRL then
+			emitGroup(self, rig, G_RLEG, bagI)
+		end
+	end
+	rig.posed, rig.hidden = true, false
+	rig.lastRoot = rootCF
+	rig.lHead, rig.lLa, rig.lLaRoll, rig.lRa, rig.lRaRoll, rig.lLl, rig.lRl = headYaw, la, laRoll, ra, raRoll, ll, rl
+	rig.lBagPark = bagPark
+	return true
+end
+
+-- LOD bookkeeping for a citizen: parks it beyond HideRadius; returns whether
+-- it should be posed this step and whether its limbs animate (`minEvery`: see
+-- _pedLod).
+function CityLifeSim:_citizenVisible(rig, x: number, y: number, z: number, lowSlot: number, minEvery: number?): (boolean, boolean)
+	local lod = self:_pedLod(x, y, z, lowSlot, minEvery, rig.owed)
 	if lod == LOD_HIDE then
 		if not rig.hidden then
-			rig.hidden = true
-			self:_park(rig.parts, rig.n)
+			self:_parkRig(rig)
 		end
 		return false, false
-	end
-	if lod == LOD_SKIP then
-		if rig.hidden then
-			return false, false
-		end
+	elseif lod == LOD_SKIP then
 		return false, false
 	end
-	rig.hidden = false
 	return true, lod == LOD_FULL
 end
 
@@ -4235,6 +4811,7 @@ function CityLifeSim:_bandClear(cw): boolean
 end
 
 local ROAD_CLEAR = 0.8 -- a crosser's half depth + margin past the asphalt edge
+local VEHICLE_HOP_TIME, VEHICLE_HOP = 0.35, 0.35 -- s / studs: the hop before creeping through a player
 
 function CityLifeSim:_stepLights(dt: number)
 	local cws = self.crosswalks
@@ -4242,6 +4819,7 @@ function CityLifeSim:_stepLights(dt: number)
 		local cw = cws[i]
 		cw.requests = 0
 		cw.occupants = 0
+		cw.players = 0
 	end
 	-- a crosser holds its light red from the moment it commits until its body
 	-- has left the asphalt (the rest of the walk is on the sidewalk)
@@ -4255,13 +4833,16 @@ function CityLifeSim:_stepLights(dt: number)
 			c.cw.requests += 1
 		end
 	end
-	-- Players on a zebra band hold that light at red too (friendly city).
+	-- Players on a zebra band hold that light at red too (friendly city) - but
+	-- only PlayerHoldMax s per red phase: an idle player never stops the ring
+	-- (the cars then yield to a player on their lane and creep through, see
+	-- _stepVehicles)
 	for p = 1, self.playerCount do
 		local onIt, cwData = CityLayout.isOnCrosswalk(self.playerPos[p])
 		if onIt and cwData then
 			local cw = self.crosswalkByZone[cwData.zoneId]
 			if cw and cw.state == STOP then
-				cw.occupants += 1
+				cw.players += 1
 			end
 		end
 	end
@@ -4276,8 +4857,15 @@ function CityLifeSim:_stepLights(dt: number)
 			if cw.timer >= Config.AmberTime then
 				self:_setLight(cw, STOP)
 			end
-		elseif cw.occupants == 0 and ((cw.requests == 0 and cw.timer >= Config.MinStop) or cw.timer >= Config.MaxStop) then
-			self:_setLight(cw, GO)
+		else
+			local playerHold = false
+			if cw.players > 0 then
+				cw.playerHoldT += dt
+				playerHold = cw.playerHoldT < Config.PlayerHoldMax
+			end
+			if cw.occupants == 0 and not playerHold and ((cw.requests == 0 and cw.timer >= Config.MinStop) or cw.timer >= Config.MaxStop) then
+				self:_setLight(cw, GO)
+			end
 		end
 	end
 end
@@ -4324,21 +4912,41 @@ function CityLifeSim:_stepVehicles(dt: number)
 				end
 			end
 		end
-		-- any player standing in the lane ahead (or beside the car)
+		-- a player standing ON this lane's asphalt ahead (or beside the car;
+		-- never one on the sidewalk next to the curb): wait at most
+		-- PlayerYieldMax s, then creep through them (life parts never collide)
+		local playerAhead = false
+		local roadIn = if v.lights then S.AsphaltInner else (S.BackAsphaltInner or 0)
+		local roadOut = if v.lights then S.AsphaltOuter else (S.BackAsphaltOuter or huge)
 		for p = 1, playerCount do
 			local pos = players[p]
 			if pos.Y < 25 then
 				local pr = sqrt(pos.X * pos.X + pos.Z * pos.Z)
-				if abs(pr - r) < v.halfWidth + Config.PlayerLaneMargin then
+				if pr >= roadIn and pr <= roadOut and abs(pr - r) < v.halfWidth + Config.PlayerLaneMargin then
 					local pa = atan2(pos.Z, pos.X) / DEG
 					local ahead = wrapDeg(dir * (pa - front)) / degPerStud
 					if ahead > -(2 * v.halfLen + 1) and ahead < Config.PlayerLookAhead then
-						local d = ahead - Config.PlayerStopGap
-						if d < limit then
-							limit = d
+						playerAhead = true
+						if not v.through then
+							local d = ahead - Config.PlayerStopGap
+							if d < limit then
+								limit = d
+							end
 						end
 					end
 				end
+			end
+		end
+		if v.hopT > 0 then
+			v.hopT = max(0, v.hopT - dt)
+		end
+		if not playerAhead then
+			v.yieldT, v.through = 0, false
+		elseif not v.through and v.speed < 0.5 then
+			v.yieldT += dt
+			if v.yieldT >= Config.PlayerYieldMax then
+				v.through = true
+				v.hopT = VEHICLE_HOP_TIME -- a little "honk" hop, then on through
 			end
 		end
 		-- bus stops
@@ -4369,6 +4977,9 @@ function CityLifeSim:_stepVehicles(dt: number)
 				target = brake
 			end
 		end
+		if v.through and playerAhead and target > Config.PlayerCreepSpeed then
+			target = Config.PlayerCreepSpeed -- slowly through the player
+		end
 		local speed = v.speed + (target - v.speed) * easeK
 		local travel = speed * dt
 		if travel > limit then
@@ -4385,46 +4996,66 @@ function CityLifeSim:_poseVehicles(dt: number)
 	local vehicles = self.vehicles
 	local cam = self.camera
 	local t = self.t
-	local up, down = CFrame.new(0, 2, 0), CFrame.new(0, -2, 0)
+	local hide2 = Config.HideRadius * Config.HideRadius
 	for i = 1, #vehicles do
 		local v = vehicles[i]
 		local a = v.theta * DEG
 		local x, z = cos(a) * v.radius, sin(a) * v.radius
-		local detail = true
+		-- LOD: suspension bob + brake pitch every step within the tier's vehicle
+		-- radius (in front), every midEvery-th step beyond, every 4th behind the
+		-- camera; parked beyond HideRadius
+		local detail, every = true, 1
+		self.lodPrio = 1
 		if cam and not self.forceAll then
-			local dx, dz = x - cam.X, z - cam.Z
-			local d2 = dx * dx + dz * dz + cam.Y * cam.Y
-			if d2 > Config.HideRadius * Config.HideRadius then
-				if not v.hidden then
-					v.hidden = true
-					self:_park(v.parts, v.n)
+			local dx, dy, dz = x - cam.X, v.y - cam.Y, z - cam.Z
+			local d2 = dx * dx + dy * dy + dz * dz
+			if d2 > hide2 then
+				if not v.hidden and self:_tryPark(v.parts, v.n) then
+					v.hidden, v.owed = true, false
 				end
 				continue
 			end
-			detail = d2 < Config.VehicleDetailRadius * Config.VehicleDetailRadius
+			if self:_isBehind(dx, dy, dz, d2) then
+				detail, every, self.lodPrio = false, Config.PedLowEvery, 3
+			elseif d2 > self.lodVehicle2 then
+				detail, every, self.lodPrio = false, self.midEvery, 3
+			elseif d2 > self.lodFull2 then
+				self.lodPrio = 2
+			end
 		end
 		local wasHidden = v.hidden
-		v.hidden = false
-		if v.speed < 1e-3 and abs(v.pitch) < 0.002 then
-			-- stopped and settled (red light, queue, bus stop): hold the pose, emit once
-			if v.still and not wasHidden and not self.forceAll then
+		local settled = v.speed < 1e-3 and abs(v.pitch) < 0.002 and v.hopT <= 0
+		if not self.forceAll and not wasHidden and not v.owed then
+			if settled then
+				-- stopped and settled (red light, queue, bus stop): hold the pose, emit once
+				if v.still then
+					continue
+				end
+			elseif every > 1 and (self.frame + v.slot) % every ~= 0 then
 				continue
 			end
+		end
+		if not self:_admit(v, v.n) then
+			continue
+		end
+		v.hidden = false
+		if settled then
 			v.pitch = 0
 			v.still = true
 		else
 			v.still = false
-			-- far vehicles (no detail): every 2nd frame is plenty
-			if not detail and not wasHidden and not self.forceAll and (self.frame + i) % 2 == 1 then
-				continue
-			end
 		end
 		local base = yawCF(x, v.y, z, tangentYaw(a, v.dir))
 		local parts, rest, wheel = v.parts, v.rest, v.wheel
 		if detail then
 			v.pitch += (clamp(v.accel * 0.004, -v.maxPitch, v.maxPitch) - v.pitch) * min(1, dt * 6)
 			local bob = 0.07 * sin(12 * t + v.phase) * min(1, v.speed / 6)
-			local body = base * up * CFrame.new(0, bob, 0) * CFrame.Angles(v.pitch, 0, 0) * down
+			if v.hopT > 0 then
+				bob += VEHICLE_HOP * sin(math.pi * (1 - v.hopT / VEHICLE_HOP_TIME))
+			end
+			-- base * up(2) * bob * pitch * down(2) as one matrix
+			local ca, sa = cos(v.pitch), sin(v.pitch)
+			local body = base * CFrame.new(0, 2 + bob - 2 * ca, -2 * sa, 1, 0, 0, 0, ca, -sa, 0, sa, ca)
 			for j = 1, v.n do
 				self:_emit(parts[j], (if wheel[j] then base else body) * rest[j])
 			end
@@ -4580,13 +5211,15 @@ function CityLifeSim:_stepCrossers(dt: number)
 		if self.simOnly then
 			continue
 		end
-		local y = CityLayout.surfaceY(Vector3.new(x, 0, z))
-		local carpet = c.cw.carpet -- feet on the zone's entrance carpet (a thin slab on the sidewalk)
-		if carpet and c.along > carpet.r0 and c.along < carpet.r1 and c.side > carpet.l0 and c.side < carpet.l1 and carpet.top > y then
-			y = carpet.top
-		end
-		local visible, animate = self:_citizenVisible(c.rig, x, y, z, c.low)
+		-- LOD on the last feet height (the surface lookup only when posing)
+		local visible, animate = self:_citizenVisible(c.rig, x, c.y, z, c.low)
 		if visible then
+			local y = CityLayout.surfaceY(Vector3.new(x, 0, z))
+			local carpet = c.cw.carpet -- feet on the zone's entrance carpet (a thin slab on the sidewalk)
+			if carpet and c.along > carpet.r0 and c.along < carpet.r1 and c.side > carpet.l0 and c.side < carpet.l1 and carpet.top > y then
+				y = carpet.top
+			end
+			c.y = y
 			local s = c.rig.scale
 			local swing = if animate then sin(c.walkClock) * c.amp else 0
 			local bob = if animate then 0.12 * s * abs(sin(c.walkClock)) * c.amp else 0
@@ -4605,10 +5238,7 @@ function CityLifeSim:_stepCrossers(dt: number)
 					ra, raRoll = 0, 2.5 + 0.4 * sin(12 * t)
 				end
 			end
-			local root = yawCF(x, y + bob, z, c.yaw)
-			if roll ~= 0 then
-				root *= CFrame.Angles(0, 0, roll)
-			end
+			local root = if roll ~= 0 then yawRollCF(x, y + bob, z, c.yaw, roll) else yawCF(x, y + bob, z, c.yaw)
 			self:_poseCitizen(c.rig, root, 0.6 * swing, 0, ra, raRoll, -0.5 * swing, 0.5 * swing, head)
 		end
 	end
@@ -4827,11 +5457,11 @@ function CityLifeSim:_stepWalkers(dt: number)
 					raRoll = 2.5 + 0.4 * sin(12 * t + w.phase)
 				end
 			end
-			self:_poseWalker(w, x, lane.y, z, animate, head, raRoll, 0)
-			if w.dog then
+			-- the dog is admitted with its walker (the leash spans the posed hand)
+			if self:_poseWalker(w, x, lane.y, z, animate, head, raRoll, 0, if w.dog then DOG_PARTS else nil) and w.dog then
 				self:_poseDog(w, paused, t)
 			end
-		elseif w.dog and w.rig.hidden and not w.dog.hidden then
+		elseif w.dog and w.rig.hidden and not w.dog.hidden and self:_capRoom(DOG_PARTS) then
 			w.dog.hidden = true
 			self:_parkDog(w.dog)
 		end
@@ -4841,22 +5471,16 @@ end
 -- Poses a walking citizen (walker / shopper): waddle, bob and sway from its
 -- walk clock, a head turn, a waving right arm (raRoll), a hop (hopY); a
 -- shopper's bag is parked while it carries none.
-function CityLifeSim:_poseWalker(w, x: number, y: number, z: number, animate: boolean, head: number, raRoll: number, hopY: number)
+function CityLifeSim:_poseWalker(w, x: number, y: number, z: number, animate: boolean, head: number, raRoll: number, hopY: number, extra: number?): boolean
 	local rig = w.rig
 	local s = rig.scale
 	local swing = if animate then sin(w.walkClock) * w.amp else 0
 	local bob = if animate then 0.12 * s * abs(sin(w.walkClock)) * w.amp else 0
-	local root = yawCF(x, y + bob + hopY, z, w.yaw)
-	if animate then
-		root *= CFrame.Angles(0, 0, 0.06 * swing)
-	end
+	local root = if animate then yawRollCF(x, y + bob + hopY, z, w.yaw, 0.06 * swing) else yawCF(x, y + bob + hopY, z, w.yaw)
 	local la = if rig.holdsBalloon then 0 elseif w.dog then 0.55 + 0.08 * swing else 0.6 * swing
 	local ra = if raRoll ~= 0 then 0 elseif rig.bagIndex then -0.35 * swing else -0.6 * swing
-	local base = self.outCount
-	self:_poseCitizen(rig, root, la, 0, ra, raRoll, -0.5 * swing, 0.5 * swing, head)
-	if rig.bagIndex and not w.carry then
-		self.outCFrames[base + rig.bagIndex] = PARK
-	end
+	rig.bagPark = rig.bagIndex ~= nil and not w.carry -- a shopper's bag is parked while it carries none
+	return self:_poseCitizen(rig, root, la, 0, ra, raRoll, -0.5 * swing, 0.5 * swing, head, extra)
 end
 
 -- A shopper off the sidewalk: up the door lane to the window (a glance), into
@@ -4902,8 +5526,7 @@ function CityLifeSim:_stepShopper(w, dt: number, t: number)
 			w.carry = false
 			w.moving = false
 			if not w.rig.hidden and not self.simOnly then
-				w.rig.hidden = true
-				self:_park(w.rig.parts, w.rig.n)
+				self:_parkRig(w.rig) -- (under the part cap: retried while inside)
 			end
 			return
 		end
@@ -4918,8 +5541,7 @@ function CityLifeSim:_stepShopper(w, dt: number, t: number)
 	elseif mode == SHOP_INSIDE then
 		w.timer -= dt
 		if not w.rig.hidden and not self.simOnly then
-			w.rig.hidden = true
-			self:_park(w.rig.parts, w.rig.n)
+			self:_parkRig(w.rig)
 		end
 		if w.timer <= 0 then
 			w.mode, w.t0, w.carry = SHOP_EXIT, t, true
@@ -4997,13 +5619,16 @@ end
 -- Emits a dog's body, head, nose, ears and tail for a root CFrame (feet,
 -- nose toward -Z) and a tail wag angle.
 function CityLifeSim:_emitDog(dog, cf: CFrame, wag: number)
-	local head = cf * CFrame.new(0, 1.42, -0.62)
-	self:_emit(dog.body, cf * CFrame.new(0, 0.72, 0))
+	local head = cf * DOG_HEAD_OFF
+	self:_emit(dog.body, cf * DOG_BODY_OFF)
 	self:_emit(dog.head, head)
-	self:_emit(dog.nose, head * CFrame.new(0, -0.08, -0.5))
-	self:_emit(dog.earL, head * CFrame.new(-0.42, 0.18, 0.05) * CFrame.Angles(0, 0, 0.35))
-	self:_emit(dog.earR, head * CFrame.new(0.42, 0.18, 0.05) * CFrame.Angles(0, 0, -0.35))
-	self:_emit(dog.tail, cf * CFrame.new(DOG_TAIL_PIVOT) * CFrame.Angles(0.75, wag, 0) * CFrame.new(0, 0, 0.4))
+	self:_emit(dog.nose, head * DOG_NOSE_OFF)
+	self:_emit(dog.earL, head * DOG_EAR_L_OFF)
+	self:_emit(dog.earR, head * DOG_EAR_R_OFF)
+	-- CFrame.new(DOG_TAIL_PIVOT) * CFrame.Angles(0.75, wag, 0) * CFrame.new(0, 0, 0.4) as one matrix
+	local ca, sa, cb, sb = DOG_TAIL_C, DOG_TAIL_S, cos(wag), sin(wag)
+	local p = DOG_TAIL_PIVOT
+	self:_emit(dog.tail, cf * CFrame.new(p.X + 0.4 * sb, p.Y - 0.4 * sa * cb, p.Z + 0.4 * ca * cb, cb, 0, sb, sa * sb, ca, -sa * cb, -ca * sb, sa, ca * cb))
 end
 
 -- Where a walker's dog trots (sim state, also during warm-up): `dogLead`
@@ -5033,10 +5658,8 @@ function CityLifeSim:_poseDog(w, paused: boolean, t: number)
 	local dx, dz = cos(da) * dogR, sin(da) * dogR
 	local moving = not paused and w.speed > 0.2
 	local bob = if moving then 0.14 * abs(sin(6 * math.pi * t + w.phase)) else 0
-	local cf = yawCF(dx, lane.y + bob, dz, tangentYaw(da, dir))
-	if not moving then
-		cf *= CFrame.Angles(0.18, 0, 0) -- sitting: nose up a little
-	end
+	-- sitting: nose up a little
+	local cf = if moving then yawCF(dx, lane.y + bob, dz, tangentYaw(da, dir)) else yawPitchCF(dx, lane.y + bob, dz, tangentYaw(da, dir), 0.18)
 	-- tail wag at 6 Hz trotting, faster sitting
 	local wag = (if moving then 0.45 else 0.7) * sin(2 * math.pi * (if moving then 6 else 8) * t + w.phase)
 	self:_emitDog(dog, cf, wag)
@@ -5093,9 +5716,10 @@ function CityLifeSim:_poseDancer(d, t: number, act: number)
 	else
 		root = root * CFrame.new(0, -hc, 0)
 	end
-	self:_poseCitizen(d.rig, root, 0, laRoll, 0, raRoll, ll, rl, 0)
-
 	local box = self.boombox
+	if not self:_poseCitizen(d.rig, root, 0, laRoll, 0, raRoll, ll, rl, 0, if box then 1 + #box.speakers else nil) then
+		return -- (the part cap deferred the act: the boombox with it)
+	end
 	if box then
 		local cf = yawCF(box.x, box.y + 0.07 * abs(sin(2 * math.pi * t)), box.z, box.yaw)
 		self:_emit(box.part, cf)
@@ -5191,7 +5815,12 @@ function CityLifeSim:_poseIdler(d, t: number, animate: boolean, cheering: boolea
 	elseif kind == "Clap" then
 		la, ra, laRoll, raRoll = 1.4, 1.4, 0.6, -0.6
 	end
-	self:_poseCitizen(d.rig, yawCF(d.x, y, d.z, d.yaw), la, laRoll, ra, raRoll, ll, rl, head)
+	-- a still idler keeps its root (no new CFrame): only its moving limbs go out
+	local rig = d.rig
+	local root = if rig.posed and y == d.rootY and d.yaw == d.rootYaw then rig.lastRoot else yawCF(d.x, y, d.z, d.yaw)
+	if self:_poseCitizen(rig, root, la, laRoll, ra, raRoll, ll, rl, head) then
+		d.rootY, d.rootYaw = y, d.yaw -- (only for a root that went out: lastRoot)
+	end
 end
 
 function CityLifeSim:_stepIdlers(dt: number)
@@ -5214,10 +5843,9 @@ function CityLifeSim:_stepIdlers(dt: number)
 		if self.simOnly then
 			continue
 		end
-		local visible, animate = self:_citizenVisible(d.rig, d.x, d.y, d.z, d.low)
-		if visible and d.slow and animate and not self.forceAll and (self.frame + d.low) % 2 == 1 then
-			visible = false -- slow animations: every 2nd frame is plenty
-		end
+		-- slow animations: every 2nd frame is plenty (and a still idler emits
+		-- only the limbs that moved, see _poseCitizen)
+		local visible, animate = self:_citizenVisible(d.rig, d.x, d.y, d.z, d.low, if d.slow then 2 else nil)
 		if visible then
 			if d.kind == "Dancer" then
 				self:_poseDancer(d, t, act)
@@ -5309,15 +5937,17 @@ function CityLifeSim:_stepPigeons(dt: number)
 	end
 end
 
+local PIGEON_BEAK_OFF = CFrame.new(0, -0.03, -0.4)
+
 function CityLifeSim:_posePigeons(flock, t: number)
 	local birds = flock.birds
 	local mx, mz = flock.cx, flock.cz
 	if flock.flying then
 		mx, mz = (flock.fx + flock.tx) / 2, (flock.fz + flock.tz) / 2
 	end
-	local lod = self:_pedLod(mx, flock.cy, mz, flock.low)
+	local lod = self:_pedLod(mx, flock.cy, mz, flock.low, nil, flock.owed)
 	if lod == LOD_HIDE then
-		if not flock.hidden then
+		if not flock.hidden and self:_capRoom(5 * #birds) then
 			flock.hidden = true
 			for k = 1, #birds do
 				local b = birds[k]
@@ -5334,8 +5964,10 @@ function CityLifeSim:_posePigeons(flock, t: number)
 		return
 	end
 	local fresh = flock.hidden or self.forceAll -- re-pose resting birds too
-	flock.hidden = false
 	local span = Config.PigeonFlight - 0.3
+	-- pass 1: each bird's pose, and whether it moves (a resting bird - no hop,
+	-- no peck - holds its last pose: emitted once)
+	local moving = 0
 	for k = 1, #birds do
 		local b = birds[k]
 		local px, py, pz, yaw
@@ -5345,6 +5977,7 @@ function CityLifeSim:_posePigeons(flock, t: number)
 			u = clamp((t - flock.t0 - b.delay) / span, 0, 1)
 		end
 		local airborne = u > 0 and u < 1
+		local still = false
 		if airborne then
 			local m = smooth01(u)
 			px = flock.fx + (flock.tx - flock.fx) * m + b.ox
@@ -5377,51 +6010,60 @@ function CityLifeSim:_posePigeons(flock, t: number)
 			end
 			px, pz, py = gx + b.ox, gz + b.oz, gy + 0.5 + hopY
 			pitch = -0.3 * dip
-			-- a resting bird (no hop, no peck) holds its last pose: emit it once
-			if hopY == 0 and dip == 0 then
-				if b.still and not fresh then
-					continue
-				end
-				b.still = true
-			else
-				b.still = false
-			end
+			still = hopY == 0 and dip == 0
 		end
-		if airborne then
-			b.still = false
+		b.emitNow = not (still and b.still and not fresh)
+		b.stillNext = still
+		if b.emitNow then
+			moving += 1
+			b.px, b.py, b.pz, b.yaw, b.pitch, b.dip, b.wing = px, py, pz, yaw, pitch, dip, wing
 		end
-		local body = yawCF(px, py, pz, yaw)
-		if pitch ~= 0 then
-			body = body * CFrame.Angles(pitch, 0, 0)
+	end
+	if moving == 0 or not self:_admit(flock, 5 * moving) then
+		return
+	end
+	flock.hidden = false
+	-- pass 2: emit
+	for k = 1, #birds do
+		local b = birds[k]
+		if not b.emitNow then
+			continue
 		end
+		b.still = b.stillNext
+		local pitch, dip, wing = b.pitch, b.dip, b.wing
+		local body = if pitch ~= 0 then yawPitchCF(b.px, b.py, b.pz, b.yaw, pitch) else yawCF(b.px, b.py, b.pz, b.yaw)
 		local head = body * CFrame.new(0, 0.55 - 0.3 * dip, -0.45 - 0.15 * dip)
 		self:_emit(b.body, body)
 		self:_emit(b.head, head)
-		self:_emit(b.beak, head * CFrame.new(0, -0.03, -0.4))
-		self:_emit(b.wingR, body * CFrame.new(0.45, 0.2, 0.05) * CFrame.Angles(0, 0, wing) * CFrame.new(0.33, 0, 0))
-		self:_emit(b.wingL, body * CFrame.new(-0.45, 0.2, 0.05) * CFrame.Angles(0, 0, -wing) * CFrame.new(-0.33, 0, 0))
+		self:_emit(b.beak, head * PIGEON_BEAK_OFF)
+		self:_emit(b.wingR, body * hingeZ(0.45, 0.2, 0.05, wing, 0.33))
+		self:_emit(b.wingL, body * hingeZ(-0.45, 0.2, 0.05, -wing, -0.33))
 	end
 end
 
+local BIRD_BEAK_OFF = CFrame.new(0, 0.05, -1.4)
+
+-- Sky + spinners, all under the sky LOD (_skyLod: every step within the
+-- tier's sky radius in front, every midEvery-th step beyond, every 4th behind
+-- the camera) and the part cap; clouds and balloons at most every 2nd step.
 function CityLifeSim:_stepSky()
 	if self.simOnly then
 		return
 	end
 	local t = self.t
-	local cam = if self.forceAll then nil else self.camera
+	local skyHide = Config.SkyHideRadius
 
-	-- Blimp
+	-- Blimp (parked beyond SkyHideRadius)
 	local b = self.blimp
 	local ba = (b.theta0 + Config.BlimpSpeed / Config.BlimpRadius * t / DEG) * DEG
 	local bx, bz = cos(ba) * Config.BlimpRadius, sin(ba) * Config.BlimpRadius
 	local by = Config.BlimpHeight + 1.5 * sin(0.35 * t)
-	local far = cam ~= nil and (Vector3.new(bx, by, bz) - cam).Magnitude > Config.SkyHideRadius
-	if far then
-		if not b.hidden then
-			b.hidden = true
-			self:_park(b.parts, b.n)
+	local lod = self:_skyLod(bx, by, bz, b.slot, nil, b.owed, skyHide)
+	if lod == LOD_HIDE then
+		if not b.hidden and self:_tryPark(b.parts, b.n) then
+			b.hidden, b.owed = true, false
 		end
-	else
+	elseif (lod == LOD_FULL or b.hidden) and self:_admit(b, b.n) then
 		b.hidden = false
 		local cf = yawCF(bx, by, bz, tangentYaw(ba, 1)) * CFrame.Angles(0.025 * sin(0.5 * t), 0, 0.02 * sin(0.31 * t))
 		for j = 1, b.n do
@@ -5429,7 +6071,7 @@ function CityLifeSim:_stepSky()
 		end
 	end
 
-	-- Birds
+	-- Birds: one LOD decision per V (its 5 birds move together; parked beyond HideRadius)
 	local flapHinge = 0.55
 	for f = 1, #self.flocks do
 		local flock = self.flocks[f]
@@ -5437,121 +6079,127 @@ function CityLifeSim:_stepSky()
 		local fa = (spec.theta0 + spec.dir * spec.speed / spec.radius * t / DEG) * DEG
 		local fx, fz = cos(fa) * spec.radius, sin(fa) * spec.radius
 		local fy = spec.height + 1.5 * sin(0.6 * t + f)
-		local flockCF = yawCF(fx, fy, fz, tangentYaw(fa, spec.dir)) * CFrame.Angles(0, 0, -spec.dir * 0.22)
-		for k = 1, #flock.birds do
-			local bird = flock.birds[k]
-			local o = bird.offset
-			local birdCF = flockCF * CFrame.new(o.X, o.Y + 0.5 * sin(1.4 * t + bird.phase), o.Z)
-			local pos = birdCF.Position
-			if cam and (pos - cam).Magnitude > Config.HideRadius then
-				if not bird.hidden then
-					bird.hidden = true
+		local birds = flock.birds
+		local flod = self:_skyLod(fx, fy, fz, flock.slot, nil, flock.owed, Config.HideRadius)
+		if flod == LOD_HIDE then
+			if not flock.hidden and self:_capRoom(4 * #birds) then
+				flock.hidden, flock.owed = true, false
+				for k = 1, #birds do
+					local bird = birds[k]
 					self:_emit(bird.body, PARK)
 					self:_emit(bird.beak, PARK)
 					self:_emit(bird.wingL, PARK)
 					self:_emit(bird.wingR, PARK)
 				end
-			else
-				bird.hidden = false
+			end
+		elseif (flod == LOD_FULL or flock.hidden) and self:_admit(flock, 4 * #birds) then
+			flock.hidden = false
+			local flockCF = yawCF(fx, fy, fz, tangentYaw(fa, spec.dir)) * CFrame.Angles(0, 0, -spec.dir * 0.22)
+			for k = 1, #birds do
+				local bird = birds[k]
+				local o = bird.offset
+				local birdCF = flockCF * CFrame.new(o.X, o.Y + 0.5 * sin(1.4 * t + bird.phase), o.Z)
 				local glide = clamp(0.5 + 1.5 * sin(0.9 * t + bird.phase), 0, 1)
 				local flap = 0.61 * glide * sin(31.4 * t + bird.phase) -- 5 Hz, +-35 degrees
 				self:_emit(bird.body, birdCF)
-				self:_emit(bird.beak, birdCF * CFrame.new(0, 0.05, -1.4))
-				self:_emit(bird.wingR, birdCF * CFrame.new(flapHinge, 0.15, 0.1) * CFrame.Angles(0, 0, flap) * CFrame.new(1.28, 0, 0))
-				self:_emit(bird.wingL, birdCF * CFrame.new(-flapHinge, 0.15, 0.1) * CFrame.Angles(0, 0, -flap) * CFrame.new(-1.28, 0, 0))
+				self:_emit(bird.beak, birdCF * BIRD_BEAK_OFF)
+				self:_emit(bird.wingR, birdCF * hingeZ(flapHinge, 0.15, 0.1, flap, 1.28))
+				self:_emit(bird.wingL, birdCF * hingeZ(-flapHinge, 0.15, 0.1, -flap, -1.28))
 			end
 		end
 	end
 
-	-- Clouds: slow orbit about the origin + a gentle bob (every 2nd frame is
-	-- plenty at ~4 studs/s and 400+ studs away); same hide rule as the blimp
-	if self.forceAll or self.frame % 2 == 0 then
-		for i = 1, #self.clouds do
-			local c = self.clouds[i]
-			local a = (c.angle0 + Config.CloudOrbit * t) * DEG
-			local x, z = cos(a) * c.radius, sin(a) * c.radius
-			local y = c.height + Config.CloudBob * sin(0.25 * t + c.phase)
-			if cam ~= nil and (Vector3.new(x, y, z) - cam).Magnitude > Config.SkyHideRadius then
-				if not c.hidden then
-					c.hidden = true
-					self:_park(c.parts, c.n)
-				end
-			else
-				c.hidden = false
-				local cf = yawCF(x, y, z, radialYaw(a, false)) -- long axis along the ring
-				for j = 1, c.n do
-					self:_emit(c.parts[j], cf * c.rest[j])
-				end
+	-- Clouds: slow orbit about the origin + a gentle bob (at most every 2nd
+	-- step: ~4 studs/s at 400+ studs away); parked beyond SkyHideRadius
+	for i = 1, #self.clouds do
+		local c = self.clouds[i]
+		local a = (c.angle0 + Config.CloudOrbit * t) * DEG
+		local x, z = cos(a) * c.radius, sin(a) * c.radius
+		local y = c.height + Config.CloudBob * sin(0.25 * t + c.phase)
+		local clod = self:_skyLod(x, y, z, c.slot, 2, c.owed, skyHide)
+		if clod == LOD_HIDE then
+			if not c.hidden and self:_tryPark(c.parts, c.n) then
+				c.hidden, c.owed = true, false
+			end
+		elseif (clod == LOD_FULL or c.hidden) and self:_admit(c, c.n) then
+			c.hidden = false
+			local cf = yawCF(x, y, z, radialYaw(a, false)) -- long axis along the ring
+			for j = 1, c.n do
+				self:_emit(c.parts[j], cf * c.rest[j])
 			end
 		end
 	end
 
-	-- Hot-air balloons: slow orbit, 1.5-stud bob (8 s), +-3 degree sway; every
-	-- 2nd frame like the clouds, hidden beyond SkyHideRadius
-	if self.forceAll or self.frame % 2 == 1 then
-		local bobW = 2 * math.pi / Config.BalloonBobPeriod
-		local sway = Config.BalloonSway * DEG
-		for i = 1, #self.balloons do
-			local b = self.balloons[i]
-			local a = (b.angle0 + b.dir * Config.BalloonOrbit * t) * DEG
-			local x, z = cos(a) * b.radius, sin(a) * b.radius
-			local y = b.height + Config.BalloonBob * sin(bobW * t + b.phase)
-			if cam ~= nil and (Vector3.new(x, y, z) - cam).Magnitude > Config.SkyHideRadius then
-				if not b.hidden then
-					b.hidden = true
-					self:_park(b.parts, b.n)
-				end
-			else
-				b.hidden = false
-				local cf = yawCF(x, y, z, tangentYaw(a, b.dir)) * CFrame.Angles(sway * sin(0.9 * t + b.phase), 0, sway * sin(1.1 * t + 2 * b.phase))
-				for j = 1, b.n do
-					self:_emit(b.parts[j], cf * b.rest[j])
-				end
+	-- Hot-air balloons: slow orbit, 1.5-stud bob (8 s), +-3 degree sway; at
+	-- most every 2nd step like the clouds, parked beyond SkyHideRadius
+	local bobW = 2 * math.pi / Config.BalloonBobPeriod
+	local sway = Config.BalloonSway * DEG
+	for i = 1, #self.balloons do
+		local bl = self.balloons[i]
+		local a = (bl.angle0 + bl.dir * Config.BalloonOrbit * t) * DEG
+		local x, z = cos(a) * bl.radius, sin(a) * bl.radius
+		local y = bl.height + Config.BalloonBob * sin(bobW * t + bl.phase)
+		local blod = self:_skyLod(x, y, z, bl.slot, 2, bl.owed, skyHide)
+		if blod == LOD_HIDE then
+			if not bl.hidden and self:_tryPark(bl.parts, bl.n) then
+				bl.hidden, bl.owed = true, false
+			end
+		elseif (blod == LOD_FULL or bl.hidden) and self:_admit(bl, bl.n) then
+			bl.hidden = false
+			local cf = yawCF(x, y, z, tangentYaw(a, bl.dir)) * CFrame.Angles(sway * sin(0.9 * t + bl.phase), 0, sway * sin(1.1 * t + 2 * bl.phase))
+			for j = 1, bl.n do
+				self:_emit(bl.parts[j], cf * bl.rest[j])
 			end
 		end
 	end
 
-	-- Rooftop coins
+	-- Rooftop coins (beyond CoinRadius they hold their pose)
 	for i = 1, #self.coins do
 		local coin = self.coins[i]
-		if cam == nil or (coin.center - cam).Magnitude < Config.CoinRadius then
-			local c = coin.center
-			local cf = CFrame.new(c.X, c.Y + 0.4 * sin(1.1 * t + coin.phase), c.Z) * CFrame.Angles(0, (90 * t + coin.phase * 57) * DEG, 0)
+		local c = coin.center
+		local y = c.Y + 0.4 * sin(1.1 * t + coin.phase)
+		if self:_skyLod(c.X, y, c.Z, coin.slot, nil, coin.owed, Config.CoinRadius) == LOD_FULL and self:_admit(coin, 2) then
+			local cf = yawCF(c.X, y, c.Z, (90 * t + coin.phase * 57) * DEG)
 			self:_emit(coin.rim, cf)
 			self:_emit(coin.face, cf)
 		end
 	end
 
-	-- CitySpin parts + the zone hero-prop spinners (the latter only within
-	-- ZoneSpinRadius of the camera; beyond it they simply hold their pose)
-	local spinR2 = Config.ZoneSpinRadius * Config.ZoneSpinRadius
-	for i = 1, #self.spinners do
-		local sp = self.spinners[i]
-		local p = sp.pivot
-		if sp.zone and cam then
-			local dx, dy, dz = p.X - cam.X, p.Y - cam.Y, p.Z - cam.Z
-			if dx * dx + dy * dy + dz * dz > spinR2 then
-				continue
+	-- CitySpin models + the zone hero-prop spinners, per model (the zone ones
+	-- only within ZoneSpinRadius of the camera; beyond it they hold their pose)
+	local huge = math.huge
+	for i = 1, #self.spinGroups do
+		local sg = self.spinGroups[i]
+		local p = sg.pivot
+		local slod = self:_skyLod(p.X, p.Y, p.Z, sg.slot, nil, sg.owed, if sg.zone then Config.ZoneSpinRadius else huge)
+		if slod == LOD_FULL and self:_admit(sg, sg.n) then
+			local cf = yawCF(p.X, p.Y, p.Z, (sg.rate * t + sg.a0) * DEG)
+			local parts, offsets = sg.parts, sg.offsets
+			for j = 1, sg.n do
+				self:_emit(parts[j], cf * offsets[j])
 			end
 		end
-		self:_emit(sp.part, CFrame.new(p) * CFrame.Angles(0, (sp.rate * t + sp.a0) * DEG, 0) * sp.offset)
 	end
 end
 
 -- Advances the world by dt (seconds). cameraPos drives LOD (nil = everything
--- full detail); forceAll poses every agent regardless of LOD. Returns the
--- number of parts to move (sim.outParts / sim.outCFrames [1..n]).
-function CityLifeSim:step(dt: number, cameraPos: Vector3?, forceAll: boolean?): number
+-- full detail) and cameraLook (the camera's LookVector) the facing LOD;
+-- forceAll poses every agent regardless of LOD or the part cap (the first
+-- step and the one after bindMap do too). Returns the number of parts to move
+-- (sim.outParts / sim.outCFrames [1..n]; <= the runtime tier's part cap).
+function CityLifeSim:step(dt: number, cameraPos: Vector3?, forceAll: boolean?, cameraLook: Vector3?): number
 	dt = clamp(dt, 1e-4, 0.1)
 	self.t += dt
 	self.frame += 1
 	self.camera = cameraPos
+	self.cameraLook = if cameraPos then cameraLook else nil -- facing LOD (nil: distance only)
 	-- the first frame poses everything (rigs are built at the origin), LOD after
 	self.forceAll = forceAll == true or (not self.simOnly and (self.frame == 1 or self.poseAllNext))
 	if self.forceAll and not self.simOnly then
 		self.poseAllNext = false
 	end
 	self.outCount = 0
+	self:_capBegin()
 
 	self:_stepLights(dt)
 	self:_stepVehicles(dt)
@@ -5660,6 +6308,8 @@ function CityLifeSim:getCounts()
 		pulseTips = if pulse then #pulse.tips else 0,
 		pulseBlades = if pulse then #pulse.blades else 0,
 		parts = parts,
+		tier = self.tier,
+		runtimeTier = self.runtimeTier,
 	}
 end
 

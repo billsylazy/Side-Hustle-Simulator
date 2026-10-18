@@ -1221,6 +1221,288 @@ end
 print(("rowhouses clear of their neighbours (%d); %d CitySpin models pivot on their parts and sweep clear"):format(#CityLayout.rowhouses, spinModels))
 
 ----------------------------------------------------------------------
+-- SurfaceGui budget (the map is not streamed: every client holds every
+-- gui). Every gui is drawn to its category's range (MapKit.GUI_RANGE): only
+-- the landmarks (zone anchor boards, the plaza title billboard, the hero-
+-- tower billboards) are unlimited. The total texture size (face studs^2 x
+-- PixelsPerStud^2, summed) stays within budget. It was 9.18 M texels before
+-- the density pass, 5.47 M after it.
+----------------------------------------------------------------------
+do
+	local RANGE = MapKit.GUI_RANGE
+	local TEXEL_BUDGET = 5.6e6
+	local function expectedRange(gui, part)
+		if part.Name == "AnchorSign" or part.Name == "BillboardBoard"
+			or (part.Name == "Billboard" and part.Parent and string.sub(part.Parent.Name, 1, 9) == "HeroTower") then
+			return RANGE.Landmark, "Landmark"
+		elseif gui.Name == "Windows" or part.Name == "RoofSign" then
+			return RANGE.Skyline, "Skyline"
+		elseif gui.Name == "Mural" then
+			return RANGE.Mural, "Mural"
+		elseif gui.Name == "Markings" or gui.Name == "Checker" or gui.Name == "WelcomeMat" then
+			return RANGE.Ground, "Ground"
+		end
+		return RANGE.Sign, "Sign"
+	end
+	local texels, guis, landmarks = 0, 0, 0
+	local perClass = {}
+	for _, gui in map:GetDescendants() do
+		if gui:IsA("SurfaceGui") then
+			guis += 1
+			local part = gui.Adornee or gui.Parent
+			assert(part and part:IsA("BasePart"), gui:GetFullName() .. " is not on a part")
+			local want, class = expectedRange(gui, part)
+			assert(gui.MaxDistance == want, ("%s MaxDistance %s, want %s (%s)"):format(gui:GetFullName(), tostring(gui.MaxDistance), tostring(want), class))
+			if want == 0 then
+				landmarks += 1
+			end
+			local w, h = MapKit.faceSize(part, gui.Face)
+			local t = w * h * gui.PixelsPerStud * gui.PixelsPerStud
+			texels += t
+			perClass[class] = (perClass[class] or 0) + t
+			-- a lowered texture density never leaves a sub-pixel text outline
+			for _, stroke in gui:GetDescendants() do
+				if stroke:IsA("UIStroke") and stroke.Parent:IsA("TextLabel") then
+					assert(stroke.Thickness >= 2, stroke:GetFullName() .. " outline " .. stroke.Thickness .. " px")
+				end
+			end
+		end
+	end
+	assert(landmarks == 11, "unlimited-range landmark guis: " .. landmarks .. " (want 8 anchors + title + 2 hero billboards)")
+	assert(texels <= TEXEL_BUDGET, ("SurfaceGui texels %.2f M > budget %.2f M"):format(texels / 1e6, TEXEL_BUDGET / 1e6))
+	local classes = {}
+	for class, t in perClass do
+		table.insert(classes, ("%s %.2f M"):format(class, t / 1e6))
+	end
+	table.sort(classes)
+	print(("surface guis: %d, %.2f M texels (budget %.1f M; %s), %d unlimited landmarks"):format(
+		guis, texels / 1e6, TEXEL_BUDGET / 1e6, table.concat(classes, ", "), landmarks))
+end
+
+----------------------------------------------------------------------
+-- No flicker: no two visible parts of different color (or material) have
+-- overlapping flat faces with the same outward normal less than 0.02
+-- studs apart where the overlap is exposed (a probe 0.03 out along the
+-- normal is inside no other opaque part and above the ground). Roblox
+-- z-fights such faces. Offset one by >= 0.03, or shrink it.
+-- Faces: blocks (6), cylinder end caps (16-gons), wedge back / bottom /
+-- sides.
+----------------------------------------------------------------------
+do
+	local EPS, MIN_AREA = 0.02, 0.005
+	local visible, opaque = {}, {}
+	for _, p in parts do
+		if p.Transparency < 1 then
+			table.insert(visible, p)
+		end
+		if p.Transparency < 0.5 then
+			table.insert(opaque, p)
+		end
+	end
+	local function kindOf(p)
+		if p:IsA("WedgePart") then
+			return "Wedge"
+		elseif p:IsA("Part") or p:IsA("SpawnLocation") then
+			return shapeOf(p)
+		end
+		return "Other"
+	end
+	local faces = {}
+	for _, p in visible do
+		local kind = kindOf(p)
+		local cf, s = p.CFrame, p.Size
+		local hx, hy, hz = s.X / 2, s.Y / 2, s.Z / 2
+		local function W(x, y, z)
+			return cf:PointToWorldSpace(Vector3.new(x, y, z))
+		end
+		local function add(n, poly)
+			table.insert(faces, { n = n, d = n:Dot(poly[1]), poly = poly, part = p })
+		end
+		if kind == "Block" then
+			add(cf.RightVector, { W(hx, -hy, -hz), W(hx, hy, -hz), W(hx, hy, hz), W(hx, -hy, hz) })
+			add(-cf.RightVector, { W(-hx, -hy, -hz), W(-hx, -hy, hz), W(-hx, hy, hz), W(-hx, hy, -hz) })
+			add(cf.UpVector, { W(-hx, hy, -hz), W(-hx, hy, hz), W(hx, hy, hz), W(hx, hy, -hz) })
+			add(-cf.UpVector, { W(-hx, -hy, -hz), W(hx, -hy, -hz), W(hx, -hy, hz), W(-hx, -hy, hz) })
+			add(-cf.LookVector, { W(-hx, -hy, hz), W(hx, -hy, hz), W(hx, hy, hz), W(-hx, hy, hz) })
+			add(cf.LookVector, { W(-hx, -hy, -hz), W(-hx, hy, -hz), W(hx, hy, -hz), W(hx, -hy, -hz) })
+		elseif kind == "Cylinder" then
+			local r = math.min(hy, hz)
+			for _, sg in { 1, -1 } do
+				local poly = {}
+				for k = 0, 15 do
+					local a = sg * 2 * math.pi * k / 16
+					table.insert(poly, W(sg * hx, math.cos(a) * r, math.sin(a) * r))
+				end
+				add(cf.RightVector * sg, poly)
+			end
+		elseif kind == "Wedge" then
+			add(-cf.LookVector, { W(-hx, -hy, hz), W(hx, -hy, hz), W(hx, hy, hz), W(-hx, hy, hz) })
+			add(-cf.UpVector, { W(-hx, -hy, -hz), W(hx, -hy, -hz), W(hx, -hy, hz), W(-hx, -hy, hz) })
+			add(cf.RightVector, { W(hx, -hy, -hz), W(hx, hy, hz), W(hx, -hy, hz) })
+			add(-cf.RightVector, { W(-hx, -hy, -hz), W(-hx, -hy, hz), W(-hx, hy, hz) })
+		end
+	end
+	-- polygons in the plane of face f (2D, counter-clockwise)
+	local function planar(f, poly)
+		local n = f.n
+		local u = if math.abs(n.Y) < 0.9 then n:Cross(Vector3.new(0, 1, 0)).Unit else n:Cross(Vector3.new(1, 0, 0)).Unit
+		local v = n:Cross(u)
+		local out, area = {}, 0
+		for _, p in poly do
+			table.insert(out, { p:Dot(u), p:Dot(v) })
+		end
+		for i = 1, #out do
+			local a, b = out[i], out[i % #out + 1]
+			area += a[1] * b[2] - b[1] * a[2]
+		end
+		if area < 0 then
+			local rev = {}
+			for i = #out, 1, -1 do
+				table.insert(rev, out[i])
+			end
+			out = rev
+		end
+		return out, u, v
+	end
+	local function polyArea(poly)
+		local a = 0
+		for i = 1, #poly do
+			local p, q = poly[i], poly[i % #poly + 1]
+			a += p[1] * q[2] - q[1] * p[2]
+		end
+		return math.abs(a) / 2
+	end
+	local function clipPoly(subject, clipper) -- Sutherland-Hodgman (convex clipper)
+		local out = subject
+		for i = 1, #clipper do
+			if #out == 0 then
+				break
+			end
+			local a, b = clipper[i], clipper[i % #clipper + 1]
+			local function inside(p)
+				return (b[1] - a[1]) * (p[2] - a[2]) - (b[2] - a[2]) * (p[1] - a[1]) >= -1e-9
+			end
+			local function cross(p, q)
+				local den = (a[1] - b[1]) * (p[2] - q[2]) - (a[2] - b[2]) * (p[1] - q[1])
+				if math.abs(den) < 1e-12 then
+					return q
+				end
+				local t = ((a[1] - p[1]) * (p[2] - q[2]) - (a[2] - p[2]) * (p[1] - q[1])) / den
+				return { a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2]) }
+			end
+			local input = out
+			out = {}
+			local prev = input[#input]
+			for _, cur in input do
+				if inside(cur) then
+					if not inside(prev) then
+						table.insert(out, cross(prev, cur))
+					end
+					table.insert(out, cur)
+				elseif inside(prev) then
+					table.insert(out, cross(prev, cur))
+				end
+				prev = cur
+			end
+		end
+		return out
+	end
+	local function insideSolid(q, pt)
+		if q:IsA("WedgePart") then
+			local l = q.CFrame:PointToObjectSpace(pt)
+			local s = q.Size
+			if not (math.abs(l.X) < s.X / 2 and math.abs(l.Y) < s.Y / 2 and math.abs(l.Z) < s.Z / 2) then
+				return false
+			end
+			return l.Y < -s.Y / 2 + (l.Z + s.Z / 2) / s.Z * s.Y -- under the slope
+		end
+		return containsPoint(q, pt)
+	end
+	local opaqueSet = {}
+	for _, q in opaque do
+		opaqueSet[q] = true
+	end
+	local function covered(pt, a, b)
+		if pt.Y < 0 then
+			return true -- under the ground
+		end
+		for _, q in nearbyParts(pt) do
+			if q ~= a and q ~= b and opaqueSet[q] and insideSolid(q, pt) then
+				return true
+			end
+		end
+		return false
+	end
+	local function colorDiff(a, b)
+		return math.abs(a.R - b.R) + math.abs(a.G - b.G) + math.abs(a.B - b.B)
+	end
+	local buckets = {}
+	for i, f in faces do
+		local key = math.floor(f.n.X * 50 + 0.5) .. "," .. math.floor(f.n.Y * 50 + 0.5) .. "," .. math.floor(f.n.Z * 50 + 0.5)
+		buckets[key] = buckets[key] or {}
+		table.insert(buckets[key], i)
+	end
+	local flicker = {}
+	for _, list in buckets do
+		table.sort(list, function(i, j)
+			return faces[i].d < faces[j].d
+		end)
+		for x = 1, #list do
+			local a = faces[list[x]]
+			local y = x + 1
+			while y <= #list and faces[list[y]].d - a.d < EPS do
+				local b = faces[list[y]]
+				local pa, pb = a.part, b.part
+				if pa ~= pb and a.n:Dot(b.n) > 0.9995
+					and (colorDiff(pa.Color, pb.Color) > 0.06 or pa.Material.Name ~= pb.Material.Name) then
+					local A, u, v = planar(a, a.poly)
+					local B = planar(a, b.poly)
+					local I = clipPoly(A, B)
+					local area = if #I >= 3 then polyArea(I) else 0
+					if area > MIN_AREA then
+						local minU, maxU, minV, maxV = math.huge, -math.huge, math.huge, -math.huge
+						for _, p in I do
+							minU, maxU = math.min(minU, p[1]), math.max(maxU, p[1])
+							minV, maxV = math.min(minV, p[2]), math.max(maxV, p[2])
+						end
+						local N, total, exposed = 10, 0, 0
+						local origin = a.n * a.d
+						for i = 0, N do
+							for j = 0, N do
+								local pu = minU + (maxU - minU) * (i + 0.5) / (N + 1)
+								local pv = minV + (maxV - minV) * (j + 0.5) / (N + 1)
+								local inPoly = true
+								for e = 1, #I do
+									local p1, p2 = I[e], I[e % #I + 1]
+									if (p2[1] - p1[1]) * (pv - p1[2]) - (p2[2] - p1[2]) * (pu - p1[1]) < -1e-9 then
+										inPoly = false
+										break
+									end
+								end
+								if inPoly then
+									total += 1
+									if not covered(origin + u * pu + v * pv + a.n * 0.03, pa, pb) then
+										exposed += 1
+									end
+								end
+							end
+						end
+						local exposedArea = if total > 0 then area * exposed / total else 0
+						if exposedArea > MIN_AREA then
+							table.insert(flicker, ("%s ~ %s (%.2f studs^2 exposed, %.3f apart)"):format(
+								pa:GetFullName(), pb:GetFullName(), exposedArea, b.d - a.d))
+						end
+					end
+				end
+				y += 1
+			end
+		end
+	end
+	assert(#flicker == 0, #flicker .. " flickering coplanar face pairs, e.g.\n  " .. table.concat(flicker, "\n  ", 1, math.min(#flicker, 12)))
+	print(("no coplanar flicker: %d flat faces of %d visible parts, none within %.2f studs of a differently colored overlapping face"):format(#faces, #visible, EPS))
+end
+
+----------------------------------------------------------------------
 -- Total exported part budget (map + client-life preview, as the render
 -- export counts it): <= 7,000
 ----------------------------------------------------------------------

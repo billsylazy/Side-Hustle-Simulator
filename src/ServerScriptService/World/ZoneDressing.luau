@@ -127,7 +127,8 @@ DRESS.LemonadeStand = function(parent, zoneCF, zone)
 		cylinder({ name = "TableTop", parent = parent, diameter = 5, height = 0.4, cframe = cf * CFrame.new(0, 2.9, 0), color = WHITE, castShadow = true })
 		cylinder({ name = "UmbrellaPole", parent = parent, diameter = 0.25, height = 5.2, cframe = cf * CFrame.new(0, 5.6, 0), color = WHITE })
 		cylinder({ name = "UmbrellaCanopy", parent = parent, diameter = 7, height = 0.5, cframe = cf * CFrame.new(0, 8.2, 0), color = yellow, castShadow = true })
-		cylinder({ name = "UmbrellaStripe", parent = parent, diameter = 5, height = 0.55, cframe = cf * CFrame.new(0, 8.25, 0), color = WHITE })
+		-- y 8.025 .. 8.525: 0.075 inside the canopy's underside, 0.075 over its top
+		cylinder({ name = "UmbrellaStripe", parent = parent, diameter = 5, height = 0.5, cframe = cf * CFrame.new(0, 8.275, 0), color = WHITE })
 		ball({ name = "UmbrellaFinial", parent = parent, diameter = 0.7, cframe = cf * CFrame.new(0, 8.75, 0), color = yellow })
 		for j, x in { -3.4, 3.4 } do
 			block({
@@ -340,7 +341,8 @@ DRESS.ContentCreator = function(parent, zoneCF, zone)
 	block({ name = "CouchSeat", parent = parent, size = Vector3.new(7, 1.4, 3), cframe = couch * CFrame.new(0, 0.9, 0), color = pink, castShadow = true })
 	block({ name = "CouchBack", parent = parent, size = Vector3.new(7, 2.6, 0.9), cframe = couch * CFrame.new(0, 2, 1.2), color = pink })
 	for _, x in { -3.6, 3.6 } do
-		block({ name = "CouchArm", parent = parent, size = Vector3.new(0.9, 2, 3), cframe = couch * CFrame.new(x, 1.3, 0), color = pink:Lerp(Color3.new(1, 1, 1), 0.25) })
+		-- 3.08 deep: 0.04 proud of the seat's front / back faces (not in their plane)
+		block({ name = "CouchArm", parent = parent, size = Vector3.new(0.9, 2, 3.08), cframe = couch * CFrame.new(x, 1.3, 0), color = pink:Lerp(Color3.new(1, 1, 1), 0.25) })
 	end
 	for _, x in { -1.6, 1.6 } do
 		block({ name = "Cushion", parent = parent, size = Vector3.new(2.4, 0.5, 2.2), cframe = couch * CFrame.new(x, 1.85, -0.2), color = Color3.fromRGB(255, 180, 225) })
@@ -404,7 +406,8 @@ DRESS.StartupHQ = function(parent, zoneCF, zone)
 	local blue = zone.AccentColor
 	local tableCF = at(zoneCF, 21, 0, 12)
 	block({ name = "PingPongTop", parent = parent, size = Vector3.new(9, 0.4, 5), cframe = tableCF * CFrame.new(0, 2.6, 0), color = Color3.fromRGB(40, 90, 200), castShadow = true })
-	block({ name = "PingPongLine", parent = parent, size = Vector3.new(9, 0.42, 0.15), cframe = tableCF * CFrame.new(0, 2.6, 0), color = WHITE })
+	-- center line: a strip 0.04 over the top (2.8), its ends 0.05 inside the table's
+	block({ name = "PingPongLine", parent = parent, size = Vector3.new(8.9, 0.08, 0.15), cframe = tableCF * CFrame.new(0, 2.8, 0), color = WHITE })
 	block({ name = "PingPongNet", parent = parent, size = Vector3.new(0.12, 0.8, 5.2), cframe = tableCF * CFrame.new(0, 3.2, 0), color = WHITE })
 	for _, x in { -3.4, 3.4 } do
 		block({ name = "PingPongLegs", parent = parent, size = Vector3.new(0.4, 2.4, 4), cframe = tableCF * CFrame.new(x, 1.2, 0), color = POLE })
@@ -430,7 +433,8 @@ DRESS.StartupHQ = function(parent, zoneCF, zone)
 	-- whiteboard with a hockey-stick growth chart, facing the plaza
 	local board = at(zoneCF, 22, 0, -16)
 	for _, x in { -3, 3 } do
-		block({ name = "WhiteboardLeg", parent = parent, size = Vector3.new(0.3, 5.6, 0.3), cframe = board * CFrame.new(x, 2.8, 0), color = POLE })
+		-- 0.22 deep: 0.04 inside the 0.3-deep board's faces (not in their plane)
+		block({ name = "WhiteboardLeg", parent = parent, size = Vector3.new(0.3, 5.6, 0.22), cframe = board * CFrame.new(x, 2.8, 0), color = POLE })
 	end
 	block({ name = "Whiteboard", parent = parent, size = Vector3.new(7, 4, 0.3), cframe = board * CFrame.new(0, 4, 0), color = WHITE, castShadow = true })
 	local lines = {

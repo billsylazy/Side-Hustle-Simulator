@@ -28,19 +28,31 @@
 --     models - spots validated against their parts - into CityLife.Customers;
 --     the zone life into CityLife.ZoneLife: non-colliding hero props spun
 --     LOCALLY, never a collider or a hustle contract part)
---   * feeds player root positions + the camera position to the sim and moves
---     every changed part with ONE workspace:BulkMoveTo on ONE Heartbeat
---     (no Instance creation or table allocation per frame; distance LOD:
---     citizens animate every frame within 140 studs, every 2nd frame to 260,
---     rest pose every 4th frame to 400, parked beyond; the city pulse runs
---     at 10 Hz inside sim:step for map parts within 500 studs; see CityLifeSim)
---   * on stop (folder removed / sim error) disconnects and calls
---     sim:unbindMap(), which restores every map color / transparency the
---     pulse changed and puts the spun zone props back in their built pose
+--   * picks the DEVICE TIER once at start (CityLifeSim.detectTier; every
+--     UserSettings / UserGameSettings read in pcall): "Low" on touch devices
+--     without a keyboard or a saved graphics quality 1-4 (about half the
+--     crowd, sim capped at 30 Hz, time-based), "Medium" for quality 5-7 (or Automatic on
+--     a touch device with a keyboard), else "High" (what the renders show);
+--     shown as the CityLife folder's DeviceTier / RuntimeTier attributes
+--   * feeds player root positions + the camera position and LookVector to
+--     sim:heartbeat (the runtime governor: slow frames step the LOD radii /
+--     part cap / step rate down one tier, fast ones back up; then a sim step
+--     when one is due) and moves every changed part with ONE
+--     workspace:BulkMoveTo on ONE Heartbeat - at most the tier's part cap
+--     (High 1200 / Medium 800 / Low 450), nothing on a Heartbeat without a
+--     step (no Instance creation or table allocation per frame; distance +
+--     facing LOD: High animates citizens every frame within 140 studs, every
+--     2nd frame to 260, rest pose every 4th frame beyond and behind the
+--     camera; the city pulse runs at 10 Hz inside sim:step for map parts
+--     within 500 studs; see CityLifeSim)
+--   * on stop (folder removed / sim or BulkMoveTo error) disconnects and
+--     calls sim:unbindMap(), which restores every map color / transparency
+--     the pulse changed and puts the spun zone props back in their built pose
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local CityLifeSim = require(sharedFolder:WaitForChild("CityLifeSim"))
@@ -68,7 +80,9 @@ end
 
 local function trackCharacter(player: Player, character: Model)
 	local root = character:WaitForChild("HumanoidRootPart", 10)
-	if root and root:IsA("BasePart") and player.Character == character then
+	-- the player may have left (or respawned) during the wait: never re-add them
+	if root and root:IsA("BasePart") and player.Character == character
+		and playerConnections[player] ~= nil and player.Parent ~= nil then
 		rootByPlayer[player] = root
 		rebuildRoots()
 	end
@@ -135,6 +149,27 @@ local function bindMapWhenReady()
 	end
 end
 
+-- What CityLifeSim.detectTier reads; every settings access is protected (a
+-- failing read just counts as "unknown": no touch, no keyboard, Automatic).
+local function readDeviceInfo()
+	local info = { touch = false, keyboard = false, quality = 0 }
+	pcall(function()
+		info.touch = UserInputService.TouchEnabled == true
+	end)
+	pcall(function()
+		info.keyboard = UserInputService.KeyboardEnabled == true
+	end)
+	pcall(function()
+		local level = UserSettings():GetService("UserGameSettings").SavedQualityLevel
+		if typeof(level) == "EnumItem" then
+			info.quality = level.Value -- Automatic 0, QualityLevel1..10 -> 1..10
+		elseif type(level) == "number" then
+			info.quality = level
+		end
+	end)
+	return info
+end
+
 function CityLifeController.start()
 	if started then
 		return
@@ -142,7 +177,10 @@ function CityLifeController.start()
 	started = true
 
 	local folder = makeFolder()
-	sim = CityLifeSim.new(folder)
+	local tier = CityLifeSim.detectTier(readDeviceInfo())
+	sim = CityLifeSim.new(folder, tier)
+	folder:SetAttribute("DeviceTier", tier)
+	folder:SetAttribute("RuntimeTier", sim.runtimeTier)
 
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -155,6 +193,7 @@ function CityLifeController.start()
 	local outParts, outCFrames = sim.outParts, sim.outCFrames
 	local playerPos = sim.playerPos
 	local bulkMode = Enum.BulkMoveMode.FireCFrameChanged
+	local shownTier = sim.runtimeTier
 	local function stop()
 		if heartbeat then
 			heartbeat:Disconnect()
@@ -179,14 +218,24 @@ function CityLifeController.start()
 		sim.playerCount = count
 
 		local camera = workspace.CurrentCamera
-		local ok, n = pcall(sim.step, sim, dt, if camera then camera.CFrame.Position else nil)
+		local camCF = if camera then camera.CFrame else nil
+		local ok, n = pcall(sim.heartbeat, sim, dt, if camCF then camCF.Position else nil, if camCF then camCF.LookVector else nil)
 		if not ok then
 			warn("[CityLifeController] city life stopped: " .. tostring(n))
 			stop()
 			return
 		end
 		if n > 0 then
-			workspace:BulkMoveTo(outParts, outCFrames, bulkMode)
+			local moved, err = pcall(workspace.BulkMoveTo, workspace, outParts, outCFrames, bulkMode)
+			if not moved then
+				warn("[CityLifeController] city life stopped (BulkMoveTo): " .. tostring(err))
+				stop()
+				return
+			end
+		end
+		if sim.runtimeTier ~= shownTier then
+			shownTier = sim.runtimeTier -- the governor stepped (rare): show it
+			folder:SetAttribute("RuntimeTier", shownTier)
 		end
 	end)
 end

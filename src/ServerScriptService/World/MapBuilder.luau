@@ -556,8 +556,8 @@ local function buildTitleBillboard(parent: Instance)
 	local baseCF = CFrame.lookAt(ringPos(47, 157.5), Vector3.new(0, 0, 0))
 	local postColor = Color3.fromRGB(60, 62, 110)
 	for _, xOff in { -9, 9 } do
-		makeBlock({
-			name = "BillboardPost", parent = parent, size = Vector3.new(1.2, 9, 1.2),
+		makeBlock({ -- 1.12 deep: 0.04 inside the 1.2-deep marquee bar it passes through
+			name = "BillboardPost", parent = parent, size = Vector3.new(1.2, 9, 1.12),
 			cframe = baseCF * CFrame.new(xOff, PAD_TOP + 4.5, 0), color = postColor,
 			material = Enum.Material.Metal,
 		})
@@ -583,7 +583,7 @@ local function buildTitleBillboard(parent: Instance)
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
-	addSurfaceText(board, "SIDE HUSTLE\nSIMULATOR", Enum.Font.LuckiestGuy, WHITE, Enum.NormalId.Front, nil, gold)
+	addSurfaceText(board, "SIDE HUSTLE\nSIMULATOR", Enum.Font.LuckiestGuy, WHITE, Enum.NormalId.Front, nil, gold, MapKit.GUI_RANGE.Landmark)
 	addPointLight(board, gold, 16, 0.7)
 end
 
@@ -915,10 +915,12 @@ local function buildGate(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.Zone
 		cframe = zoneCF * CFrame.new(0, 12.2, -30.5), color = gateColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
-	-- Grassy hedges sealing the pad's front edge out to its corners
-	for _, xOff in { -23, 23 } do
+	-- Grassy hedges sealing the pad's front edge out to its corners (x 14 ..
+	-- 31.92: the outer end stays 0.08 inside the pad curbs' end faces at the
+	-- pad edge, x 32, never in their plane)
+	for _, xOff in { -22.96, 22.96 } do
 		makeBlock({
-			name = "GateHedge", parent = gate, size = Vector3.new(18, 2.6, 1.8),
+			name = "GateHedge", parent = gate, size = Vector3.new(17.92, 2.6, 1.8),
 			cframe = zoneCF * CFrame.new(xOff, 1.3, -30.5), color = LEAF_GREEN,
 			material = Enum.Material.Grass,
 		})
@@ -1045,9 +1047,9 @@ local function buildPawPath(parent: Instance, cf: CFrame, zone: GameConfig.ZoneD
 			name = "FlagPost", parent = parent, size = Vector3.new(0.4, 3.4, 0.4),
 			cframe = cf * CFrame.new(flag.x, 1.7, 0), color = DARK_WOOD, material = Enum.Material.Wood,
 		})
-		makeBlock({
+		makeBlock({ -- top 0.04 under the post's top
 			name = "Flag", parent = parent, size = Vector3.new(0.15, 1.1, 1.8),
-			cframe = cf * CFrame.new(flag.x + 0.2, 2.85, 0.9), color = flag.color,
+			cframe = cf * CFrame.new(flag.x + 0.2, 2.81, 0.9), color = flag.color,
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
@@ -1219,15 +1221,15 @@ local function buildLemonadeStand(zoneModel: Model, zoneCF: CFrame, zone: GameCo
 	end
 	-- Canopy posts + striped fabric canopy
 	for _, xOff in { -4.6, 4.6 } do
-		makeBlock({
-			name = "CanopyPost", parent = zoneModel, size = Vector3.new(0.8, 8.4, 0.8),
+		makeBlock({ -- 0.72 thick: 0.04 inside the base's / counter's end + back faces
+			name = "CanopyPost", parent = zoneModel, size = Vector3.new(0.72, 8.4, 0.72),
 			cframe = zoneCF * CFrame.new(xOff, 4.2, 10.2), color = DARK_WOOD, material = Enum.Material.Wood,
 		})
 	end
 	for i = 0, 4 do
-		makeBlock({
-			name = "CanopyStripe", parent = zoneModel, size = Vector3.new(2.3, 0.4, 6.5),
-			cframe = zoneCF * CFrame.new(-4.6 + i * 2.3, 8.6, 9.1),
+		makeBlock({ -- front edge (z 5.89) 0.04 behind the name board's face
+			name = "CanopyStripe", parent = zoneModel, size = Vector3.new(2.3, 0.4, 6.46),
+			cframe = zoneCF * CFrame.new(-4.6 + i * 2.3, 8.6, 9.12),
 			color = if i % 2 == 0 then yellow else WHITE, material = Enum.Material.Fabric,
 		})
 	end
@@ -1482,9 +1484,9 @@ local function buildCarWash(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.Z
 		cframe = zoneCF * CFrame.new(0, 6.5, 2), color = Color3.fromRGB(160, 225, 245),
 		material = Enum.Material.Glass, transparency = 0.45, canCollide = false,
 	})
-	makeBlock({
-		name = "TunnelTrim", parent = zoneModel, size = Vector3.new(23, 0.8, 0.8),
-		cframe = zoneCF * CFrame.new(0, 10.3, 1.4), color = zone.AccentColor,
+	makeBlock({ -- 0.04 proud of the roof's front face and ends
+		name = "TunnelTrim", parent = zoneModel, size = Vector3.new(23.08, 0.8, 0.8),
+		cframe = zoneCF * CFrame.new(0, 10.3, 1.36), color = zone.AccentColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
 	-- Big fabric roller brushes hanging from the roof (Y 1.3..9.0): clear of
@@ -1650,8 +1652,8 @@ local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone: GameConfig
 	-- Name sign on two posts left of the truck (in front of the cab, clear of
 	-- the counter so it reads from the plaza; board Y 5.6..7.6 above the pad)
 	for _, xOff in { -20, -12 } do
-		makeBlock({
-			name = "NameSignPost", parent = zoneModel, size = Vector3.new(0.5, 5.8, 0.5),
+		makeBlock({ -- 0.42 deep: 0.04 inside the 0.5-deep board it holds up
+			name = "NameSignPost", parent = zoneModel, size = Vector3.new(0.5, 5.8, 0.42),
 			cframe = zoneCF * CFrame.new(xOff, 2.9, 0), color = DARK_WOOD, material = Enum.Material.Wood,
 		})
 	end
