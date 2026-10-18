@@ -1,39 +1,58 @@
 --!nonstrict
--- MapBuilder: constructs the entire Side Hustle Simulator map from primitives
--- (Blocks / Balls / Cylinders / Wedges only — no meshes, no Toolbox) plus Lighting.
+-- MapBuilder (v2): constructs the entire Side Hustle Simulator world from
+-- primitives (Blocks / Balls / Cylinders / Wedges only — no meshes, no Toolbox,
+-- no asset ids) plus Terrain, Lighting, PointLights and ParticleEmitters.
 --
--- Contract (ARCHITECTURE.md "Map contract"):
+-- Contract (ARCHITECTURE.md "Map contract" + "Graphics"):
 --   Workspace.SideHustleMap (Folder)
---     Ground (Model), Plaza (Model with SpawnLocation + ring road)
+--     Ground (Model: terrain-backed island; decor lives here)
+--     Plaza (Model with SpawnLocation, ring road, coin fountain, lamps, string lights)
 --     Zones (Folder) > <ZoneId> (Model, attribute ZoneId)
---       HustleStation (Model) > PromptPart > ProximityPrompt "HustlePrompt"
---       Gate (Model, only UnlockCost > 0) > GateWall / SignPart / PromptPart > "UnlockPrompt"
+--       HustleStation (Model)
+--         PromptPart (Part) > ProximityPrompt "HustlePrompt"
+--           (ActionText zone.HustleVerb.."!", ObjectText zone.Name,
+--            HoldDuration = zone.HoldDuration, MaxActivationDistance 12, no LoS)
+--         FeedbackPart (Part, invisible, ~6 studs above the counter; client billboard)
+--         AutoAnchor (Part, invisible, beside the counter, facing it; client rig)
+--       MechanicProp (Model) — static dressing that tells the mechanic from afar
+--       Gate (Model, only UnlockLevel > 1) > GateWall / GatePost / SignPart (BillboardGui)
+--   Every zone is placed with Mechanics.zoneGroundCFrame(zone.Order) so the
+--   client's nearest-zone lookup matches the world exactly. No UnlockPrompt.
 --
--- Visual direction: docs/art-feel-guide.md — bright, chunky, cartoony,
--- SmoothPlastic + Neon, one signature color per zone, oversized props.
+-- Graphics: Lighting (Technology = Future is set by the Rojo project) with
+-- Atmosphere, SunRays, Bloom, ColorCorrection and the built-in Sky; a Terrain
+-- island (Grass + Sand rim + Water, a few low hills); per-zone materials;
+-- ParticleEmitters that keep the default sparkle texture; warm PointLights in
+-- every lamp and behind every neon sign. Bright and cartoony, never gritty.
 --
--- MapBuilder.build() is idempotent: it returns early if the map already exists,
--- and every Lighting effect is guarded with FindFirstChild.
+-- MapBuilder.build() is idempotent: it returns early if the map already exists
+-- and every Lighting child is guarded by name/class. Terrain runs once per
+-- server start (inside build) and is a handful of big fills (well under 1s).
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
-local FormatNumber = require(ReplicatedStorage.Shared.FormatNumber)
+local Mechanics = require(ReplicatedStorage.Shared.Mechanics)
 
 local MapBuilder = {}
 
 ----------------------------------------------------------------------
--- Layout constants (ground top is world Y = 0)
+-- Layout constants (terrain top / ground is world Y = 0)
 ----------------------------------------------------------------------
 
-local GROUND_SIZE = 700
 local ROAD_RADIUS = 120 -- ring road disc; plaza sits on top, pads touch its edge
 local PLAZA_RADIUS = 55
-local ZONE_RADIUS = 150 -- distance of each zone center from origin
 local PAD_SIZE = 64
 local PAD_TOP = 1.5 -- top of plaza disc and of every zone pad
+local ROAD_TOP = 0.5
+local LAMP_RADIUS = 44 -- plaza lamp ring (string lights run between them)
+
+local ISLAND_RADIUS = 330 -- grass disc
+local BEACH_RADIUS = 360 -- sand rim
+local WATER_HALF = 700 -- half-size of the water square
+local HILL_RING_RADIUS = 290 -- low grass hills near the rim, between zones
 
 local RAD_90 = math.rad(90)
 
@@ -44,10 +63,24 @@ local CREAM = Color3.fromRGB(247, 238, 214)
 local WOOD = Color3.fromRGB(133, 94, 62)
 local DARK_WOOD = Color3.fromRGB(96, 66, 42)
 local GRASS_GREEN = Color3.fromRGB(106, 192, 86)
-local ROAD_GRAY = Color3.fromRGB(94, 90, 100)
+local ROAD_GRAY = Color3.fromRGB(118, 112, 122)
+local ROAD_TRIM = Color3.fromRGB(176, 168, 170)
 local STONE = Color3.fromRGB(225, 214, 188)
+local STONE_LIGHT = Color3.fromRGB(242, 236, 222)
+local METAL_DARK = Color3.fromRGB(60, 60, 70)
 local WHEEL_DARK = Color3.fromRGB(38, 38, 42)
 local LEAF_GREEN = Color3.fromRGB(76, 160, 66)
+local LAMP_WARM = Color3.fromRGB(255, 220, 160)
+local WIRE_DARK = Color3.fromRGB(48, 48, 56)
+
+local FLOWER_COLORS = {
+	Color3.fromRGB(255, 212, 31),
+	Color3.fromRGB(255, 92, 180),
+	Color3.fromRGB(64, 200, 224),
+	Color3.fromRGB(255, 123, 34),
+	Color3.fromRGB(180, 160, 255),
+	Color3.fromRGB(250, 250, 255),
+}
 
 ----------------------------------------------------------------------
 -- Primitive helpers
@@ -61,6 +94,7 @@ type PartProps = {
 	color: Color3,
 	material: Enum.Material?,
 	transparency: number?,
+	reflectance: number?,
 	canCollide: boolean?,
 	diameter: number?,
 	height: number?,
@@ -72,6 +106,7 @@ local function applyCommon(part: BasePart, props: PartProps)
 	part.Color = props.color
 	part.Material = props.material or Enum.Material.SmoothPlastic
 	part.Transparency = props.transparency or 0
+	part.Reflectance = props.reflectance or 0
 	part.CanCollide = if props.canCollide ~= nil then props.canCollide else true
 	part.Anchored = true
 	part.TopSurface = Enum.SurfaceType.Smooth
@@ -88,10 +123,13 @@ local function makeBlock(props: PartProps): Part
 	return part
 end
 
+-- Balls are always uniform (Roblox keeps Ball parts spherical); pass `diameter`
+-- or a uniform `size`.
 local function makeBall(props: PartProps): Part
 	local part = Instance.new("Part")
 	part.Shape = Enum.PartType.Ball
-	part.Size = props.size :: Vector3
+	local d = props.diameter or (props.size :: Vector3).X
+	part.Size = Vector3.new(d, d, d)
 	part.CFrame = props.cframe
 	applyCommon(part, props)
 	part.Parent = props.parent
@@ -135,7 +173,8 @@ local function makeModel(name: string, parent: Instance): Model
 	return model
 end
 
--- Invisible anchored part that carries a ProximityPrompt.
+-- Invisible anchored part that carries a ProximityPrompt (keeps CanQuery so
+-- the prompt behaves like any other prompt part).
 local function makePromptPart(parent: Instance, cf: CFrame): Part
 	local part = Instance.new("Part")
 	part.Name = "PromptPart"
@@ -144,6 +183,24 @@ local function makePromptPart(parent: Instance, cf: CFrame): Part
 	part.Transparency = 1
 	part.CanCollide = false
 	part.CanTouch = false
+	part.CastShadow = false
+	part.Anchored = true
+	part.Parent = parent
+	return part
+end
+
+-- Invisible, non-colliding, non-queryable anchor (FeedbackPart, AutoAnchor,
+-- particle emitter volumes).
+local function makeMarker(parent: Instance, name: string, cf: CFrame, size: Vector3?): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size or Vector3.new(1, 1, 1)
+	part.CFrame = cf
+	part.Transparency = 1
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
 	part.Anchored = true
 	part.Parent = parent
 	return part
@@ -190,7 +247,81 @@ local function makeTextLabel(
 	return label
 end
 
--- Chunky sign board with SurfaceGui text on its front face.
+-- SurfaceGui text on one face of a part.
+local function addSurfaceText(part: BasePart, text: string, font: Enum.Font, textColor: Color3, face: Enum.NormalId): SurfaceGui
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 30
+	gui.LightInfluence = 0
+	gui.Parent = part
+	makeTextLabel(gui, text, font, textColor, UDim2.fromScale(0.03, 0.05), UDim2.fromScale(0.94, 0.9))
+	return gui
+end
+
+local function addPointLight(parent: BasePart, color: Color3, range: number, brightness: number): PointLight
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = range
+	light.Brightness = brightness
+	light.Shadows = false
+	light.Parent = parent
+	return light
+end
+
+type ParticleProps = {
+	color: ColorSequence,
+	size: NumberSequence,
+	transparency: NumberSequence?,
+	rate: number,
+	lifetime: NumberRange,
+	speed: NumberRange,
+	spread: Vector2?,
+	acceleration: Vector3?,
+	lightEmission: number?,
+	drag: number?,
+	rotSpeed: NumberRange?,
+}
+
+-- ParticleEmitter that keeps the engine default (sparkle) texture.
+local function addParticles(parent: BasePart, name: string, props: ParticleProps): ParticleEmitter
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = name
+	emitter.Color = props.color
+	emitter.Size = props.size
+	emitter.Transparency = props.transparency or NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(0.7, 0.4),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Rate = props.rate
+	emitter.Lifetime = props.lifetime
+	emitter.Speed = props.speed
+	emitter.SpreadAngle = props.spread or Vector2.new(25, 25)
+	emitter.Acceleration = props.acceleration or Vector3.new(0, 1.5, 0)
+	emitter.LightEmission = if props.lightEmission ~= nil then props.lightEmission else 0.8
+	emitter.LightInfluence = 0.2
+	emitter.Drag = props.drag or 0.5
+	emitter.RotSpeed = props.rotSpeed or NumberRange.new(-40, 40)
+	emitter.Rotation = NumberRange.new(0, 360)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Parent = parent
+	return emitter
+end
+
+-- Gentle two-color sparkle preset (motes drifting up).
+local function addSparkle(parent: BasePart, name: string, colorA: Color3, colorB: Color3, rate: number, sizeMin: number, sizeMax: number)
+	addParticles(parent, name, {
+		color = ColorSequence.new(colorA, colorB),
+		size = NumberSequence.new(sizeMin, sizeMax),
+		rate = rate,
+		lifetime = NumberRange.new(1.2, 2.0),
+		speed = NumberRange.new(0.6, 1.6),
+		lightEmission = 1,
+	})
+end
+
+-- Chunky sign board with SurfaceGui text, a neon underline and a glow light.
 local function addSignBoard(
 	parent: Instance,
 	cf: CFrame,
@@ -207,99 +338,267 @@ local function addSignBoard(
 		cframe = cf,
 		color = boardColor,
 	})
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 30
-	gui.LightInfluence = 0
-	gui.Parent = board
-	makeTextLabel(gui, text, Enum.Font.FredokaOne, textColor, UDim2.fromScale(0.03, 0.05), UDim2.fromScale(0.94, 0.9))
+	addSurfaceText(board, text, Enum.Font.FredokaOne, textColor, Enum.NormalId.Front)
+	makeBlock({
+		name = "NameBoardGlow", parent = parent, size = Vector3.new(width + 0.4, 0.3, 0.6),
+		cframe = cf * CFrame.new(0, -height / 2 - 0.15, 0), color = textColor,
+		material = Enum.Material.Neon, canCollide = false,
+	})
+	addPointLight(board, textColor, 12, 0.6)
 	return board
 end
 
--- CFrame at a zone's center on the ground plane, front (-Z) facing the plaza.
-local function zoneGroundCF(order: number): CFrame
-	local angle = math.rad((order - 1) * 45)
-	local pos = Vector3.new(math.cos(angle) * ZONE_RADIUS, 0, math.sin(angle) * ZONE_RADIUS)
-	return CFrame.lookAt(pos, Vector3.new(0, 0, 0))
+-- Position on a ring around the origin (XZ plane).
+local function ringPos(radius: number, degrees: number, y: number?): Vector3
+	local angle = math.rad(degrees)
+	return Vector3.new(math.cos(angle) * radius, y or 0, math.sin(angle) * radius)
 end
 
 ----------------------------------------------------------------------
--- Ground
+-- Lighting: bright cheerful day, soft blue haze, gentle bloom for the neon
+----------------------------------------------------------------------
+
+-- Returns the Lighting child with this name (and class), else — for singleton
+-- classes like Atmosphere / Sky — any existing instance of that class, else a
+-- new one. Properties are (re)applied by the caller so repeat runs converge.
+local function ensureLightingChild(className: string, name: string, singleton: boolean): Instance
+	local existing = Lighting:FindFirstChild(name)
+	if existing and existing.ClassName == className then
+		return existing
+	end
+	if singleton then
+		local byClass = Lighting:FindFirstChildOfClass(className)
+		if byClass then
+			return byClass
+		end
+	end
+	local child = Instance.new(className)
+	child.Name = name
+	child.Parent = Lighting
+	return child
+end
+
+local function setupLighting()
+	-- Technology = Future comes from default.project.json (not scriptable).
+	Lighting.ClockTime = 13
+	Lighting.Brightness = 2.6
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.6
+	Lighting.EnvironmentDiffuseScale = 0.6
+	Lighting.EnvironmentSpecularScale = 0.6
+	Lighting.Ambient = Color3.fromRGB(140, 140, 150)
+	Lighting.OutdoorAmbient = Color3.fromRGB(170, 170, 185)
+	Lighting.ExposureCompensation = 0.15
+
+	local atmosphere = ensureLightingChild("Atmosphere", "SideHustleAtmosphere", true) :: Atmosphere
+	atmosphere.Density = 0.32
+	atmosphere.Offset = 0.3
+	atmosphere.Color = Color3.fromRGB(199, 222, 255)
+	atmosphere.Decay = Color3.fromRGB(255, 214, 170)
+	atmosphere.Glare = 0.15
+	atmosphere.Haze = 1.2
+
+	local sunRays = ensureLightingChild("SunRaysEffect", "SideHustleSunRays", false) :: SunRaysEffect
+	sunRays.Intensity = 0.08
+	sunRays.Spread = 0.6
+
+	local bloom = ensureLightingChild("BloomEffect", "SideHustleBloom", false) :: BloomEffect
+	bloom.Intensity = 0.4
+	bloom.Size = 24
+	bloom.Threshold = 1.3
+
+	local colorCorrection = ensureLightingChild("ColorCorrectionEffect", "SideHustleColorCorrection", false) :: ColorCorrectionEffect
+	colorCorrection.Saturation = 0.2
+	colorCorrection.Contrast = 0.08
+	colorCorrection.Brightness = 0.02
+
+	local sky = ensureLightingChild("Sky", "SideHustleSky", true) :: Sky
+	sky.SkyboxBk = "rbxasset://textures/sky/sky512_bk.tex"
+	sky.SkyboxDn = "rbxasset://textures/sky/sky512_dn.tex"
+	sky.SkyboxFt = "rbxasset://textures/sky/sky512_ft.tex"
+	sky.SkyboxLf = "rbxasset://textures/sky/sky512_lf.tex"
+	sky.SkyboxRt = "rbxasset://textures/sky/sky512_rt.tex"
+	sky.SkyboxUp = "rbxasset://textures/sky/sky512_up.tex"
+	sky.SunAngularSize = 18
+	sky.MoonAngularSize = 8
+	sky.StarCount = 0
+	sky.CelestialBodiesShown = true
+end
+
+----------------------------------------------------------------------
+-- Terrain: grass island, sand rim, water beyond, a few low hills
+----------------------------------------------------------------------
+
+-- Hills sit on the ring between zones (22.5° off every zone angle), well
+-- outside the pads (radius <= 182), the decor rings (<= 255) and the beach.
+local HILLS = {
+	{ degrees = 22.5, radius = 292, size = 24 },
+	{ degrees = 67.5, radius = 286, size = 30 },
+	{ degrees = 112.5, radius = 294, size = 20 },
+	{ degrees = 157.5, radius = 288, size = 27 },
+	{ degrees = 202.5, radius = 292, size = 22 },
+	{ degrees = 247.5, radius = 285, size = 30 },
+	{ degrees = 292.5, radius = 295, size = 18 },
+	{ degrees = 337.5, radius = HILL_RING_RADIUS, size = 26 },
+}
+
+local function buildTerrain()
+	local terrain = Workspace.Terrain
+	terrain:Clear()
+
+	-- Water everywhere first (Y -8..0), then the island so grass/sand win.
+	terrain:FillBlock(CFrame.new(0, -4, 0), Vector3.new(WATER_HALF * 2, 8, WATER_HALF * 2), Enum.Material.Water)
+	terrain:FillCylinder(CFrame.new(0, -5, 0), 10, BEACH_RADIUS, Enum.Material.Sand)
+	terrain:FillCylinder(CFrame.new(0, -5, 0), 10, ISLAND_RADIUS, Enum.Material.Grass)
+
+	-- Low grass hills: spheres whose centers sit below ground so only a
+	-- gentle dome pokes up (peak ~0.55 * size).
+	for _, hill in HILLS do
+		local center = ringPos(hill.radius, hill.degrees, -hill.size * 0.45)
+		terrain:FillBall(center, hill.size, Enum.Material.Grass)
+	end
+
+	terrain.Decoration = true -- animated grass blades
+	terrain.WaterColor = Color3.fromRGB(52, 182, 230)
+	terrain.WaterTransparency = 0.55
+	terrain.WaterWaveSize = 0.18
+	terrain.WaterWaveSpeed = 14
+	terrain.WaterReflectance = 0.35
+end
+
+----------------------------------------------------------------------
+-- Ground: terrain is the visible island; one invisible flat guarantee
 ----------------------------------------------------------------------
 
 local function buildGround(map: Folder): Model
 	local ground = makeModel("Ground", map)
-	makeBlock({
-		name = "GroundSlab",
-		parent = ground,
-		size = Vector3.new(GROUND_SIZE, 8, GROUND_SIZE),
-		cframe = CFrame.new(0, -4, 0),
-		color = GRASS_GREEN,
+	-- Invisible collision disc under the plaza, road and pads (Y -1..0) in
+	-- case terrain ever fails to generate; terrain is the visible surface.
+	makeCylinder({
+		name = "GroundSafety", parent = ground, diameter = 400, height = 1,
+		cframe = CFrame.new(0, -0.5, 0), color = GRASS_GREEN, transparency = 1,
 	})
 	return ground
 end
 
 ----------------------------------------------------------------------
--- Plaza: ring road, plaza disc, spawn, coin statue, lamps, benches, billboard
+-- Plaza pieces: lamp posts, benches, coin fountain, billboard, string lights
 ----------------------------------------------------------------------
 
 local function buildLampPost(parent: Instance, cf: CFrame)
 	makeCylinder({
 		name = "LampBase", parent = parent, diameter = 2, height = 0.5,
 		cframe = cf * CFrame.new(0, 0.25, 0), color = Color3.fromRGB(70, 70, 80),
+		material = Enum.Material.Metal,
 	})
 	makeCylinder({
 		name = "LampPole", parent = parent, diameter = 0.7, height = 8,
 		cframe = cf * CFrame.new(0, 4.25, 0), color = Color3.fromRGB(70, 70, 80),
+		material = Enum.Material.Metal,
 	})
-	makeBall({
-		name = "LampBulb", parent = parent, size = Vector3.new(2.4, 2.4, 2.4),
+	local bulb = makeBall({
+		name = "LampBulb", parent = parent, diameter = 2.4,
 		cframe = cf * CFrame.new(0, 8.9, 0), color = Color3.fromRGB(255, 232, 170),
 		material = Enum.Material.Neon, canCollide = false,
 	})
+	addPointLight(bulb, LAMP_WARM, 18, 0.9)
 end
 
 local function buildBench(parent: Instance, cf: CFrame)
 	makeBlock({
 		name = "BenchSeat", parent = parent, size = Vector3.new(5.5, 0.55, 1.8),
-		cframe = cf * CFrame.new(0, 1.35, 0), color = WOOD,
+		cframe = cf * CFrame.new(0, 1.35, 0), color = WOOD, material = Enum.Material.WoodPlanks,
 	})
 	for _, xOff in { -2.2, 2.2 } do
 		makeBlock({
 			name = "BenchLeg", parent = parent, size = Vector3.new(0.5, 1.1, 1.6),
-			cframe = cf * CFrame.new(xOff, 0.55, 0), color = DARK_WOOD,
+			cframe = cf * CFrame.new(xOff, 0.55, 0), color = DARK_WOOD, material = Enum.Material.Wood,
 		})
 	end
 	makeBlock({
 		name = "BenchBack", parent = parent, size = Vector3.new(5.5, 1.6, 0.45),
 		cframe = cf * CFrame.new(0, 2.3, 0.8) * CFrame.Angles(math.rad(-8), 0, 0), color = WOOD,
+		material = Enum.Material.WoodPlanks,
 	})
 end
 
-local function buildCoinStatue(parent: Instance)
+-- Giant gold coin statue rising out of a marble fountain (plaza centerpiece).
+local function buildCoinFountain(parent: Instance)
 	local gold = Color3.fromRGB(235, 184, 52)
 	local brightGold = Color3.fromRGB(255, 215, 95)
 	local bronze = Color3.fromRGB(110, 78, 28)
+	local marble = Color3.fromRGB(226, 220, 206)
+	local waterColor = Color3.fromRGB(110, 205, 235)
+
+	-- Basin floor + translucent water disc
+	makeCylinder({
+		name = "FountainFloor", parent = parent, diameter = 22, height = 0.6,
+		cframe = CFrame.new(0, PAD_TOP + 0.3, 0), color = marble, material = Enum.Material.Marble,
+	})
+	makeCylinder({
+		name = "FountainWater", parent = parent, diameter = 20.4, height = 0.8,
+		cframe = CFrame.new(0, PAD_TOP + 1.0, 0), color = waterColor,
+		material = Enum.Material.Glass, transparency = 0.35, reflectance = 0.2, canCollide = false,
+	})
+	-- Rim: 12 chunky marble blocks in a ring (local X radial, Z tangential)
+	for i = 0, 11 do
+		local angle = math.rad(i * 30)
+		local pos = Vector3.new(math.cos(angle) * 10.6, PAD_TOP + 0.75, math.sin(angle) * 10.6)
+		makeBlock({
+			name = "FountainRim", parent = parent, size = Vector3.new(1.3, 1.5, 5.8),
+			cframe = CFrame.new(pos) * CFrame.Angles(0, -angle, 0), color = marble,
+			material = Enum.Material.Marble,
+		})
+	end
+	-- Four water jets (rising spray that falls back into the basin)
+	for i = 0, 3 do
+		local angle = math.rad(45 + i * 90)
+		local jet = makeMarker(
+			parent, "FountainJet",
+			CFrame.new(math.cos(angle) * 6.8, PAD_TOP + 1.4, math.sin(angle) * 6.8),
+			Vector3.new(0.6, 0.4, 0.6)
+		)
+		addParticles(jet, "Spray", {
+			color = ColorSequence.new(Color3.fromRGB(190, 235, 255), Color3.fromRGB(255, 255, 255)),
+			size = NumberSequence.new(0.5, 0.9),
+			transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.25),
+				NumberSequenceKeypoint.new(0.8, 0.5),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			rate = 7,
+			lifetime = NumberRange.new(1.1, 1.4),
+			speed = NumberRange.new(12, 15),
+			spread = Vector2.new(6, 6),
+			acceleration = Vector3.new(0, -22, 0),
+			lightEmission = 0.4,
+			drag = 0,
+		})
+	end
+
+	-- Pedestal rising out of the water
 	makeCylinder({
 		name = "StatuePedestal", parent = parent, diameter = 10, height = 2,
 		cframe = CFrame.new(0, PAD_TOP + 1, 0), color = Color3.fromRGB(205, 198, 182),
+		material = Enum.Material.Marble,
 	})
 	makeCylinder({
 		name = "StatuePedestalTop", parent = parent, diameter = 7.5, height = 1.5,
 		cframe = CFrame.new(0, PAD_TOP + 2.75, 0), color = Color3.fromRGB(190, 182, 165),
+		material = Enum.Material.Marble,
 	})
 	-- Giant gold coin standing on its edge (cylinder axis along X)
 	local coinY = PAD_TOP + 8
 	makeCylinder({
 		name = "StatueCoin", parent = parent, diameter = 9, height = 1.4, axis = "X",
-		cframe = CFrame.new(0, coinY, 0), color = gold,
+		cframe = CFrame.new(0, coinY, 0), color = gold, material = Enum.Material.Metal,
 	})
-	makeCylinder({
+	local coinCore = makeCylinder({
 		name = "StatueCoinCore", parent = parent, diameter = 6, height = 1.5, axis = "X",
 		cframe = CFrame.new(0, coinY, 0), color = brightGold,
 		material = Enum.Material.Neon, canCollide = false,
 	})
+	addPointLight(coinCore, brightGold, 16, 0.6)
 	-- Dollar-sign-ish bar + serifs across the coin face
 	makeBlock({
 		name = "StatueDollarBar", parent = parent, size = Vector3.new(1.7, 7.5, 1),
@@ -313,17 +612,19 @@ local function buildCoinStatue(parent: Instance)
 		name = "StatueDollarBottom", parent = parent, size = Vector3.new(1.8, 0.8, 2.4),
 		cframe = CFrame.new(0, coinY - 3.1, 0.6), color = bronze, canCollide = false,
 	})
+	-- Gentle gold sparkle above the coin
+	local sparkle = makeMarker(parent, "CoinSparkle", CFrame.new(0, coinY + 5.6, 0), Vector3.new(7, 1.5, 3))
+	addSparkle(sparkle, "GoldSparkle", brightGold, WHITE, 4, 0.4, 0.8)
 end
 
 local function buildTitleBillboard(parent: Instance)
-	local angle = math.rad(157.5)
-	local pos = Vector3.new(math.cos(angle) * 47, 0, math.sin(angle) * 47)
-	local baseCF = CFrame.lookAt(pos, Vector3.new(0, 0, 0))
+	local baseCF = CFrame.lookAt(ringPos(47, 157.5), Vector3.new(0, 0, 0))
 	local postColor = Color3.fromRGB(60, 62, 110)
 	for _, xOff in { -9, 9 } do
 		makeBlock({
 			name = "BillboardPost", parent = parent, size = Vector3.new(1.2, 9, 1.2),
 			cframe = baseCF * CFrame.new(xOff, PAD_TOP + 4.5, 0), color = postColor,
+			material = Enum.Material.Metal,
 		})
 	end
 	local board = makeBlock({
@@ -346,39 +647,85 @@ local function buildTitleBillboard(parent: Instance)
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 30
-	gui.LightInfluence = 0
-	gui.Parent = board
-	makeTextLabel(
-		gui,
-		"SIDE HUSTLE\nSIMULATOR",
-		Enum.Font.LuckiestGuy,
-		Color3.fromRGB(255, 212, 31),
-		UDim2.fromScale(0.03, 0.05),
-		UDim2.fromScale(0.94, 0.9)
-	)
+	addSurfaceText(board, "SIDE HUSTLE\nSIMULATOR", Enum.Font.LuckiestGuy, trim, Enum.NormalId.Front)
+	addPointLight(board, trim, 16, 0.7)
+end
+
+-- Festive string lights: a sagging wire with neon beads between each pair of
+-- plaza lamp posts (two straight segments per span).
+local function buildStringLights(parent: Instance)
+	local wireY = PAD_TOP + 7.9
+	local sagY = PAD_TOP + 6.4
+	local beadIndex = 0
+	for i = 0, 5 do
+		local p0 = ringPos(LAMP_RADIUS, 10 + i * 60, wireY)
+		local p1 = ringPos(LAMP_RADIUS, 10 + (i + 1) * 60, wireY)
+		local mid = (p0 + p1) / 2
+		mid = Vector3.new(mid.X, sagY, mid.Z)
+		for _, segment in { { p0, mid }, { mid, p1 } } do
+			local from, to = segment[1], segment[2]
+			local length = (to - from).Magnitude
+			makeBlock({
+				name = "StringWire", parent = parent, size = Vector3.new(0.12, 0.12, length),
+				cframe = CFrame.lookAt((from + to) / 2, to), color = WIRE_DARK,
+				material = Enum.Material.Metal, canCollide = false,
+			})
+			for k = 1, 5 do
+				local pos = from:Lerp(to, k / 6) - Vector3.new(0, 0.3, 0)
+				beadIndex += 1
+				makeBall({
+					name = "StringBead", parent = parent, diameter = 0.55,
+					cframe = CFrame.new(pos), color = FLOWER_COLORS[(beadIndex - 1) % 5 + 1],
+					material = Enum.Material.Neon, canCollide = false,
+				})
+			end
+		end
+	end
+end
+
+-- Low green mound with a few tiny neon flowers on top.
+local function buildFlowerCluster(parent: Instance, position: Vector3, seed: number)
+	makeBall({
+		name = "FlowerBed", parent = parent, diameter = 2.4,
+		cframe = CFrame.new(position + Vector3.new(0, 0.5, 0)), color = LEAF_GREEN, canCollide = false,
+	})
+	local offsets = {
+		Vector3.new(0.5, 1.35, 0.3),
+		Vector3.new(-0.6, 1.3, 0.4),
+		Vector3.new(0.1, 1.5, -0.6),
+		Vector3.new(-0.3, 1.2, -0.1),
+	}
+	for i, offset in offsets do
+		makeBall({
+			name = "Flower", parent = parent, diameter = 0.55,
+			cframe = CFrame.new(position + offset),
+			color = FLOWER_COLORS[(seed + i - 1) % #FLOWER_COLORS + 1],
+			material = Enum.Material.Neon, canCollide = false,
+		})
+	end
 end
 
 local function buildPlaza(map: Folder)
 	local plaza = makeModel("Plaza", map)
 
-	-- Ring road (flattened disc; the plaza disc sits on top of it)
+	-- Ring road: cobblestone disc with a lighter trim ring; both reach down
+	-- into the terrain so animated grass never pokes through.
 	makeCylinder({
-		name = "RingRoad", parent = plaza, diameter = ROAD_RADIUS * 2, height = 0.5,
-		cframe = CFrame.new(0, 0.25, 0), color = ROAD_GRAY,
+		name = "RoadTrim", parent = plaza, diameter = (ROAD_RADIUS + 2.5) * 2, height = 1.8,
+		cframe = CFrame.new(0, -0.6, 0), color = ROAD_TRIM, material = Enum.Material.Cobblestone,
 	})
-	-- Plaza disc
+	makeCylinder({
+		name = "RingRoad", parent = plaza, diameter = ROAD_RADIUS * 2, height = 2,
+		cframe = CFrame.new(0, -0.5, 0), color = ROAD_GRAY, material = Enum.Material.Cobblestone,
+	})
+	-- Plaza disc (marble) with a lighter step ring
+	makeCylinder({
+		name = "PlazaTrim", parent = plaza, diameter = (PLAZA_RADIUS + 3) * 2, height = 1.2,
+		cframe = CFrame.new(0, 0.7, 0), color = STONE_LIGHT, material = Enum.Material.Marble,
+	})
 	makeCylinder({
 		name = "PlazaFloor", parent = plaza, diameter = PLAZA_RADIUS * 2, height = 1,
-		cframe = CFrame.new(0, 1, 0), color = STONE,
-	})
-	-- Decorative inner ring around the statue
-	makeCylinder({
-		name = "PlazaRing", parent = plaza, diameter = 28, height = 0.18,
-		cframe = CFrame.new(0, PAD_TOP + 0.05, 0), color = Color3.fromRGB(240, 226, 180),
+		cframe = CFrame.new(0, 1, 0), color = STONE, material = Enum.Material.Marble,
 	})
 
 	-- Spawn (Neutral, plain — no decal clutter), facing the statue
@@ -387,7 +734,7 @@ local function buildPlaza(map: Folder)
 	spawnLocation.Size = Vector3.new(12, 1, 12)
 	spawnLocation.CFrame = CFrame.lookAt(Vector3.new(-20, PAD_TOP + 0.5, 0), Vector3.new(0, PAD_TOP + 0.5, 0))
 	spawnLocation.Color = Color3.fromRGB(236, 228, 205)
-	spawnLocation.Material = Enum.Material.SmoothPlastic
+	spawnLocation.Material = Enum.Material.Marble
 	spawnLocation.Anchored = true
 	spawnLocation.TopSurface = Enum.SurfaceType.Smooth
 	spawnLocation.BottomSurface = Enum.SurfaceType.Smooth
@@ -395,92 +742,126 @@ local function buildPlaza(map: Folder)
 	spawnLocation.Duration = 0
 	spawnLocation.Parent = plaza
 
-	buildCoinStatue(plaza)
+	buildCoinFountain(plaza)
 
-	-- Lamp posts around the plaza
+	-- Lamp posts around the plaza + string lights between them
 	for i = 0, 5 do
-		local angle = math.rad(10 + i * 60)
-		local cf = CFrame.new(math.cos(angle) * 44, PAD_TOP, math.sin(angle) * 44)
-		buildLampPost(plaza, cf)
+		buildLampPost(plaza, CFrame.new(ringPos(LAMP_RADIUS, 10 + i * 60, PAD_TOP)))
+	end
+	buildStringLights(plaza)
+
+	-- Benches facing the fountain
+	for _, deg in { 55, 185, 300 } do
+		local pos = ringPos(30, deg, PAD_TOP)
+		buildBench(plaza, CFrame.lookAt(pos, Vector3.new(0, PAD_TOP, 0)))
 	end
 
-	-- Benches facing the statue
-	for _, deg in { 55, 185, 300 } do
-		local angle = math.rad(deg)
-		local pos = Vector3.new(math.cos(angle) * 30, PAD_TOP, math.sin(angle) * 30)
-		buildBench(plaza, CFrame.lookAt(pos, Vector3.new(0, PAD_TOP, 0)))
+	-- Flower beds dotted around the plaza
+	for i, deg in { 40, 100, 220, 280 } do
+		buildFlowerCluster(plaza, ringPos(40, deg, PAD_TOP), i)
 	end
 
 	buildTitleBillboard(plaza)
 end
 
 ----------------------------------------------------------------------
--- Shared zone pieces: hustle station + unlock gate
+-- Shared zone pieces: hustle station + level gate
 ----------------------------------------------------------------------
 
-local function buildHustleStation(
-	zoneModel: Model,
-	zoneCF: CFrame,
-	zone,
-	localPos: Vector3,
-	withCounter: boolean
-)
+type StationSpec = {
+	pos: Vector3, -- counter center (zone-local, on the pad top)
+	counter: boolean, -- build the generic counter (false when the zone prop is the counter)
+	material: Enum.Material?,
+	baseColor: Color3?,
+	feedback: Vector3?, -- zone-local override for FeedbackPart
+	anchor: Vector3?, -- zone-local override for AutoAnchor
+	anchorLook: Vector3?, -- zone-local point the AutoAnchor faces
+}
+
+local function buildHustleStation(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef, spec: StationSpec)
 	local station = makeModel("HustleStation", zoneModel)
-	local baseCF = zoneCF * CFrame.new(localPos)
-	if withCounter then
+	local baseCF = zoneCF * CFrame.new(spec.pos)
+	if spec.counter then
+		local material = spec.material or Enum.Material.SmoothPlastic
 		makeBlock({
 			name = "CounterBase", parent = station, size = Vector3.new(7, 3, 2.6),
-			cframe = baseCF * CFrame.new(0, 1.5, 0), color = zone.SignColor,
+			cframe = baseCF * CFrame.new(0, 1.5, 0), color = spec.baseColor or zone.SignColor,
+			material = material,
 		})
 		makeBlock({
 			name = "CounterTop", parent = station, size = Vector3.new(8, 0.5, 3.2),
 			cframe = baseCF * CFrame.new(0, 3.25, 0), color = CREAM,
+			material = if material == Enum.Material.WoodPlanks then material else Enum.Material.SmoothPlastic,
 		})
 		makeBlock({
 			name = "CounterTrim", parent = station, size = Vector3.new(7.2, 0.6, 0.2),
-			cframe = baseCF * CFrame.new(0, 1.9, -1.4), color = zone.AccentColor,
+			cframe = baseCF * CFrame.new(0, 1.5, -1.4), color = zone.AccentColor,
 			material = Enum.Material.Neon, canCollide = false,
 		})
+		-- Verb plaque on the counter front ("WALK!", "TRADE!" ...)
+		local plaque = makeBlock({
+			name = "CounterPlaque", parent = station, size = Vector3.new(4.4, 1.0, 0.2),
+			cframe = baseCF * CFrame.new(0, 2.5, -1.4), color = NAVY, canCollide = false,
+		})
+		addSurfaceText(plaque, string.upper(zone.HustleVerb) .. "!", Enum.Font.FredokaOne, zone.SignColor, Enum.NormalId.Front)
 	end
+
+	-- The prompt (server connects HustlePrompt.Triggered)
 	local promptPart = makePromptPart(station, baseCF * CFrame.new(0, 3, -2.4))
-	makePrompt(promptPart, "HustlePrompt", zone.HustleVerb .. "!", zone.Name, 0, 12)
+	makePrompt(promptPart, "HustlePrompt", zone.HustleVerb .. "!", zone.Name, zone.HoldDuration or 0, 12)
+
+	-- FeedbackPart: ~6 studs above the counter top; the client parents its
+	-- market needle / charge bar / combo BillboardGui here.
+	local feedbackLocal = spec.feedback or (spec.pos + Vector3.new(0, 9.5, 0))
+	makeMarker(station, "FeedbackPart", zoneCF * CFrame.new(feedbackLocal))
+
+	-- AutoAnchor: at ground level beside the counter, facing it; the client
+	-- stands the automation rig here (anchor bottom rests on the pad).
+	local anchorLocal = spec.anchor or (spec.pos + Vector3.new(6, 0.5, 0))
+	local lookLocal = spec.anchorLook or (spec.pos + Vector3.new(0, 0.5, 0))
+	local anchorWorld = zoneCF:PointToWorldSpace(anchorLocal)
+	local lookWorld = zoneCF:PointToWorldSpace(lookLocal)
+	makeMarker(station, "AutoAnchor", CFrame.lookAt(anchorWorld, lookWorld))
 end
 
-local function buildGate(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildGate(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local gate = makeModel("Gate", zoneModel)
-	local costText = "$" .. FormatNumber.commas(zone.UnlockCost)
 
+	-- Translucent zone-colored energy wall (client opens it per player)
 	makeBlock({
 		name = "GateWall", parent = gate, size = Vector3.new(26, 11, 1.2),
 		cframe = zoneCF * CFrame.new(0, 5.5, -30.5), color = zone.SignColor,
-		transparency = 0.45, canCollide = true,
+		material = Enum.Material.ForceField, transparency = 0.45, canCollide = true,
 	})
 	for _, xOff in { -13.4, 13.4 } do
-		makeBlock({
+		local post = makeBlock({
 			name = "GatePost", parent = gate, size = Vector3.new(1.5, 12.5, 1.5),
 			cframe = zoneCF * CFrame.new(xOff, 6.25, -30.5), color = zone.SignColor,
 			material = Enum.Material.Neon,
 		})
+		addPointLight(post, zone.SignColor, 10, 0.5)
 	end
 	makeBlock({
 		name = "GateTopBar", parent = gate, size = Vector3.new(28.5, 1, 1),
 		cframe = zoneCF * CFrame.new(0, 12.2, -30.5), color = zone.SignColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
-	-- Low hedges flanking the gate along the pad's front edge
-	for _, xOff in { -21.5, 21.5 } do
+	-- Grassy hedges sealing the pad's front edge out to its corners
+	for _, xOff in { -23, 23 } do
 		makeBlock({
-			name = "GateHedge", parent = gate, size = Vector3.new(15, 2.6, 1.8),
+			name = "GateHedge", parent = gate, size = Vector3.new(18, 2.6, 1.8),
 			cframe = zoneCF * CFrame.new(xOff, 1.3, -30.5), color = LEAF_GREEN,
+			material = Enum.Material.Grass,
 		})
 	end
 
-	-- Price sign (billboard readable from across the map)
+	-- Level sign (billboard readable from across the map)
 	local signPart = makeBlock({
 		name = "SignPart", parent = gate, size = Vector3.new(11, 2.6, 0.9),
 		cframe = zoneCF * CFrame.new(0, 14.2, -30.5), color = zone.SignColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
+	addPointLight(signPart, zone.SignColor, 14, 0.6)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromScale(2.4, 3.2) -- scales with SignPart: ~26 x 8 studs
 	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
@@ -493,27 +874,222 @@ local function buildGate(zoneModel: Model, zoneCF: CFrame, zone)
 		UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.55)
 	)
 	makeTextLabel(
-		billboard, costText .. " to unlock", Enum.Font.FredokaOne, WHITE,
+		billboard, "\u{1F512} Reach Level " .. tostring(zone.UnlockLevel), Enum.Font.FredokaOne, WHITE,
 		UDim2.fromScale(0, 0.55), UDim2.fromScale(1, 0.45)
 	)
-
-	local promptPart = makePromptPart(gate, zoneCF * CFrame.new(0, 3.5, -28.5))
-	makePrompt(promptPart, "UnlockPrompt", "Unlock", costText, 0.5, 10)
 end
 
 ----------------------------------------------------------------------
--- Zone 1: Lemonade Stand — wooden stand, striped canopy, giant lemon
+-- Mechanic props: static dressing so each hustle reads from afar
+-- (the live feedback is a client BillboardGui on FeedbackPart)
 ----------------------------------------------------------------------
 
-local function buildLemonadeStand(zoneModel: Model, zoneCF: CFrame, zone)
+-- Tap: big chunky neon button on the counter top ("SQUEEZE!" / "GRILL!").
+-- cf = counter-top center, -Z toward the player.
+local function buildTapButton(parent: Instance, cf: CFrame, zone: GameConfig.ZoneDef)
+	local domeColor = if zone.Id == "FoodTruck" then zone.AccentColor else zone.SignColor
+	makeCylinder({
+		name = "TapButtonBase", parent = parent, diameter = 3.2, height = 0.7,
+		cframe = cf * CFrame.new(0, 0.35, 0), color = METAL_DARK, material = Enum.Material.Metal,
+	})
+	makeCylinder({
+		name = "TapButtonRim", parent = parent, diameter = 3.0, height = 0.2,
+		cframe = cf * CFrame.new(0, 0.8, 0), color = WHITE, material = Enum.Material.Neon, canCollide = false,
+	})
+	local dome = makeBall({
+		name = "TapButtonDome", parent = parent, diameter = 2.8,
+		cframe = cf * CFrame.new(0, 1.0, 0), color = domeColor,
+		material = Enum.Material.Neon, canCollide = false,
+	})
+	addPointLight(dome, domeColor, 9, 0.7)
+	local plate = makeBlock({
+		name = "TapButtonLabel", parent = parent, size = Vector3.new(3.8, 1.1, 0.3),
+		cframe = cf * CFrame.new(0, 0.55, 1.5), color = NAVY, canCollide = false,
+	})
+	addSurfaceText(plate, string.upper(zone.HustleVerb) .. "!", Enum.Font.LuckiestGuy, domeColor, Enum.NormalId.Front)
+end
+
+-- Hold (Dog Walking): a long sandy walking path with paw prints and
+-- start/finish flags, running along X in front of the counter.
+local function buildPawPath(parent: Instance, cf: CFrame, zone: GameConfig.ZoneDef)
+	makeBlock({
+		name = "WalkPath", parent = parent, size = Vector3.new(32, 0.3, 3.2),
+		cframe = cf * CFrame.new(0, 0.35, 0), color = Color3.fromRGB(226, 208, 160),
+		material = Enum.Material.Sand,
+	})
+	local pawColor = Color3.fromRGB(96, 66, 42)
+	for i = 0, 6 do
+		local pawCF = cf * CFrame.new(-12 + i * 4, 0.58, if i % 2 == 0 then -0.6 else 0.6)
+		makeCylinder({
+			name = "PawPad", parent = parent, diameter = 1.0, height = 0.16,
+			cframe = pawCF, color = pawColor, canCollide = false,
+		})
+		for _, toe in { Vector3.new(-0.45, 0, -0.65), Vector3.new(0, 0, -0.8), Vector3.new(0.45, 0, -0.65) } do
+			makeCylinder({
+				name = "PawToe", parent = parent, diameter = 0.36, height = 0.14,
+				cframe = pawCF * CFrame.new(toe), color = pawColor, canCollide = false,
+			})
+		end
+	end
+	for _, flag in { { x = -17, color = zone.SignColor }, { x = 17, color = WHITE } } do
+		makeBlock({
+			name = "FlagPost", parent = parent, size = Vector3.new(0.4, 3.4, 0.4),
+			cframe = cf * CFrame.new(flag.x, 1.7, 0), color = DARK_WOOD, material = Enum.Material.Wood,
+		})
+		makeBlock({
+			name = "Flag", parent = parent, size = Vector3.new(0.15, 1.1, 1.8),
+			cframe = cf * CFrame.new(flag.x + 0.2, 2.85, 0.9), color = flag.color,
+			material = Enum.Material.Neon, canCollide = false,
+		})
+	end
+end
+
+-- Hold (Car Wash): roller conveyor track running along X through the tunnel.
+local function buildConveyor(parent: Instance, cf: CFrame, zone: GameConfig.ZoneDef)
+	makeBlock({
+		name = "ConveyorBase", parent = parent, size = Vector3.new(34, 0.5, 5),
+		cframe = cf * CFrame.new(0, 0.25, 0), color = Color3.fromRGB(70, 72, 82),
+		material = Enum.Material.DiamondPlate,
+	})
+	for i = 0, 8 do
+		makeCylinder({
+			name = "ConveyorRoller", parent = parent, diameter = 0.9, height = 4.6, axis = "Z",
+			cframe = cf * CFrame.new(-16 + i * 4, 0.8, 0), color = Color3.fromRGB(120, 124, 136),
+			material = Enum.Material.Metal,
+		})
+	end
+	for _, zOff in { -2.7, 2.7 } do
+		makeBlock({
+			name = "ConveyorRail", parent = parent, size = Vector3.new(34, 0.3, 0.3),
+			cframe = cf * CFrame.new(0, 0.65, zOff), color = zone.AccentColor,
+			material = Enum.Material.Neon, canCollide = false,
+		})
+	end
+	for _, xOff in { -17.3, 17.3 } do
+		makeBlock({
+			name = "ConveyorEnd", parent = parent, size = Vector3.new(1.2, 1.4, 5.4),
+			cframe = cf * CFrame.new(xOff, 0.7, 0), color = Color3.fromRGB(50, 52, 60),
+			material = Enum.Material.Metal,
+		})
+	end
+end
+
+-- Timing: tall black ticker/hype board with a climbing neon zig-zag and a
+-- big arrow tip. cf = board base center on the pad top, front (-Z) to the plaza.
+local function buildHypeBoard(parent: Instance, cf: CFrame, neon: Color3, title: string)
+	local frame = Color3.fromRGB(48, 48, 58)
+	for _, xOff in { -2.7, 2.7 } do
+		makeBlock({
+			name = "HypeBoardPost", parent = parent, size = Vector3.new(0.6, 9.4, 0.6),
+			cframe = cf * CFrame.new(xOff, 4.7, 0), color = frame, material = Enum.Material.Metal,
+		})
+	end
+	local board = makeBlock({
+		name = "HypeBoard", parent = parent, size = Vector3.new(6.6, 6, 0.5),
+		cframe = cf * CFrame.new(0, 7, 0), color = Color3.fromRGB(14, 14, 18),
+	})
+	addPointLight(board, neon, 14, 0.8)
+	-- Zig-zag line climbing left to right across the front face
+	local points = {
+		Vector3.new(-2.6, 4.9, 0),
+		Vector3.new(-1.4, 6.1, 0),
+		Vector3.new(-0.4, 5.4, 0),
+		Vector3.new(0.8, 7.2, 0),
+		Vector3.new(1.8, 6.6, 0),
+		Vector3.new(2.6, 8.7, 0),
+	}
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local mid = (a + b) / 2
+		local delta = b - a
+		makeBlock({
+			name = "TickerStrip", parent = parent, size = Vector3.new(delta.Magnitude, 0.28, 0.2),
+			cframe = cf * CFrame.new(mid.X, mid.Y, -0.35) * CFrame.Angles(0, 0, math.atan2(delta.Y, delta.X)),
+			color = neon, material = Enum.Material.Neon, canCollide = false,
+		})
+	end
+	-- Arrow tip (diamond) at the end of the line
+	makeBlock({
+		name = "HypeArrowTip", parent = parent, size = Vector3.new(1.1, 1.1, 0.2),
+		cframe = cf * CFrame.new(2.6, 8.9, -0.35) * CFrame.Angles(0, 0, math.rad(45)),
+		color = neon, material = Enum.Material.Neon, canCollide = false,
+	})
+	local plate = makeBlock({
+		name = "HypeBoardTitle", parent = parent, size = Vector3.new(6.6, 1.2, 0.4),
+		cframe = cf * CFrame.new(0, 10.6, 0), color = NAVY,
+	})
+	addSurfaceText(plate, title, Enum.Font.LuckiestGuy, neon, Enum.NormalId.Front)
+end
+
+-- Charge: hype meter column — 5 stacked neon segments on a dark core with a
+-- glowing cap. cf = column base center on the pad top, front (-Z) to the plaza.
+local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, capColor: Color3, title: string)
+	local frame = Color3.fromRGB(40, 38, 45)
+	makeCylinder({
+		name = "HypeColumnBase", parent = parent, diameter = 3.4, height = 0.6,
+		cframe = cf * CFrame.new(0, 0.3, 0), color = frame, material = Enum.Material.Metal,
+	})
+	makeBlock({
+		name = "HypeColumnCore", parent = parent, size = Vector3.new(1.2, 9.2, 1.2),
+		cframe = cf * CFrame.new(0, 5.2, 0), color = frame, material = Enum.Material.Metal,
+	})
+	for i = 0, 4 do
+		makeBlock({
+			name = "HypeSegment", parent = parent, size = Vector3.new(2.4, 1.3, 1.5),
+			cframe = cf * CFrame.new(0, 2.2 + i * 1.7, 0), color = segColor:Lerp(WHITE, i * 0.16),
+			material = Enum.Material.Neon, canCollide = false,
+		})
+	end
+	local cap = makeBall({
+		name = "HypeColumnCap", parent = parent, diameter = 1.9,
+		cframe = cf * CFrame.new(0, 10.5, 0), color = capColor,
+		material = Enum.Material.Neon, canCollide = false,
+	})
+	addPointLight(cap, segColor, 12, 0.8)
+	local plate = makeBlock({
+		name = "HypeColumnLabel", parent = parent, size = Vector3.new(3.0, 0.9, 0.25),
+		cframe = cf * CFrame.new(0, 1.05, -0.75), color = NAVY, canCollide = false,
+	})
+	addSurfaceText(plate, title, Enum.Font.LuckiestGuy, segColor, Enum.NormalId.Front)
+end
+
+local function buildMechanicProp(zoneModel: Model, cf: CFrame, zone: GameConfig.ZoneDef)
+	local props = makeModel("MechanicProp", zoneModel)
+	if zone.Mechanic == "Tap" then
+		buildTapButton(props, cf, zone)
+	elseif zone.Mechanic == "Hold" then
+		if zone.Id == "CarWash" then
+			buildConveyor(props, cf, zone)
+		else
+			buildPawPath(props, cf, zone)
+		end
+	elseif zone.Mechanic == "Timing" then
+		local isStock = zone.Id == "StockDesk"
+		buildHypeBoard(props, cf, if isStock then Color3.fromRGB(70, 255, 130) else zone.SignColor, if isStock then "TICKER" else "HYPE")
+	elseif zone.Mechanic == "Charge" then
+		local isStartup = zone.Id == "StartupHQ"
+		buildHypeColumn(
+			props, cf,
+			if isStartup then zone.AccentColor else zone.SignColor,
+			if isStartup then zone.SignColor else zone.AccentColor,
+			if isStartup then "FUNDING" else "HYPE"
+		)
+	end
+end
+
+----------------------------------------------------------------------
+-- Zone 1: Lemonade Stand — wooden stand, fabric canopy, giant lemon
+----------------------------------------------------------------------
+
+local function buildLemonadeStand(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local yellow = zone.SignColor
 	makeBlock({
 		name = "StandBase", parent = zoneModel, size = Vector3.new(10, 3.2, 2.6),
-		cframe = zoneCF * CFrame.new(0, 1.6, 9), color = WOOD,
+		cframe = zoneCF * CFrame.new(0, 1.6, 9), color = WOOD, material = Enum.Material.WoodPlanks,
 	})
 	makeBlock({
 		name = "StandTop", parent = zoneModel, size = Vector3.new(11, 0.5, 3.2),
-		cframe = zoneCF * CFrame.new(0, 3.45, 9), color = CREAM,
+		cframe = zoneCF * CFrame.new(0, 3.45, 9), color = CREAM, material = Enum.Material.WoodPlanks,
 	})
 	-- Striped front skirt
 	for i = 0, 4 do
@@ -523,38 +1099,40 @@ local function buildLemonadeStand(zoneModel: Model, zoneCF: CFrame, zone)
 			color = if i % 2 == 0 then yellow else WHITE, canCollide = false,
 		})
 	end
-	-- Canopy posts + striped canopy
+	-- Canopy posts + striped fabric canopy
 	for _, xOff in { -4.6, 4.6 } do
 		makeBlock({
 			name = "CanopyPost", parent = zoneModel, size = Vector3.new(0.8, 8.4, 0.8),
-			cframe = zoneCF * CFrame.new(xOff, 4.2, 10.2), color = DARK_WOOD,
+			cframe = zoneCF * CFrame.new(xOff, 4.2, 10.2), color = DARK_WOOD, material = Enum.Material.Wood,
 		})
 	end
 	for i = 0, 4 do
 		makeBlock({
 			name = "CanopyStripe", parent = zoneModel, size = Vector3.new(2.3, 0.4, 6.5),
 			cframe = zoneCF * CFrame.new(-4.6 + i * 2.3, 8.6, 9.1),
-			color = if i % 2 == 0 then yellow else WHITE,
+			color = if i % 2 == 0 then yellow else WHITE, material = Enum.Material.Fabric,
 		})
 	end
-	-- GIANT lemon on the roof (squashed ball, slightly tilted)
+	-- GIANT lemon on the roof (ball + two tips, slightly tilted)
 	local lemonCF = zoneCF * CFrame.new(0, 12.2, 9.1) * CFrame.Angles(0, 0, math.rad(10))
 	makeBall({
-		name = "GiantLemon", parent = zoneModel, size = Vector3.new(9, 6.8, 6.8),
+		name = "GiantLemon", parent = zoneModel, diameter = 7.4,
 		cframe = lemonCF, color = yellow, canCollide = false,
 	})
-	for _, xOff in { -4.2, 4.2 } do
+	for _, xOff in { -4.0, 4.0 } do
 		makeBall({
-			name = "LemonTip", parent = zoneModel, size = Vector3.new(1.6, 1.6, 1.6),
+			name = "LemonTip", parent = zoneModel, diameter = 1.6,
 			cframe = lemonCF * CFrame.new(xOff, 0, 0), color = Color3.fromRGB(235, 190, 28),
 			canCollide = false,
 		})
 	end
-	-- Pitcher + cups on the counter
-	makeCylinder({
+	-- Glass pitcher of lemonade (with citrus sparkle) + cups on the counter
+	local pitcher = makeCylinder({
 		name = "Pitcher", parent = zoneModel, diameter = 1.5, height = 2.3,
-		cframe = zoneCF * CFrame.new(2.6, 4.85, 9), color = CREAM, canCollide = false,
+		cframe = zoneCF * CFrame.new(2.6, 4.85, 9), color = Color3.fromRGB(255, 236, 150),
+		material = Enum.Material.Glass, transparency = 0.3, canCollide = false,
 	})
+	addSparkle(pitcher, "CitrusSparkle", yellow, WHITE, 4, 0.25, 0.5)
 	makeBlock({
 		name = "PitcherHandle", parent = zoneModel, size = Vector3.new(0.35, 1.3, 0.9),
 		cframe = zoneCF * CFrame.new(3.5, 4.85, 9), color = CREAM, canCollide = false,
@@ -569,7 +1147,7 @@ local function buildLemonadeStand(zoneModel: Model, zoneCF: CFrame, zone)
 end
 
 ----------------------------------------------------------------------
--- Zone 2: Dog Walking — park, fence, dog house, giant bone, blocky dogs
+-- Zone 2: Dog Walking — park lawn, fence, dog house, giant bone, blocky dogs
 ----------------------------------------------------------------------
 
 local function buildDog(parent: Instance, cf: CFrame, color: Color3)
@@ -593,7 +1171,7 @@ local function buildDog(parent: Instance, cf: CFrame, color: Color3)
 		cframe = cf * CFrame.new(0, 2.45, -2.3), color = darker, canCollide = false,
 	})
 	makeBall({
-		name = "DogNose", parent = parent, size = Vector3.new(0.35, 0.35, 0.35),
+		name = "DogNose", parent = parent, diameter = 0.35,
 		cframe = cf * CFrame.new(0, 2.5, -2.65), color = Color3.fromRGB(25, 22, 22), canCollide = false,
 	})
 	for _, xOff in { -0.4, 0.4 } do
@@ -609,20 +1187,27 @@ local function buildDog(parent: Instance, cf: CFrame, color: Color3)
 	})
 end
 
-local function buildDogWalking(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildDogWalking(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local fenceWhite = Color3.fromRGB(242, 240, 234)
-	-- White fence along both sides of the park
+	-- Real grass lawn inside the fence
+	makeBlock({
+		name = "ParkLawn", parent = zoneModel, size = Vector3.new(52, 0.2, 44),
+		cframe = zoneCF * CFrame.new(0, 0.1, 0), color = Color3.fromRGB(98, 184, 82),
+		material = Enum.Material.Grass,
+	})
+	-- White wooden fence along both sides of the park
 	for _, xOff in { -28, 28 } do
 		for z = -20, 20, 10 do
 			makeBlock({
 				name = "FencePost", parent = zoneModel, size = Vector3.new(0.7, 2.8, 0.7),
-				cframe = zoneCF * CFrame.new(xOff, 1.4, z), color = fenceWhite,
+				cframe = zoneCF * CFrame.new(xOff, 1.4, z), color = fenceWhite, material = Enum.Material.Wood,
 			})
 		end
 		for _, yOff in { 1, 2 } do
 			makeBlock({
 				name = "FenceRail", parent = zoneModel, size = Vector3.new(0.4, 0.35, 42),
-				cframe = zoneCF * CFrame.new(xOff, yOff, 0), color = fenceWhite, canCollide = false,
+				cframe = zoneCF * CFrame.new(xOff, yOff, 0), color = fenceWhite,
+				material = Enum.Material.Wood, canCollide = false,
 			})
 		end
 	end
@@ -631,7 +1216,7 @@ local function buildDogWalking(zoneModel: Model, zoneCF: CFrame, zone)
 	local roofRed = Color3.fromRGB(140, 40, 36)
 	makeBlock({
 		name = "DogHouse", parent = zoneModel, size = Vector3.new(8, 6, 7),
-		cframe = zoneCF * CFrame.new(10, 3, 14), color = houseRed,
+		cframe = zoneCF * CFrame.new(10, 3, 14), color = houseRed, material = Enum.Material.WoodPlanks,
 	})
 	makeWedge({
 		name = "DogHouseRoof", parent = zoneModel, size = Vector3.new(7.5, 2, 4.5),
@@ -647,35 +1232,45 @@ local function buildDogWalking(zoneModel: Model, zoneCF: CFrame, zone)
 	})
 	-- Giant white bone (cylinder + two balls at each end)
 	local boneWhite = Color3.fromRGB(250, 248, 240)
+	local boneCF = zoneCF * CFrame.new(-8, 1.5, 2) * CFrame.Angles(0, math.rad(25), 0)
 	makeCylinder({
 		name = "BoneShaft", parent = zoneModel, diameter = 2, height = 7, axis = "X",
-		cframe = zoneCF * CFrame.new(-8, 1.5, 2) * CFrame.Angles(0, math.rad(25), 0), color = boneWhite,
+		cframe = boneCF, color = boneWhite,
 	})
-	local boneCF = zoneCF * CFrame.new(-8, 1.5, 2) * CFrame.Angles(0, math.rad(25), 0)
 	for _, xOff in { -3.5, 3.5 } do
 		for _, zOff in { -0.9, 0.9 } do
 			makeBall({
-				name = "BoneKnob", parent = zoneModel, size = Vector3.new(3, 3, 3),
+				name = "BoneKnob", parent = zoneModel, diameter = 3,
 				cframe = boneCF * CFrame.new(xOff, 0, zOff), color = boneWhite,
 			})
 		end
 	end
 	-- Two tiny blocky dogs
 	buildDog(zoneModel, zoneCF * CFrame.new(-14, 0, 12) * CFrame.Angles(0, math.rad(140), 0), Color3.fromRGB(150, 103, 60))
-	buildDog(zoneModel, zoneCF * CFrame.new(4, 0, -4) * CFrame.Angles(0, math.rad(-35), 0), Color3.fromRGB(240, 238, 230))
+	buildDog(zoneModel, zoneCF * CFrame.new(12, 0, -4) * CFrame.Angles(0, math.rad(-35), 0), Color3.fromRGB(240, 238, 230))
+	-- Pink heart-ish motes drifting over the lawn
+	local motes = makeMarker(zoneModel, "HeartMotes", zoneCF * CFrame.new(0, 4, 4), Vector3.new(24, 3, 20))
+	addParticles(motes, "Hearts", {
+		color = ColorSequence.new(Color3.fromRGB(255, 120, 170), Color3.fromRGB(255, 190, 215)),
+		size = NumberSequence.new(0.5, 0.9),
+		rate = 4,
+		lifetime = NumberRange.new(2, 3),
+		speed = NumberRange.new(0.6, 1.2),
+		acceleration = Vector3.new(0, 0.8, 0),
+		lightEmission = 0.9,
+	})
 	addSignBoard(zoneModel, zoneCF * CFrame.new(10, 9.3, 14), 10, 2.2, zone.Name, NAVY, zone.SignColor)
 end
 
 ----------------------------------------------------------------------
--- Zone 3: Sneaker Street — purple storefront, giant sneaker on a pedestal
+-- Zone 3: Sneaker Street — concrete storefront, glass window, giant sneaker
 ----------------------------------------------------------------------
 
-local function buildSneakerFlipping(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildSneakerFlipping(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local wallPurple = Color3.fromRGB(74, 64, 120)
-	-- Storefront
 	makeBlock({
 		name = "StoreBody", parent = zoneModel, size = Vector3.new(22, 14, 12),
-		cframe = zoneCF * CFrame.new(0, 7, 16), color = wallPurple,
+		cframe = zoneCF * CFrame.new(0, 7, 16), color = wallPurple, material = Enum.Material.Concrete,
 	})
 	makeBlock({
 		name = "StoreRoof", parent = zoneModel, size = Vector3.new(23, 0.8, 13),
@@ -683,8 +1278,8 @@ local function buildSneakerFlipping(zoneModel: Model, zoneCF: CFrame, zone)
 	})
 	makeBlock({
 		name = "StoreWindow", parent = zoneModel, size = Vector3.new(12, 5.5, 0.5),
-		cframe = zoneCF * CFrame.new(-2, 5.2, 9.8), color = Color3.fromRGB(25, 22, 48),
-		transparency = 0.35, canCollide = false,
+		cframe = zoneCF * CFrame.new(-2, 5.2, 9.8), color = Color3.fromRGB(150, 170, 220),
+		material = Enum.Material.Glass, transparency = 0.35, canCollide = false,
 	})
 	makeBlock({
 		name = "StoreDoor", parent = zoneModel, size = Vector3.new(4, 7.5, 0.5),
@@ -703,11 +1298,12 @@ local function buildSneakerFlipping(zoneModel: Model, zoneCF: CFrame, zone)
 			material = Enum.Material.Neon, canCollide = false,
 		})
 	end
-	-- Giant sneaker on a display pedestal
-	makeCylinder({
+	-- Giant sneaker on a marble display pedestal
+	local pedestal = makeCylinder({
 		name = "SneakerPedestal", parent = zoneModel, diameter = 7, height = 2.4,
-		cframe = zoneCF * CFrame.new(-12, 1.2, -2), color = WHITE,
+		cframe = zoneCF * CFrame.new(-12, 1.2, -2), color = WHITE, material = Enum.Material.Marble,
 	})
+	addSparkle(pedestal, "HypeSparkle", zone.SignColor, zone.AccentColor, 2, 0.3, 0.6)
 	local shoeCF = zoneCF * CFrame.new(-12, 0, -2)
 	makeBlock({
 		name = "SneakerSole", parent = zoneModel, size = Vector3.new(7.5, 0.9, 3),
@@ -734,98 +1330,118 @@ local function buildSneakerFlipping(zoneModel: Model, zoneCF: CFrame, zone)
 end
 
 ----------------------------------------------------------------------
--- Zone 4: Car Wash — aqua tunnel, roller brushes, blocky car with foam
+-- Zone 4: Car Wash — metal/glass tunnel, roller brushes, blocky car, foam
 ----------------------------------------------------------------------
 
-local function buildCarWash(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildCarWash(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local aqua = zone.SignColor
 	-- Tunnel: low front wall (so the inside is visible), full back wall, roof, columns
 	makeBlock({
 		name = "TunnelFrontWall", parent = zoneModel, size = Vector3.new(22, 4.5, 1.2),
-		cframe = zoneCF * CFrame.new(0, 2.25, 2), color = aqua,
+		cframe = zoneCF * CFrame.new(0, 2.25, 2), color = aqua, material = Enum.Material.Metal,
 	})
 	makeBlock({
 		name = "TunnelBackWall", parent = zoneModel, size = Vector3.new(22, 9, 1.2),
-		cframe = zoneCF * CFrame.new(0, 4.5, 14), color = aqua,
+		cframe = zoneCF * CFrame.new(0, 4.5, 14), color = aqua, material = Enum.Material.Metal,
 	})
 	for _, xOff in { -10.5, 10.5 } do
 		makeBlock({
 			name = "TunnelColumn", parent = zoneModel, size = Vector3.new(1.6, 9, 1.6),
-			cframe = zoneCF * CFrame.new(xOff, 4.5, 2), color = aqua,
+			cframe = zoneCF * CFrame.new(xOff, 4.5, 2), color = aqua, material = Enum.Material.Metal,
 		})
 	end
 	makeBlock({
 		name = "TunnelRoof", parent = zoneModel, size = Vector3.new(23, 1.2, 14),
 		cframe = zoneCF * CFrame.new(0, 9.6, 8), color = Color3.fromRGB(44, 150, 170),
+		material = Enum.Material.Metal,
+	})
+	makeBlock({
+		name = "TunnelGlass", parent = zoneModel, size = Vector3.new(20, 3.6, 0.4),
+		cframe = zoneCF * CFrame.new(0, 6.5, 2), color = Color3.fromRGB(160, 225, 245),
+		material = Enum.Material.Glass, transparency = 0.45, canCollide = false,
 	})
 	makeBlock({
 		name = "TunnelTrim", parent = zoneModel, size = Vector3.new(23, 0.8, 0.8),
 		cframe = zoneCF * CFrame.new(0, 10.3, 1.4), color = zone.AccentColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
-	-- Big roller brushes
+	-- Big fabric roller brushes
 	for _, offset in { Vector3.new(-6, 0, 5.4), Vector3.new(0, 0, 10.6), Vector3.new(6, 0, 5.4) } do
 		makeCylinder({
 			name = "RollerBrush", parent = zoneModel, diameter = 3, height = 7.5,
 			cframe = zoneCF * CFrame.new(offset.X, 3.75, offset.Z), color = Color3.fromRGB(30, 70, 115),
+			material = Enum.Material.Fabric,
 		})
 	end
-	-- Chunky blocky car
+	-- Chunky blocky car riding the conveyor (raised 0.9 onto the rollers)
+	local carCF = zoneCF * CFrame.new(0, 0.9, 0)
 	makeBlock({
 		name = "CarBody", parent = zoneModel, size = Vector3.new(8, 2.2, 4.2),
-		cframe = zoneCF * CFrame.new(1, 2.1, 8), color = Color3.fromRGB(224, 82, 72),
+		cframe = carCF * CFrame.new(1, 2.1, 8), color = Color3.fromRGB(224, 82, 72),
 	})
 	makeBlock({
 		name = "CarCabin", parent = zoneModel, size = Vector3.new(4, 1.8, 3.8),
-		cframe = zoneCF * CFrame.new(0.6, 4.1, 8), color = Color3.fromRGB(50, 70, 95), transparency = 0.25,
+		cframe = carCF * CFrame.new(0.6, 4.1, 8), color = Color3.fromRGB(120, 170, 210),
+		material = Enum.Material.Glass, transparency = 0.35,
 	})
 	for _, xOff in { -2.8, 2.8 } do
 		for _, zOff in { -2.3, 2.3 } do
 			makeCylinder({
 				name = "CarWheel", parent = zoneModel, diameter = 2, height = 0.8, axis = "Z",
-				cframe = zoneCF * CFrame.new(1 + xOff, 1, 8 + zOff), color = WHEEL_DARK,
+				cframe = carCF * CFrame.new(1 + xOff, 1, 8 + zOff), color = WHEEL_DARK,
 			})
 		end
 	end
-	-- Foam bubbles on the car
-	local bubbles = {
-		{ Vector3.new(0, 3.6, 7), 1.8 },
-		{ Vector3.new(2.4, 3.5, 9), 1.4 },
-		{ Vector3.new(-1.5, 3.4, 8.8), 1.2 },
-		{ Vector3.new(0.8, 5.3, 8.2), 1.6 },
-		{ Vector3.new(3.2, 3.3, 6.6), 1.1 },
-		{ Vector3.new(-2.6, 3.4, 7.4), 1.3 },
-	}
-	for _, bubble in bubbles do
-		local offset, d = bubble[1], bubble[2]
+	-- A few static foam blobs on the car + rising foam bubbles in the tunnel
+	for _, bubble in { { Vector3.new(0, 3.6, 7), 1.8 }, { Vector3.new(2.4, 3.5, 9), 1.4 }, { Vector3.new(0.8, 5.3, 8.2), 1.6 }, { Vector3.new(-2.6, 3.4, 7.4), 1.3 } } do
 		makeBall({
-			name = "FoamBubble", parent = zoneModel, size = Vector3.new(d, d, d),
-			cframe = zoneCF * CFrame.new(offset), color = Color3.fromRGB(250, 250, 255),
+			name = "FoamBubble", parent = zoneModel, diameter = bubble[2],
+			cframe = carCF * CFrame.new(bubble[1]), color = Color3.fromRGB(250, 250, 255),
 			transparency = 0.2, canCollide = false,
 		})
 	end
+	local foam = makeMarker(zoneModel, "FoamVolume", zoneCF * CFrame.new(0, 2.5, 8), Vector3.new(18, 2, 10))
+	addParticles(foam, "FoamBubbles", {
+		color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(225, 245, 255)),
+		size = NumberSequence.new(0.6, 1.2),
+		transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.15),
+			NumberSequenceKeypoint.new(0.8, 0.3),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		rate = 8,
+		lifetime = NumberRange.new(1.6, 2.4),
+		speed = NumberRange.new(1, 2),
+		acceleration = Vector3.new(0, 1.2, 0),
+		lightEmission = 0.3,
+	})
 	addSignBoard(zoneModel, zoneCF * CFrame.new(0, 11.6, 2), 14, 2.4, zone.Name, NAVY, zone.AccentColor)
 end
 
 ----------------------------------------------------------------------
--- Zone 5: Food Truck — orange truck with a HUGE burger on the roof
+-- Zone 5: Food Truck — metal truck, diamond-plate skirt, HUGE burger, smoke
 ----------------------------------------------------------------------
 
-local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local orange = zone.SignColor
 	local truckCF = zoneCF * CFrame.new(0, 0, 8)
 	makeBlock({
 		name = "TruckBody", parent = zoneModel, size = Vector3.new(15, 5, 6),
-		cframe = truckCF * CFrame.new(0, 3.9, 0), color = orange,
+		cframe = truckCF * CFrame.new(0, 3.9, 0), color = orange, material = Enum.Material.Metal,
+	})
+	makeBlock({
+		name = "TruckSkirt", parent = zoneModel, size = Vector3.new(15.2, 1.0, 6.2),
+		cframe = truckCF * CFrame.new(0, 1.7, 0), color = Color3.fromRGB(150, 150, 160),
+		material = Enum.Material.DiamondPlate,
 	})
 	makeBlock({
 		name = "TruckCab", parent = zoneModel, size = Vector3.new(4, 3.6, 5.6),
-		cframe = truckCF * CFrame.new(-9.5, 3.2, 0), color = orange,
+		cframe = truckCF * CFrame.new(-9.5, 3.2, 0), color = orange, material = Enum.Material.Metal,
 	})
 	makeBlock({
 		name = "TruckWindshield", parent = zoneModel, size = Vector3.new(0.5, 1.8, 4.4),
-		cframe = truckCF * CFrame.new(-11.3, 4.2, 0), color = Color3.fromRGB(50, 70, 95),
-		transparency = 0.3, canCollide = false,
+		cframe = truckCF * CFrame.new(-11.3, 4.2, 0), color = Color3.fromRGB(120, 170, 210),
+		material = Enum.Material.Glass, transparency = 0.3, canCollide = false,
 	})
 	for _, xOff in { -9, 5 } do
 		for _, zOff in { -3.4, 3.4 } do
@@ -835,22 +1451,44 @@ local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone)
 			})
 		end
 	end
-	-- Serving window + counter lip + awning (front side, facing the plaza)
+	-- Serving window + counter lip + fabric awning (front side, facing the plaza)
 	makeBlock({
 		name = "ServingWindow", parent = zoneModel, size = Vector3.new(6, 2.4, 0.4),
-		cframe = truckCF * CFrame.new(0.5, 4.4, -3.05), color = Color3.fromRGB(40, 36, 36),
-		transparency = 0.25, canCollide = false,
+		cframe = truckCF * CFrame.new(0.5, 4.4, -3.05), color = Color3.fromRGB(80, 90, 110),
+		material = Enum.Material.Glass, transparency = 0.3, canCollide = false,
 	})
 	makeBlock({
 		name = "WindowCounter", parent = zoneModel, size = Vector3.new(6.6, 0.4, 1),
-		cframe = truckCF * CFrame.new(0.5, 3.1, -3.5), color = CREAM,
+		cframe = truckCF * CFrame.new(0.5, 3.1, -3.5), color = CREAM, material = Enum.Material.WoodPlanks,
 	})
 	makeBlock({
 		name = "Awning", parent = zoneModel, size = Vector3.new(7, 0.4, 2.4),
 		cframe = truckCF * CFrame.new(0.5, 5.9, -3.8) * CFrame.Angles(math.rad(-20), 0, 0),
-		color = zone.AccentColor, canCollide = false,
+		color = zone.AccentColor, material = Enum.Material.Fabric, canCollide = false,
 	})
-	-- HUGE burger on the roof: bun / patty / cheese / lettuce / top bun
+	-- Grill chimney with smoke
+	local chimney = makeCylinder({
+		name = "GrillChimney", parent = zoneModel, diameter = 1.2, height = 1.6,
+		cframe = truckCF * CFrame.new(5.5, 7.2, 1.5), color = METAL_DARK, material = Enum.Material.Metal,
+		canCollide = false,
+	})
+	addParticles(chimney, "GrillSmoke", {
+		color = ColorSequence.new(Color3.fromRGB(150, 150, 155), Color3.fromRGB(205, 205, 210)),
+		size = NumberSequence.new(1, 2.6),
+		transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.4),
+			NumberSequenceKeypoint.new(0.6, 0.7),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		rate = 5,
+		lifetime = NumberRange.new(2, 3),
+		speed = NumberRange.new(2, 3),
+		spread = Vector2.new(10, 10),
+		acceleration = Vector3.new(0, 1, 0),
+		lightEmission = 0,
+		rotSpeed = NumberRange.new(-20, 20),
+	})
+	-- HUGE burger on the roof: bun / patty / cheese / lettuce / dome bun
 	makeCylinder({
 		name = "BurgerBunBottom", parent = zoneModel, diameter = 7, height = 1.4,
 		cframe = truckCF * CFrame.new(0, 7.1, 0), color = Color3.fromRGB(233, 170, 92), canCollide = false,
@@ -868,13 +1506,14 @@ local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone)
 		name = "BurgerLettuce", parent = zoneModel, diameter = 8.1, height = 0.6,
 		cframe = truckCF * CFrame.new(0, 9.4, 0), color = Color3.fromRGB(120, 212, 80), canCollide = false,
 	})
+	-- Dome bun: a sphere whose equator sits at the lettuce (lower half hidden)
 	makeBall({
-		name = "BurgerBunTop", parent = zoneModel, size = Vector3.new(7.2, 3.6, 7.2),
-		cframe = truckCF * CFrame.new(0, 10.6, 0), color = Color3.fromRGB(233, 170, 92), canCollide = false,
+		name = "BurgerBunTop", parent = zoneModel, diameter = 6.6,
+		cframe = truckCF * CFrame.new(0, 9.7, 0), color = Color3.fromRGB(233, 170, 92), canCollide = false,
 	})
-	for _, offset in { Vector3.new(-1.4, 12.1, 0.8), Vector3.new(1.2, 12.2, -0.6), Vector3.new(0.2, 12.3, 1.4) } do
+	for _, offset in { Vector3.new(-1.4, 12.5, 0.8), Vector3.new(1.2, 12.6, -0.6), Vector3.new(0.2, 12.8, 1.2) } do
 		makeBall({
-			name = "SesameSeed", parent = zoneModel, size = Vector3.new(0.5, 0.35, 0.5),
+			name = "SesameSeed", parent = zoneModel, diameter = 0.45,
 			cframe = truckCF * CFrame.new(offset), color = CREAM, canCollide = false,
 		})
 	end
@@ -882,18 +1521,18 @@ local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone)
 	addSignBoard(zoneModel, zoneCF * CFrame.new(10.5, 4, 2), 4.2, 3, "MENU", NAVY, CREAM)
 	makeBlock({
 		name = "MenuPost", parent = zoneModel, size = Vector3.new(0.4, 3.2, 0.4),
-		cframe = zoneCF * CFrame.new(10.5, 1.6, 2), color = DARK_WOOD,
+		cframe = zoneCF * CFrame.new(10.5, 1.6, 2), color = DARK_WOOD, material = Enum.Material.Wood,
 	})
 	addSignBoard(zoneModel, truckCF * CFrame.new(-0.5, 2.1, -3.5), 8, 1.4, zone.Name, NAVY, CREAM)
 end
 
 ----------------------------------------------------------------------
--- Zone 6: Creator Studio — pink neon, giant ring light, tripod, play button
+-- Zone 6: Creator Studio — pink neon, glass window, giant ring light, tripod
 ----------------------------------------------------------------------
 
-local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local pink = zone.SignColor
-	-- Studio building
+	local studioDark = Color3.fromRGB(40, 38, 45)
 	makeBlock({
 		name = "StudioBody", parent = zoneModel, size = Vector3.new(20, 12, 12),
 		cframe = zoneCF * CFrame.new(0, 6, 16), color = Color3.fromRGB(58, 48, 70),
@@ -904,8 +1543,8 @@ local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone)
 	})
 	makeBlock({
 		name = "StudioWindow", parent = zoneModel, size = Vector3.new(9, 4.5, 0.5),
-		cframe = zoneCF * CFrame.new(0, 6, 9.8), color = Color3.fromRGB(28, 22, 40),
-		transparency = 0.3, canCollide = false,
+		cframe = zoneCF * CFrame.new(0, 6, 9.8), color = Color3.fromRGB(220, 150, 220),
+		material = Enum.Material.Glass, transparency = 0.35, canCollide = false,
 	})
 	makeBlock({
 		name = "StudioTrim", parent = zoneModel, size = Vector3.new(20.6, 0.7, 0.7),
@@ -922,33 +1561,37 @@ local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone)
 	-- Giant ring light on a stand
 	makeCylinder({
 		name = "RingLightBase", parent = zoneModel, diameter = 3, height = 0.5,
-		cframe = zoneCF * CFrame.new(-9, 0.25, -2), color = Color3.fromRGB(40, 38, 45),
+		cframe = zoneCF * CFrame.new(-9, 0.25, -2), color = studioDark, material = Enum.Material.Metal,
 	})
 	makeCylinder({
 		name = "RingLightPole", parent = zoneModel, diameter = 0.7, height = 5.5,
-		cframe = zoneCF * CFrame.new(-9, 3.25, -2), color = Color3.fromRGB(40, 38, 45),
+		cframe = zoneCF * CFrame.new(-9, 3.25, -2), color = studioDark, material = Enum.Material.Metal,
 	})
-	makeCylinder({
+	local ring = makeCylinder({
 		name = "RingLight", parent = zoneModel, diameter = 9, height = 0.8, axis = "Z",
 		cframe = zoneCF * CFrame.new(-9, 7, -2), color = pink,
 		material = Enum.Material.Neon, canCollide = false,
 	})
+	addPointLight(ring, pink, 16, 0.9)
 	makeCylinder({
 		name = "RingLightInner", parent = zoneModel, diameter = 6.8, height = 0.7, axis = "Z",
-		cframe = zoneCF * CFrame.new(-9, 7, -2.15), color = Color3.fromRGB(40, 38, 45), canCollide = false,
+		cframe = zoneCF * CFrame.new(-9, 7, -2.15), color = studioDark, canCollide = false,
 	})
+	-- Pink neon motes around the ring light
+	local motes = makeMarker(zoneModel, "NeonMotes", zoneCF * CFrame.new(-9, 6, -2), Vector3.new(10, 8, 8))
+	addSparkle(motes, "PinkMotes", pink, Color3.fromRGB(255, 180, 230), 5, 0.3, 0.7)
 	-- Phone on a tripod, filming the ring light
 	local tripodCF = zoneCF * CFrame.new(-9, 0, -8.5)
 	for i = 0, 2 do
 		makeBlock({
 			name = "TripodLeg", parent = zoneModel, size = Vector3.new(0.35, 4.4, 0.35),
 			cframe = tripodCF * CFrame.Angles(0, math.rad(i * 120), 0) * CFrame.new(0, 2.1, -1) * CFrame.Angles(math.rad(14), 0, 0),
-			color = Color3.fromRGB(40, 38, 45),
+			color = studioDark, material = Enum.Material.Metal,
 		})
 	end
 	makeBlock({
 		name = "TripodHead", parent = zoneModel, size = Vector3.new(0.8, 0.8, 0.8),
-		cframe = tripodCF * CFrame.new(0, 4.3, 0), color = Color3.fromRGB(40, 38, 45), canCollide = false,
+		cframe = tripodCF * CFrame.new(0, 4.3, 0), color = studioDark, canCollide = false,
 	})
 	makeBlock({
 		name = "Phone", parent = zoneModel, size = Vector3.new(1.9, 3.4, 0.4),
@@ -982,19 +1625,19 @@ local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone)
 end
 
 ----------------------------------------------------------------------
--- Zone 7: Stock Desk — dark office, neon ticker screens, big up arrow
+-- Zone 7: Stock Desk — dark metal office, neon ticker screens, big up arrow
 ----------------------------------------------------------------------
 
-local function buildStockDesk(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildStockDesk(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local neonGreen = Color3.fromRGB(70, 255, 130)
 	local screenBlack = Color3.fromRGB(12, 12, 14)
 	makeBlock({
 		name = "OfficeBody", parent = zoneModel, size = Vector3.new(18, 12, 12),
-		cframe = zoneCF * CFrame.new(0, 6, 14), color = Color3.fromRGB(30, 32, 36),
+		cframe = zoneCF * CFrame.new(0, 6, 14), color = Color3.fromRGB(30, 32, 36), material = Enum.Material.Metal,
 	})
 	makeBlock({
 		name = "OfficeRoof", parent = zoneModel, size = Vector3.new(19, 0.8, 13),
-		cframe = zoneCF * CFrame.new(0, 12.4, 14), color = Color3.fromRGB(22, 24, 28),
+		cframe = zoneCF * CFrame.new(0, 12.4, 14), color = Color3.fromRGB(22, 24, 28), material = Enum.Material.Metal,
 	})
 	makeBlock({
 		name = "OfficeDoor", parent = zoneModel, size = Vector3.new(3.5, 6, 0.5),
@@ -1005,6 +1648,13 @@ local function buildStockDesk(zoneModel: Model, zoneCF: CFrame, zone)
 		cframe = zoneCF * CFrame.new(0, 12.1, 8), color = zone.SignColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
+	for _, xOff in { -9.1, 9.1 } do
+		makeBlock({
+			name = "OfficeCornerStrip", parent = zoneModel, size = Vector3.new(0.6, 12.4, 0.6),
+			cframe = zoneCF * CFrame.new(xOff, 6.2, 8), color = zone.SignColor,
+			material = Enum.Material.Neon, canCollide = false,
+		})
+	end
 	-- Green-on-black ticker screens on the front wall
 	for _, xOff in { -4.5, 4.5 } do
 		makeBlock({
@@ -1038,57 +1688,66 @@ local function buildStockDesk(zoneModel: Model, zoneCF: CFrame, zone)
 		cframe = zoneCF * CFrame.new(1.1, 20.2, 14) * CFrame.Angles(0, -RAD_90, 0),
 		color = zone.SignColor, material = Enum.Material.Neon, canCollide = false,
 	})
+	-- Green money sparkle over the trading counter
+	local sparkle = makeMarker(zoneModel, "MoneySparkle", zoneCF * CFrame.new(0, 7, -8), Vector3.new(8, 2, 4))
+	addSparkle(sparkle, "MoneySparkle", Color3.fromRGB(60, 255, 120), Color3.fromRGB(180, 255, 200), 5, 0.4, 0.8)
 	addSignBoard(zoneModel, zoneCF * CFrame.new(0, 10.6, 7.85), 13, 2.5, zone.Name, screenBlack, zone.SignColor)
 end
 
 ----------------------------------------------------------------------
--- Zone 8: Startup HQ — sleek tower with glass bands, logo cube, rocket
+-- Zone 8: Startup HQ — sleek white tower with glass bands, logo cube, rocket
 ----------------------------------------------------------------------
 
-local function buildStartupHQ(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildStartupHQ(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	local glassBlue = Color3.fromRGB(90, 150, 255)
 	local towerCF = zoneCF * CFrame.new(0, 0, 18)
 	local tiers = {
-		{ size = Vector3.new(16, 5, 16), y = 2.5, color = WHITE, transparency = 0 },
-		{ size = Vector3.new(16.4, 1.8, 16.4), y = 6.4, color = glassBlue, transparency = 0.4 },
-		{ size = Vector3.new(14, 5, 14), y = 9.8, color = WHITE, transparency = 0 },
-		{ size = Vector3.new(14.4, 1.8, 14.4), y = 13.2, color = glassBlue, transparency = 0.4 },
-		{ size = Vector3.new(12, 5, 12), y = 16.6, color = WHITE, transparency = 0 },
-		{ size = Vector3.new(10, 2, 10), y = 20.1, color = WHITE, transparency = 0 },
+		{ size = Vector3.new(16, 5, 16), y = 2.5, glass = false },
+		{ size = Vector3.new(16.4, 1.8, 16.4), y = 6.4, glass = true },
+		{ size = Vector3.new(14, 5, 14), y = 9.8, glass = false },
+		{ size = Vector3.new(14.4, 1.8, 14.4), y = 13.2, glass = true },
+		{ size = Vector3.new(12, 5, 12), y = 16.6, glass = false },
+		{ size = Vector3.new(10, 2, 10), y = 20.1, glass = false },
 	}
 	for _, tier in tiers do
 		makeBlock({
-			name = "TowerTier", parent = zoneModel, size = tier.size,
-			cframe = towerCF * CFrame.new(0, tier.y, 0), color = tier.color,
-			transparency = tier.transparency,
+			name = if tier.glass then "TowerGlass" else "TowerTier", parent = zoneModel, size = tier.size,
+			cframe = towerCF * CFrame.new(0, tier.y, 0),
+			color = if tier.glass then glassBlue else WHITE,
+			material = if tier.glass then Enum.Material.Glass else Enum.Material.SmoothPlastic,
+			transparency = if tier.glass then 0.35 else 0,
 		})
 	end
 	makeBlock({
 		name = "TowerDoor", parent = zoneModel, size = Vector3.new(3.5, 5.5, 0.6),
-		cframe = towerCF * CFrame.new(0, 2.75, -8.1), color = Color3.fromRGB(40, 60, 100), canCollide = false,
+		cframe = towerCF * CFrame.new(0, 2.75, -8.1), color = Color3.fromRGB(120, 170, 230),
+		material = Enum.Material.Glass, transparency = 0.3, canCollide = false,
 	})
 	-- Blue neon logo cube on a small pole, tilted like a diamond
 	makeBlock({
 		name = "LogoPole", parent = zoneModel, size = Vector3.new(0.4, 1.6, 0.4),
 		cframe = towerCF * CFrame.new(0, 21.9, 0), color = WHITE, canCollide = false,
 	})
-	makeBlock({
+	local logo = makeBlock({
 		name = "LogoCube", parent = zoneModel, size = Vector3.new(2.8, 2.8, 2.8),
 		cframe = towerCF * CFrame.new(0, 23.2, 0) * CFrame.Angles(math.rad(35), math.rad(45), 0),
 		color = zone.AccentColor, material = Enum.Material.Neon, canCollide = false,
 	})
+	addPointLight(logo, zone.AccentColor, 16, 0.8)
 	-- Small rocket statue: cylinder body, crossed-wedge nose cone, wedge fins
 	local rocketCF = zoneCF * CFrame.new(-12, 0, -4)
 	makeCylinder({
 		name = "RocketPedestal", parent = zoneModel, diameter = 5.5, height = 1.2,
 		cframe = rocketCF * CFrame.new(0, 0.6, 0), color = Color3.fromRGB(205, 198, 182),
+		material = Enum.Material.Marble,
 	})
 	makeCylinder({
 		name = "RocketBody", parent = zoneModel, diameter = 3, height = 7,
 		cframe = rocketCF * CFrame.new(0, 4.7, 0), color = Color3.fromRGB(244, 244, 248),
+		material = Enum.Material.Metal,
 	})
 	makeBall({
-		name = "RocketWindow", parent = zoneModel, size = Vector3.new(1.3, 1.3, 1.3),
+		name = "RocketWindow", parent = zoneModel, diameter = 1.3,
 		cframe = rocketCF * CFrame.new(0, 5.6, -1.4), color = zone.AccentColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
@@ -1128,6 +1787,9 @@ local function buildStartupHQ(zoneModel: Model, zoneCF: CFrame, zone)
 			color = zone.AccentColor, canCollide = false,
 		})
 	end
+	-- Blue sparkle around the rocket
+	local sparkle = makeMarker(zoneModel, "RocketSparkle", rocketCF * CFrame.new(0, 5, 0), Vector3.new(5, 8, 5))
+	addSparkle(sparkle, "BlueSparkle", zone.AccentColor, Color3.fromRGB(170, 210, 255), 5, 0.3, 0.7)
 	addSignBoard(zoneModel, towerCF * CFrame.new(0, 8.5, -8.1), 12, 2.2, zone.Name, NAVY, zone.AccentColor)
 end
 
@@ -1135,15 +1797,15 @@ end
 -- Generic fallback for any future zone id without a bespoke builder
 ----------------------------------------------------------------------
 
-local function buildGenericZone(zoneModel: Model, zoneCF: CFrame, zone)
+local function buildGenericZone(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef)
 	makeBlock({
 		name = "Building", parent = zoneModel, size = Vector3.new(20, 12, 12),
-		cframe = zoneCF * CFrame.new(0, 6, 16), color = zone.SignColor,
+		cframe = zoneCF * CFrame.new(0, 6, 16), color = zone.SignColor, material = Enum.Material.Concrete,
 	})
 	addSignBoard(zoneModel, zoneCF * CFrame.new(0, 10, 9.8), 14, 2.5, zone.Name, NAVY, zone.AccentColor)
 end
 
-local ZONE_BUILDERS: { [string]: (Model, CFrame, any) -> () } = {
+local ZONE_BUILDERS: { [string]: (Model, CFrame, GameConfig.ZoneDef) -> () } = {
 	LemonadeStand = buildLemonadeStand,
 	DogWalking = buildDogWalking,
 	SneakerFlipping = buildSneakerFlipping,
@@ -1154,126 +1816,184 @@ local ZONE_BUILDERS: { [string]: (Model, CFrame, any) -> () } = {
 	StartupHQ = buildStartupHQ,
 }
 
--- Station counter position per zone (local to the zone, on the pad top)
-local STATION_POS: { [string]: Vector3 } = {
-	LemonadeStand = Vector3.new(0, 0, 7),
-	DogWalking = Vector3.new(0, 0, -12),
-	SneakerFlipping = Vector3.new(6, 0, -8),
-	CarWash = Vector3.new(0, 0, -12),
-	FoodTruck = Vector3.new(0, 0, -2),
-	ContentCreator = Vector3.new(0, 0, -8),
-	StockDesk = Vector3.new(0, 0, -8),
-	StartupHQ = Vector3.new(6, 0, -8),
+-- Hustle station placement per zone (zone-local, on the pad top; -Z = plaza).
+local STATIONS: { [string]: StationSpec } = {
+	LemonadeStand = {
+		pos = Vector3.new(0, 0, 7), counter = false, -- the stand itself is the counter
+		feedback = Vector3.new(0, 9.6, 5),
+		anchor = Vector3.new(7.5, 0.5, 8.5), anchorLook = Vector3.new(0, 0.5, 9),
+	},
+	DogWalking = { pos = Vector3.new(0, 0, -12), counter = true, material = Enum.Material.WoodPlanks, baseColor = WOOD },
+	SneakerFlipping = { pos = Vector3.new(6, 0, -8), counter = true, material = Enum.Material.Concrete },
+	CarWash = { pos = Vector3.new(0, 0, -12), counter = true, material = Enum.Material.Metal },
+	FoodTruck = { pos = Vector3.new(0, 0, -2), counter = true, material = Enum.Material.DiamondPlate },
+	ContentCreator = { pos = Vector3.new(0, 0, -8), counter = true, material = Enum.Material.SmoothPlastic },
+	StockDesk = { pos = Vector3.new(0, 0, -8), counter = true, material = Enum.Material.Metal },
+	StartupHQ = { pos = Vector3.new(6, 0, -8), counter = true, material = Enum.Material.SmoothPlastic, baseColor = WHITE },
+}
+local DEFAULT_STATION: StationSpec = { pos = Vector3.new(0, 0, -10), counter = true }
+
+-- Mechanic prop anchor per zone (zone-local CFrame; see buildMechanicProp).
+local MECHANIC_PROP_CF: { [string]: CFrame } = {
+	LemonadeStand = CFrame.new(0, 3.7, 9), -- SQUEEZE! button on the stand top
+	DogWalking = CFrame.new(0, 0, -19), -- paw-print path in front of the counter
+	SneakerFlipping = CFrame.new(-4, 0, -6), -- hype board left of the counter
+	CarWash = CFrame.new(0, 0, 8), -- roller conveyor through the tunnel
+	FoodTruck = CFrame.new(0, 3.5, -2), -- GRILL! button on the counter top
+	ContentCreator = CFrame.new(-6, 0, -9), -- hype meter column
+	StockDesk = CFrame.new(-8, 0, -5), -- ticker board
+	StartupHQ = CFrame.new(-1, 0, -9), -- funding meter column
 }
 
-local function buildZone(zonesFolder: Folder, zone)
-	local groundCF = zoneGroundCF(zone.Order)
+local function buildZone(zonesFolder: Folder, zone: GameConfig.ZoneDef)
+	-- Contract: the same function the client uses for nearest-zone lookups.
+	local groundCF = Mechanics.zoneGroundCFrame(zone.Order)
 
 	local zoneModel = Instance.new("Model")
 	zoneModel.Name = zone.Id
 	zoneModel:SetAttribute("ZoneId", zone.Id)
 	zoneModel.Parent = zonesFolder
 
-	-- Colored floor pad (signature color, desaturated enough to walk on)
+	-- Colored floor pad (signature color, desaturated enough to walk on).
+	-- 3 thick centered on Y=0: top at PAD_TOP, bottom buried in the terrain so
+	-- animated grass never pokes through.
 	local padColor = zone.SignColor:Lerp(Color3.fromRGB(152, 148, 144), 0.6)
-	-- 1.5 thick so the pad bottom meets the ground top (Y=0): no floating seam.
 	makeBlock({
-		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, 1.5, PAD_SIZE),
-		cframe = groundCF * CFrame.new(0, 0.75, 0), color = padColor,
+		name = "ZonePad", parent = zoneModel, size = Vector3.new(PAD_SIZE, PAD_TOP * 2, PAD_SIZE),
+		cframe = groundCF, color = padColor,
 	})
+	local half = PAD_SIZE / 2 - 0.6
+	for _, zOff in { -half, half } do
+		makeBlock({
+			name = "PadTrim", parent = zoneModel, size = Vector3.new(PAD_SIZE, 0.3, 1.2),
+			cframe = groundCF * CFrame.new(0, PAD_TOP + 0.15, zOff), color = zone.SignColor, canCollide = false,
+		})
+	end
+	for _, xOff in { -half, half } do
+		makeBlock({
+			name = "PadTrim", parent = zoneModel, size = Vector3.new(1.2, 0.3, PAD_SIZE - 2.4),
+			cframe = groundCF * CFrame.new(xOff, PAD_TOP + 0.15, 0), color = zone.SignColor, canCollide = false,
+		})
+	end
 
 	local zoneCF = groundCF * CFrame.new(0, PAD_TOP, 0)
 	local builder = ZONE_BUILDERS[zone.Id] or buildGenericZone
 	builder(zoneModel, zoneCF, zone)
 
-	local stationPos = STATION_POS[zone.Id] or Vector3.new(0, 0, -10)
-	buildHustleStation(zoneModel, zoneCF, zone, stationPos, zone.Id ~= "LemonadeStand")
+	buildHustleStation(zoneModel, zoneCF, zone, STATIONS[zone.Id] or DEFAULT_STATION)
+	buildMechanicProp(zoneModel, zoneCF * (MECHANIC_PROP_CF[zone.Id] or CFrame.new(-6, 0, -6)), zone)
 
-	if zone.UnlockCost > 0 then
+	-- Entrance lamps on the road just in front of the pad
+	for _, xOff in { -16, 16 } do
+		buildLampPost(zoneModel, groundCF * CFrame.new(xOff, ROAD_TOP, -35))
+	end
+
+	if zone.UnlockLevel > 1 then
 		buildGate(zoneModel, zoneCF, zone)
 	end
 end
 
 ----------------------------------------------------------------------
--- Decor: simple trees and bushes scattered between zones
+-- Decor: trees (3 sizes), bushes, flower clusters, signposts
 ----------------------------------------------------------------------
 
 local function buildTree(parent: Instance, position: Vector3, scale: number)
 	local cf = CFrame.new(position)
 	makeCylinder({
 		name = "TreeTrunk", parent = parent, diameter = 1.6 * scale, height = 6 * scale,
-		cframe = cf * CFrame.new(0, 3 * scale, 0), color = DARK_WOOD,
+		cframe = cf * CFrame.new(0, 3 * scale, 0), color = DARK_WOOD, material = Enum.Material.Wood,
 	})
-	makeBall({
-		name = "TreeLeaves", parent = parent,
-		size = Vector3.new(6, 6, 6) * scale,
-		cframe = cf * CFrame.new(0, 6.5 * scale, 0), color = LEAF_GREEN, canCollide = false,
-	})
-	makeBall({
-		name = "TreeLeaves", parent = parent,
-		size = Vector3.new(4.6, 4.6, 4.6) * scale,
-		cframe = cf * CFrame.new(1.2 * scale, 8 * scale, 0.8 * scale), color = Color3.fromRGB(88, 176, 74), canCollide = false,
-	})
-	makeBall({
-		name = "TreeLeaves", parent = parent,
-		size = Vector3.new(4, 4, 4) * scale,
-		cframe = cf * CFrame.new(-1.4 * scale, 7.4 * scale, -0.6 * scale), color = Color3.fromRGB(96, 188, 80), canCollide = false,
-	})
+	if scale < 0.9 then
+		-- Small: a single round puff
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 5.6 * scale,
+			cframe = cf * CFrame.new(0, 6.6 * scale, 0), color = LEAF_GREEN, canCollide = false,
+		})
+	elseif scale < 1.5 then
+		-- Medium: classic three-puff canopy
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 6 * scale,
+			cframe = cf * CFrame.new(0, 6.5 * scale, 0), color = LEAF_GREEN, canCollide = false,
+		})
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 4.6 * scale,
+			cframe = cf * CFrame.new(1.2 * scale, 8 * scale, 0.8 * scale), color = Color3.fromRGB(88, 176, 74), canCollide = false,
+		})
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 4 * scale,
+			cframe = cf * CFrame.new(-1.4 * scale, 7.4 * scale, -0.6 * scale), color = Color3.fromRGB(96, 188, 80), canCollide = false,
+		})
+	else
+		-- Large: tall stacked canopy
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 7 * scale,
+			cframe = cf * CFrame.new(0, 6.4 * scale, 0), color = LEAF_GREEN, canCollide = false,
+		})
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 5.2 * scale,
+			cframe = cf * CFrame.new(0, 9.4 * scale, 0), color = Color3.fromRGB(88, 176, 74), canCollide = false,
+		})
+		makeBall({
+			name = "TreeLeaves", parent = parent, diameter = 3.6 * scale,
+			cframe = cf * CFrame.new(0, 11.6 * scale, 0), color = Color3.fromRGB(96, 188, 80), canCollide = false,
+		})
+	end
 end
 
 local function buildBush(parent: Instance, position: Vector3, scale: number)
 	makeBall({
-		name = "Bush", parent = parent,
-		size = Vector3.new(3.6, 2.6, 3.6) * scale,
+		name = "Bush", parent = parent, diameter = 3.2 * scale,
 		cframe = CFrame.new(position + Vector3.new(0, 1 * scale, 0)), color = LEAF_GREEN, canCollide = false,
+	})
+end
+
+-- Small wooden signpost: navy board with the zone name and a diamond arrow tip
+-- on the board's +X end.
+local function buildSignpost(parent: Instance, cf: CFrame, text: string, color: Color3)
+	makeBlock({
+		name = "SignpostPole", parent = parent, size = Vector3.new(0.5, 5.2, 0.5),
+		cframe = cf * CFrame.new(0, 2.6, 0), color = DARK_WOOD, material = Enum.Material.Wood,
+	})
+	local board = makeBlock({
+		name = "SignpostBoard", parent = parent, size = Vector3.new(6, 1.5, 0.35),
+		cframe = cf * CFrame.new(1.2, 4.6, 0), color = NAVY, canCollide = false,
+	})
+	addSurfaceText(board, text, Enum.Font.FredokaOne, color, Enum.NormalId.Front)
+	makeBlock({
+		name = "SignpostTip", parent = parent, size = Vector3.new(1.06, 1.06, 0.35),
+		cframe = cf * CFrame.new(4.2, 4.6, 0) * CFrame.Angles(0, 0, math.rad(45)), color = NAVY, canCollide = false,
 	})
 end
 
 local function buildDecor(parent: Instance)
 	for i = 0, 7 do
-		-- Trees between neighboring zones
-		local betweenAngle = math.rad(i * 45 + 22.5)
-		buildTree(parent, Vector3.new(math.cos(betweenAngle) * 152, 0, math.sin(betweenAngle) * 152), if i % 2 == 0 then 1 else 1.25)
-		-- Outer tree ring
-		local outerA = math.rad(i * 45 + 8)
-		buildTree(parent, Vector3.new(math.cos(outerA) * 225, 0, math.sin(outerA) * 225), 1.4)
-		local outerB = math.rad(i * 45 + 37)
-		buildTree(parent, Vector3.new(math.cos(outerB) * 230, 0, math.sin(outerB) * 230), 1.1)
+		local base = i * 45
+		-- Trees between neighboring zones, then three sizes further out
+		-- (all outside the 118..182 pad band and inside the 255 hill clearance)
+		buildTree(parent, ringPos(152, base + 22.5), if i % 2 == 0 then 1.0 else 1.25)
+		buildTree(parent, ringPos(196, base + 13.5), 0.75)
+		buildTree(parent, ringPos(196, base + 31.5), 0.75)
+		buildTree(parent, ringPos(225, base + 8), 1.4)
+		buildTree(parent, ringPos(230, base + 37), 1.1)
+		buildTree(parent, ringPos(255, base + 8.5), 1.55)
+		buildTree(parent, ringPos(255, base + 36.5), 1.55)
 		-- Bushes along the road edge and further out
-		local bushA = math.rad(i * 45 + 22.5)
-		buildBush(parent, Vector3.new(math.cos(bushA) * 128, 0, math.sin(bushA) * 128), 1.1)
-		local bushB = math.rad(i * 45 - 12)
-		buildBush(parent, Vector3.new(math.cos(bushB) * 195, 0, math.sin(bushB) * 195), 1.3)
+		buildBush(parent, ringPos(128, base + 22.5), 1.1)
+		buildBush(parent, ringPos(195, base - 12), 1.3)
+		buildBush(parent, ringPos(240, base + 2.5), 1.0)
+		buildBush(parent, ringPos(240, base + 42.5), 1.0)
+		-- Flower clusters on the grass just outside the road trim
+		buildFlowerCluster(parent, ringPos(128, base + 17.5), i)
+		buildFlowerCluster(parent, ringPos(128, base + 27.5), i + 3)
 	end
-end
 
-----------------------------------------------------------------------
--- Lighting: bright cheerful day + gentle color pop + bloom for the neon
-----------------------------------------------------------------------
-
-local function setupLighting()
-	Lighting.ClockTime = 12
-	Lighting.Brightness = 3
-	Lighting.GlobalShadows = true
-	Lighting.ShadowSoftness = 1
-	Lighting.Ambient = Color3.fromRGB(126, 118, 104)
-	Lighting.OutdoorAmbient = Color3.fromRGB(166, 156, 136)
-
-	if not Lighting:FindFirstChild("SideHustleColorCorrection") then
-		local colorCorrection = Instance.new("ColorCorrectionEffect")
-		colorCorrection.Name = "SideHustleColorCorrection"
-		colorCorrection.Saturation = 0.15
-		colorCorrection.Contrast = 0.05
-		colorCorrection.Brightness = 0.02
-		colorCorrection.Parent = Lighting
-	end
-	if not Lighting:FindFirstChild("SideHustleBloom") then
-		local bloom = Instance.new("BloomEffect")
-		bloom.Name = "SideHustleBloom"
-		bloom.Intensity = 0.45
-		bloom.Size = 24
-		bloom.Threshold = 1.1
-		bloom.Parent = Lighting
+	-- Road-side signposts: a few degrees past each zone, board facing the
+	-- plaza, arrow tip swung back toward the zone's pad.
+	for _, zone in GameConfig.Zones do
+		local degrees = (zone.Order - 1) * GameConfig.Map.ZoneAngleStep + 12
+		local pos = ringPos(108, degrees, ROAD_TOP)
+		local cf = CFrame.lookAt(pos, Vector3.new(0, ROAD_TOP, 0)) * CFrame.Angles(0, math.rad(-30), 0)
+		buildSignpost(parent, cf, zone.Name, zone.SignColor)
 	end
 end
 
@@ -1284,6 +2004,13 @@ end
 function MapBuilder.build(): ()
 	if Workspace:FindFirstChild("SideHustleMap") then
 		return
+	end
+
+	setupLighting()
+
+	local okTerrain, terrainErr = pcall(buildTerrain)
+	if not okTerrain then
+		warn("[MapBuilder] Terrain generation failed: " .. tostring(terrainErr))
 	end
 
 	local map = Instance.new("Folder")
@@ -1301,7 +2028,6 @@ function MapBuilder.build(): ()
 	end
 
 	buildDecor(ground)
-	setupLighting()
 
 	map.Parent = Workspace
 end

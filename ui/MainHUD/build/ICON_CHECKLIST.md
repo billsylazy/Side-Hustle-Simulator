@@ -1,6 +1,6 @@
 # Icon checklist — MainHUD
 
-**5 icon(s) to upload.** Until you do, these show as blank images (they use the placeholder `rbxassetid://0`).
+**7 icon(s) to upload.** Until you do, these show as blank images (they use the placeholder `rbxassetid://0`).
 
 ## How to upload
 
@@ -16,7 +16,9 @@
 | 2 | Item/Scroll/Scroll 1st Outline | `Free Icon Pack v3.1 (Basic)/Item/Scroll/256px/Scroll 1st Outline 256px.png` | `StarterGui.MainHUD.SideButtons.QuestsButton.Icon.Image` |
 | 3 | Main/Rebirth and Auto Open/Rebirth 1st Outline | `Free Icon Pack v3.1 (Basic)/Main/Rebirth and Auto Open/256px/Rebirth 1st Outline 256px.png` | `StarterGui.MainHUD.TopCenter.RebirthPill.RebirthIcon.Image`<br>`StarterGui.MainHUD.SideButtons.RebirthButton.Icon.Image` |
 | 4 | Main/Shopping Cart/Golden Shopping Cart 1st Outline | `Free Icon Pack v3.1 (Basic)/Main/Shopping Cart/256px/Golden Shopping Cart 1st Outline 256px.png` | `StarterGui.MainHUD.SideButtons.ShopButton.Icon.Image` |
-| 5 | Player/Friend/Friend 1st Outline | `Free Icon Pack v3.1 (Basic)/Player/Friend/256px/Friend 1st Outline 256px.png` | `StarterGui.MainHUD.SideButtons.WorkersButton.Icon.Image` |
+| 5 | Main/Star/Golden Star 1st Outline | `Free Icon Pack v3.1 (Basic)/Main/Star/256px/Golden Star 1st Outline 256px.png` | `StarterGui.MainHUD.TopCenter.LevelRow.LevelPill.LevelIcon.Image` |
+| 6 | Main/Upgrade/Green Upgrade 2nd Outline | `Free Icon Pack v3.1 (Basic)/Main/Upgrade/256px/Green Upgrade 2nd Outline 256px.png` | `StarterGui.MainHUD.SideButtons.HustlesButton.Icon.Image` |
+| 7 | Player/Friend/Friend 1st Outline | `Free Icon Pack v3.1 (Basic)/Player/Friend/256px/Friend 1st Outline 256px.png` | `StarterGui.MainHUD.SideButtons.WorkersButton.Icon.Image` |
 
 ## Files
 
