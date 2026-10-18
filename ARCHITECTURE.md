@@ -52,7 +52,8 @@ src/
       ZoneGateController.luau   -- opens gates locally for zones unlocked by level
       WorkerVisualsController.luau   -- companion worker rigs following the player
       AutomationVisualsController.luau -- stationed chibi rigs at zones with automation > 0
-      StationFeedbackController.luau   -- market needle / charge bar / combo billboards at stations
+      StationFeedbackController.luau   -- market needle / charge bar / combo billboards at stations;
+                                          sole owner of the Burst/Peak callouts (HUD must not call them)
       RebirthWatcher.luau       -- RebirthResult SUCCESS -> celebration
 ui/
   MainHUD/  HustleGui/  ShopGui/  WorkersGui/  RebirthGui/  QuestsGui/
@@ -178,7 +179,9 @@ Mechanics (`zone.Mechanic`, params in `GameConfig.Mechanics`):
 Automation (`Auto` upgrade level `A > 0`): every `Auto.Interval` seconds, for every loaded
 player and every unlocked zone with `A > 0`, grant `floor(manualCash_noMech * (Auto.BasePercent +
 Auto.PercentPerLevel * (A-1)))` cash and the same fraction of `manualXp_noMech`
-(`mechMult = 1`), Kind "Auto", `Stats.AutoHustleCount += 1`. One `DataSync` per tick per player.
+(`mechMult = 1`), Kind "Auto", `Stats.AutoHustleCount += 1`. One `DataSync` per tick per player:
+`DataService.addCash(player, amount, deferSync)` skips its sync when a `LevelService.addXp` follows
+(manual hits use the same pattern).
 
 Every manual hit: `Stats.HustleCount += 1`, `DataService.addCash`, `LevelService.addXp`,
 fire `HustleResult`. Per-player state cleared in `cleanupPlayer`.
@@ -255,12 +258,13 @@ NOT available yet; specs keep icon keys, user uploads later.
 - `MainHUD`: top-center **cash pill** (`CashPill.Amount`, bound to leaderstats.Cash with
   count-up + pop, bouncing cash icon) and under it a **level pill + XP bar**
   (`LevelPill.LevelLabel` "Lv 7", `XpBar.Fill` scaled, `XpBar.Label` "120 / 238 XP"), then a
-  small rebirth pill (`RebirthPill.Label` "x1.5"). Left-middle vertical stack of 5 chunky
+  small rebirth pill (`RebirthPill.Label` "x1.5"). Panels use `DisplayOrder` 5 (above the HUD); the HUD moves its `Toast` into a
+  `ToastLayer` ScreenGui (`DisplayOrder` 20) at startup so server toasts show over open panels. Top-left 2-column grid (3 rows; a single column of 5 does not fit a 390px-tall phone) of 5 chunky
   square ImageButtons named exactly `HustlesButton, ShopButton, WorkersButton,
   RebirthButton, QuestsButton` — each toggles its panel's `ScreenGui.Enabled`
   (HustleGui/ShopGui/WorkersGui/RebirthGui/QuestsGui; one open at a time). A hidden
   `Toast` pill. HUDController listens to `HustleResult` (→ `ClientEffects.moneyPopup`,
-  `screenPop`, combo popup when Combo ≥ 2, burst/peak callouts), `LevelUp`
+  `screenPop`, combo popup when Combo ≥ 2; NOT burst/peak callouts — StationFeedbackController owns those), `LevelUp`
   (→ `ClientEffects.levelUp`), `Toast`.
 - `HustleGui` (Enabled=false): panel with a left **tab column** cloned from hidden
   `HustleTabTemplate` (one per zone in Order; locked tabs show the lock icon + "Lv N") and a
@@ -293,7 +297,8 @@ Every panel: overhanging close button, UIScale bounce via `GetPropertyChangedSig
 ## ClientEffects API (ReplicatedStorage/Shared, client-only)
 
 `moneyPopup(amount)`, `screenPop()`, `sparkle(guiObject)`, `playSound(name)`,
-`celebrate(rebirths)`, **new:** `levelUp(newLevel: number, unlockedZoneName: string?)`
+`celebrate(rebirths)`, **new:** `levelUp(newLevel: number, unlockedZone: string?)` (zone **Id or Name**;
+the LevelUp remote carries an Id and levelUp resolves it to the display name)
 (banner slam-in + confetti burst; if a zone unlocked, a second line "NEW HUSTLE: <name>!"),
 `comboPopup(combo: number)` (small "x4 COMBO!" callout near the cash pill),
 `worldPopup(position: Vector3, text: string, color: Color3)` (BillboardGui "+$50" rising at a

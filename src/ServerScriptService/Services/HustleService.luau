@@ -235,10 +235,14 @@ local function onHustleTriggered(zone: GameConfig.ZoneDef, promptPart: BasePart,
 	-- addCash fires already carries the new HustleCount (quests read it).
 	data.Stats.HustleCount += 1
 	if payload.Amount > 0 then
-		DataService.addCash(player, payload.Amount)
+		-- addXp below syncs, so skip addCash's own sync when XP follows.
+		DataService.addCash(player, payload.Amount, payload.Xp > 0)
 	end
 	if payload.Xp > 0 then
 		LevelService.addXp(player, payload.Xp)
+	end
+	if payload.Amount <= 0 and payload.Xp <= 0 then
+		DataService.sync(player)
 	end
 
 	-- Client plays money popup / combo / peak / burst juice off this.
@@ -328,7 +332,7 @@ local function tickAutomationFor(player: Player)
 	-- Stat first so the snapshot addCash fires already carries it.
 	data.Stats.AutoHustleCount += zonesTicked
 	if totalCash > 0 then
-		DataService.addCash(player, totalCash)
+		DataService.addCash(player, totalCash, totalXp > 0)
 	end
 	if totalXp > 0 then
 		LevelService.addXp(player, totalXp)

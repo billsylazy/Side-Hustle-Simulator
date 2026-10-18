@@ -353,7 +353,9 @@ function DataService.sync(player: Player)
 end
 
 -- Adds to Cash and Stats.TotalCashEarned, then syncs. Server-only.
-function DataService.addCash(player: Player, amount: number)
+-- Pass deferSync = true only when the caller syncs right after (e.g. a
+-- LevelService.addXp that follows), so one action sends one DataSync.
+function DataService.addCash(player: Player, amount: number, deferSync: boolean?)
 	local data = loaded[player]
 	if not data then
 		return
@@ -363,7 +365,9 @@ function DataService.addCash(player: Player, amount: number)
 	end
 	data.Cash += amount
 	data.Stats.TotalCashEarned += amount
-	DataService.sync(player)
+	if not deferSync then
+		DataService.sync(player)
+	end
 end
 
 -- Returns false if the player cannot afford it. Server-only.

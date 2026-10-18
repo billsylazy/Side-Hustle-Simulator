@@ -1,64 +1,85 @@
--- RebirthController (LocalScript inside RebirthGui)
--- Shows current/next rebirth multiplier and CashThisLife progress toward the
--- requirement. The big button fires RequestRebirth; the server validates and
--- answers with RebirthResult ("SUCCESS" or "INSUFFICIENT") + a DataSync snapshot.
+-- RebirthController (LocalScript inside RebirthGui) — v2 (level-gated)
+-- Shows the current/next rebirth CASH multiplier and Level progress toward
+-- GameConfig.Rebirth.RequiredLevel. The big button fires RequestRebirth; the
+-- server (RebirthService) validates and answers with RebirthResult
+--   "SUCCESS", newRebirths, cashMult   |   "INSUFFICIENT", requiredLevel
+-- followed by a DataSync snapshot. The SUCCESS celebration is RebirthWatcher's
+-- job; this panel shakes + plays "Error" on INSUFFICIENT.
+-- See ARCHITECTURE.md "Rebirth (RebirthService)" and "UI contract".
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
-local FormatNumber = require(Shared:WaitForChild("FormatNumber"))
 local ButtonFX = require(Shared:WaitForChild("ButtonFX"))
 local ClientEffects = require(Shared:WaitForChild("ClientEffects"))
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local DataSync = Remotes:WaitForChild("DataSync")
-local RequestRebirth = Remotes:WaitForChild("RequestRebirth")
-local RebirthResult = Remotes:WaitForChild("RebirthResult")
+local DataSync = Remotes:WaitForChild("DataSync") :: RemoteEvent
+local RequestRebirth = Remotes:WaitForChild("RequestRebirth") :: RemoteEvent
+local RebirthResult = Remotes:WaitForChild("RebirthResult") :: RemoteEvent
 
-local gui = script.Parent
-local main = gui:WaitForChild("Main")
-local panelScale = main:WaitForChild("PanelScale")
+local gui = script.Parent :: ScreenGui
+local main = gui:WaitForChild("Main") :: Frame
+local panelScale = main:WaitForChild("PanelScale") :: UIScale
 local panel = main:WaitForChild("Panel")
 local mults = panel:WaitForChild("Mults")
-local currentMult = mults:WaitForChild("CurrentBox"):WaitForChild("CurrentMult")
-local nextMult = mults:WaitForChild("NextBox"):WaitForChild("NextMult")
+local currentMult = mults:WaitForChild("CurrentBox"):WaitForChild("CurrentMult") :: TextLabel
+local nextMult = mults:WaitForChild("NextBox"):WaitForChild("NextMult") :: TextLabel
 local progressBack = panel:WaitForChild("ProgressBack")
-local progressFill = progressBack:WaitForChild("ProgressFill")
-local progressLabel = progressBack:WaitForChild("ProgressLabel")
-local rebirthButton = panel:WaitForChild("RebirthButton")
-local buttonGrad = rebirthButton:WaitForChild("ButtonGrad")
-local closeButton = main:WaitForChild("CloseButton")
+local progressFill = progressBack:WaitForChild("ProgressFill") :: Frame
+local progressLabel = progressBack:WaitForChild("ProgressLabel") :: TextLabel
+local warningLabel = panel:WaitForChild("Warning") :: TextLabel
+local rebirthButton = panel:WaitForChild("RebirthButton") :: TextButton
+local buttonGrad = rebirthButton:WaitForChild("ButtonGrad") :: UIGradient
+local closeButton = main:WaitForChild("CloseButton") :: GuiButton
 
 local BASE_POSITION = main.Position
 local WHITE = Color3.fromRGB(255, 255, 255)
 local DISABLED_GRAY = Color3.fromRGB(150, 148, 158)
+local WARNING_TEXT = "Resets cash, level, upgrades and perks. Keeps workers and quests!"
+local NOTICE_SECONDS = 1.6
 
 local lastSnapshot: { [string]: any }? = nil
+local noticeUntil = 0 -- while > os.clock(), ProgressLabel shows the INSUFFICIENT notice
+
+warningLabel.Text = WARNING_TEXT
+
+local function numberOr(value: any, default: number): number
+	return if typeof(value) == "number" and value == value then value else default
+end
+
+-- 1 -> "x1", 1.5 -> "x1.5", 2.25 -> "x2.25" (no float noise like 1.4999999)
+local function multText(mult: number): string
+	local text = string.format("%.2f", mult)
+	text = text:gsub("0+$", ""):gsub("%.$", "")
+	return "x" .. text
+end
 
 local function refresh(snapshot: { [string]: any }?)
-	if not snapshot then
-		return
-	end
-	local rebirths = snapshot.Rebirths or 0
-	local cashThisLife = snapshot.CashThisLife or 0
-	local requirement = GameConfig.getRebirthRequirement(rebirths)
+	local data = snapshot or {}
+	local rebirths = math.max(0, math.floor(numberOr(data.Rebirths, 0)))
+	local level = math.max(1, math.floor(numberOr(data.Level, 1)))
+	local requiredLevel = GameConfig.Rebirth.RequiredLevel
+	local maxed = rebirths >= GameConfig.Rebirth.MaxRebirths
 
-	currentMult.Text = "x" .. tostring(GameConfig.getRebirthMultiplier(rebirths))
-	nextMult.Text = "x" .. tostring(GameConfig.getRebirthMultiplier(rebirths + 1))
+	currentMult.Text = multText(GameConfig.getRebirthCashMultiplier(rebirths))
+	nextMult.Text = if maxed then "MAX" else multText(GameConfig.getRebirthCashMultiplier(rebirths + 1))
 
-	local alpha = math.clamp(cashThisLife / requirement, 0, 1)
+	local alpha = if requiredLevel > 0 then math.clamp(level / requiredLevel, 0, 1) else 1
 	TweenService:Create(
 		progressFill,
 		TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 		{ Size = UDim2.new(alpha, 0, 1, 0) }
 	):Play()
-	progressLabel.Text = FormatNumber.money(cashThisLife) .. " / " .. FormatNumber.money(requirement)
+	if os.clock() >= noticeUntil then
+		progressLabel.Text = "Level " .. math.min(level, requiredLevel) .. " / " .. requiredLevel
+	end
 
-	-- Visually disable the button until the requirement is met. Active=false
-	-- also stops .Activated from firing.
-	local canRebirth = cashThisLife >= requirement
+	-- Visually disable the button until the level is reached. Active=false
+	-- (plus the guard in the handler) keeps taps from firing.
+	local canRebirth = level >= requiredLevel and not maxed
 	rebirthButton.Active = canRebirth
 	rebirthButton.AutoButtonColor = canRebirth
 	buttonGrad.Enabled = canRebirth
@@ -92,6 +113,17 @@ local function shakePanel()
 	shaking = false
 end
 
+-- Briefly swap the progress text for "Reach Level 50 first!" after a refusal.
+local function showNotice(text: string)
+	noticeUntil = os.clock() + NOTICE_SECONDS
+	progressLabel.Text = text
+	task.delay(NOTICE_SECONDS + 0.05, function()
+		if os.clock() >= noticeUntil then
+			refresh(lastSnapshot)
+		end
+	end)
+end
+
 local function bounceOpen()
 	panelScale.Scale = 0.6
 	TweenService:Create(
@@ -108,23 +140,44 @@ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	end
 end)
 
-DataSync.OnClientEvent:Connect(function(snapshot)
+DataSync.OnClientEvent:Connect(function(snapshot: any)
+	if typeof(snapshot) ~= "table" then
+		return
+	end
 	lastSnapshot = snapshot
 	if gui.Enabled then
 		refresh(snapshot)
 	end
 end)
 
-RebirthResult.OnClientEvent:Connect(function(result: string)
-	if result == "INSUFFICIENT" and gui.Enabled then
-		ClientEffects.playSound("Error")
-		task.spawn(shakePanel)
+-- Refusal feedback: Error sound, shake, and a short notice on the bar.
+-- RebirthService sends no Toast for INSUFFICIENT, so the panel owns this.
+local function refuse(requiredLevel: number)
+	ClientEffects.playSound("Error")
+	local rebirths = numberOr(lastSnapshot and lastSnapshot.Rebirths, 0)
+	if rebirths >= GameConfig.Rebirth.MaxRebirths then
+		showNotice("Max rebirths reached!")
+	else
+		showNotice("Reach Level " .. requiredLevel .. " first!")
 	end
-	-- "SUCCESS" celebration is handled by RebirthWatcher; the panel just
-	-- refreshes from the DataSync snapshot that follows.
+	task.spawn(shakePanel)
+end
+
+RebirthResult.OnClientEvent:Connect(function(result: any, requiredLevel: any)
+	if result == "INSUFFICIENT" and gui.Enabled then
+		refuse(numberOr(requiredLevel, GameConfig.Rebirth.RequiredLevel))
+	end
+	-- "SUCCESS": RebirthWatcher celebrates; the panel refreshes from the
+	-- DataSync snapshot that follows.
 end)
 
 rebirthButton.Activated:Connect(function()
+	if not rebirthButton.Active then
+		-- Not ready yet (should Activated still fire on an inactive button):
+		-- explain locally instead of asking the server.
+		refuse(GameConfig.Rebirth.RequiredLevel)
+		return
+	end
 	RequestRebirth:FireServer()
 end)
 ButtonFX.attach(rebirthButton)
@@ -133,3 +186,6 @@ closeButton.Activated:Connect(function()
 	gui.Enabled = false
 end)
 ButtonFX.attach(closeButton)
+
+-- Never show the spec's placeholder numbers, even before the first DataSync.
+refresh(lastSnapshot)

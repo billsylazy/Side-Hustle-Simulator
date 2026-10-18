@@ -21,13 +21,21 @@
 --
 -- Graphics: Lighting (Technology = Future is set by the Rojo project) with
 -- Atmosphere, SunRays, Bloom, ColorCorrection and the built-in Sky; a Terrain
--- island (Grass + Sand rim + Water, a few low hills); per-zone materials;
--- ParticleEmitters that keep the default sparkle texture; warm PointLights in
--- every lamp and behind every neon sign. Bright and cartoony, never gritty.
+-- island (Grass disc with animated blades, Sand beach rim, a shallow Water
+-- ring over a sand seabed, a few low grass hills between the zones); per-zone
+-- materials; ParticleEmitters that keep the default sparkle texture; warm
+-- PointLights in every lamp and behind every neon sign. Bright and cartoony.
+--
+-- Heights: the terrain top is world Y = 0. The ring road disc tops out at
+-- ROAD_TOP, the plaza floor and every zone pad at PAD_TOP. Terrain directly
+-- under the road and the pads is painted Ground (not Grass) so the animated
+-- grass blades can never poke up through the parts.
 --
 -- MapBuilder.build() is idempotent: it returns early if the map already exists
--- and every Lighting child is guarded by name/class. Terrain runs once per
--- server start (inside build) and is a handful of big fills (well under 1s).
+-- and every Lighting child is found by name/class before one is created.
+-- Terrain runs once per server start (inside build) and is a handful of big
+-- fills (well under 1s). Part count is ~1,150 incl. invisible markers
+-- (budget ~3,500).
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,18 +50,25 @@ local MapBuilder = {}
 -- Layout constants (terrain top / ground is world Y = 0)
 ----------------------------------------------------------------------
 
-local ROAD_RADIUS = 120 -- ring road disc; plaza sits on top, pads touch its edge
-local PLAZA_RADIUS = 55
 local PAD_SIZE = 64
 local PAD_TOP = 1.5 -- top of plaza disc and of every zone pad
 local ROAD_TOP = 0.5
+-- Ring road disc: reaches 2 studs under the front edge of every pad
+-- (pad front = ZoneRadius - PAD_SIZE / 2 = 118 with the default config).
+local ROAD_RADIUS = GameConfig.Map.ZoneRadius - PAD_SIZE / 2 + 2
+local PLAZA_RADIUS = 55
 local LAMP_RADIUS = 44 -- plaza lamp ring (string lights run between them)
 
-local ISLAND_RADIUS = 330 -- grass disc
-local BEACH_RADIUS = 360 -- sand rim
+-- Decor rings below (128 .. 316, beach palms at 345) are laid out for the
+-- default ZoneRadius 150: pads cover radius 118 .. 185 around each zone axis.
+local ISLAND_RADIUS = 330 -- grass disc (terrain top Y = 0)
+local BEACH_RADIUS = 360 -- sand rim (terrain top Y = 0)
 local WATER_HALF = 700 -- half-size of the water square
+local WATER_TOP = -2 -- water surface sits a little below the beach
+local SEABED_TOP = -10 -- sand floor under the water
 local HILL_RING_RADIUS = 290 -- low grass hills near the rim, between zones
 
+local ZONE_STEP = GameConfig.Map.ZoneAngleStep -- degrees between zones
 local RAD_90 = math.rad(90)
 
 -- Shared palette
@@ -283,6 +298,31 @@ type ParticleProps = {
 	rotSpeed: NumberRange?,
 }
 
+-- The face of a part that currently points closest to world up. Cylinders
+-- built upright are rotated 90 degrees about Z, so their "Top" points along
+-- world X; emitters use this so smoke / sparkle always rises.
+local FACE_NORMALS: { { face: Enum.NormalId, normal: Vector3 } } = {
+	{ face = Enum.NormalId.Top, normal = Vector3.new(0, 1, 0) },
+	{ face = Enum.NormalId.Bottom, normal = Vector3.new(0, -1, 0) },
+	{ face = Enum.NormalId.Right, normal = Vector3.new(1, 0, 0) },
+	{ face = Enum.NormalId.Left, normal = Vector3.new(-1, 0, 0) },
+	{ face = Enum.NormalId.Back, normal = Vector3.new(0, 0, 1) },
+	{ face = Enum.NormalId.Front, normal = Vector3.new(0, 0, -1) },
+}
+
+local function upwardFace(part: BasePart): Enum.NormalId
+	local best = Enum.NormalId.Top
+	local bestY = -math.huge
+	for _, entry in FACE_NORMALS do
+		local worldY = part.CFrame:VectorToWorldSpace(entry.normal).Y
+		if worldY > bestY then
+			best = entry.face
+			bestY = worldY
+		end
+	end
+	return best
+end
+
 -- ParticleEmitter that keeps the engine default (sparkle) texture.
 local function addParticles(parent: BasePart, name: string, props: ParticleProps): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
@@ -304,7 +344,7 @@ local function addParticles(parent: BasePart, name: string, props: ParticleProps
 	emitter.Drag = props.drag or 0.5
 	emitter.RotSpeed = props.rotSpeed or NumberRange.new(-40, 40)
 	emitter.Rotation = NumberRange.new(0, 360)
-	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.EmissionDirection = upwardFace(parent)
 	emitter.Parent = parent
 	return emitter
 end
@@ -358,19 +398,18 @@ end
 -- Lighting: bright cheerful day, soft blue haze, gentle bloom for the neon
 ----------------------------------------------------------------------
 
--- Returns the Lighting child with this name (and class), else — for singleton
--- classes like Atmosphere / Sky — any existing instance of that class, else a
--- new one. Properties are (re)applied by the caller so repeat runs converge.
-local function ensureLightingChild(className: string, name: string, singleton: boolean): Instance
+-- Returns the Lighting child with this name (and class), else any existing
+-- instance of that class (so a place that already has e.g. a Bloom never ends
+-- up with two stacked), else a new one. Properties are (re)applied by the
+-- caller so repeat runs converge.
+local function ensureLightingChild(className: string, name: string): Instance
 	local existing = Lighting:FindFirstChild(name)
 	if existing and existing.ClassName == className then
 		return existing
 	end
-	if singleton then
-		local byClass = Lighting:FindFirstChildOfClass(className)
-		if byClass then
-			return byClass
-		end
+	local byClass = Lighting:FindFirstChildOfClass(className)
+	if byClass then
+		return byClass
 	end
 	local child = Instance.new(className)
 	child.Name = name
@@ -386,11 +425,12 @@ local function setupLighting()
 	Lighting.ShadowSoftness = 0.6
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.6
-	Lighting.Ambient = Color3.fromRGB(140, 140, 150)
-	Lighting.OutdoorAmbient = Color3.fromRGB(170, 170, 185)
+	-- Warm, bright fill so shadows stay sunny instead of grey-blue.
+	Lighting.Ambient = Color3.fromRGB(150, 138, 124)
+	Lighting.OutdoorAmbient = Color3.fromRGB(186, 172, 154)
 	Lighting.ExposureCompensation = 0.15
 
-	local atmosphere = ensureLightingChild("Atmosphere", "SideHustleAtmosphere", true) :: Atmosphere
+	local atmosphere = ensureLightingChild("Atmosphere", "SideHustleAtmosphere") :: Atmosphere
 	atmosphere.Density = 0.32
 	atmosphere.Offset = 0.3
 	atmosphere.Color = Color3.fromRGB(199, 222, 255)
@@ -398,21 +438,23 @@ local function setupLighting()
 	atmosphere.Glare = 0.15
 	atmosphere.Haze = 1.2
 
-	local sunRays = ensureLightingChild("SunRaysEffect", "SideHustleSunRays", false) :: SunRaysEffect
+	local sunRays = ensureLightingChild("SunRaysEffect", "SideHustleSunRays") :: SunRaysEffect
 	sunRays.Intensity = 0.08
 	sunRays.Spread = 0.6
 
-	local bloom = ensureLightingChild("BloomEffect", "SideHustleBloom", false) :: BloomEffect
-	bloom.Intensity = 0.4
+	-- Subtle: only the neon accents bloom, not the sunlit plastic.
+	local bloom = ensureLightingChild("BloomEffect", "SideHustleBloom") :: BloomEffect
+	bloom.Intensity = 0.35
 	bloom.Size = 24
-	bloom.Threshold = 1.3
+	bloom.Threshold = 1.5
 
-	local colorCorrection = ensureLightingChild("ColorCorrectionEffect", "SideHustleColorCorrection", false) :: ColorCorrectionEffect
+	local colorCorrection = ensureLightingChild("ColorCorrectionEffect", "SideHustleColorCorrection") :: ColorCorrectionEffect
 	colorCorrection.Saturation = 0.2
 	colorCorrection.Contrast = 0.08
 	colorCorrection.Brightness = 0.02
+	colorCorrection.TintColor = Color3.fromRGB(255, 255, 255)
 
-	local sky = ensureLightingChild("Sky", "SideHustleSky", true) :: Sky
+	local sky = ensureLightingChild("Sky", "SideHustleSky") :: Sky
 	sky.SkyboxBk = "rbxasset://textures/sky/sky512_bk.tex"
 	sky.SkyboxDn = "rbxasset://textures/sky/sky512_dn.tex"
 	sky.SkyboxFt = "rbxasset://textures/sky/sky512_ft.tex"
@@ -429,36 +471,71 @@ end
 -- Terrain: grass island, sand rim, water beyond, a few low hills
 ----------------------------------------------------------------------
 
--- Hills sit on the ring between zones (22.5° off every zone angle), well
--- outside the pads (radius <= 182), the decor rings (<= 255) and the beach.
+-- One low hill per gap between zones, on the bisector (half a zone step off
+-- every zone angle) near radius 290: outside the pads (<= 185), the decor
+-- rings (<= 260) and inside the grass disc (330). `radius` is the sphere
+-- radius; its center sits 0.6 * radius below ground, so each hill is a gentle
+-- dome 0.4 * radius tall (8..13 studs) with a 0.8 * radius footprint.
 local HILLS = {
-	{ degrees = 22.5, radius = 292, size = 24 },
-	{ degrees = 67.5, radius = 286, size = 30 },
-	{ degrees = 112.5, radius = 294, size = 20 },
-	{ degrees = 157.5, radius = 288, size = 27 },
-	{ degrees = 202.5, radius = 292, size = 22 },
-	{ degrees = 247.5, radius = 285, size = 30 },
-	{ degrees = 292.5, radius = 295, size = 18 },
-	{ degrees = 337.5, radius = HILL_RING_RADIUS, size = 26 },
+	{ ring = 292, radius = 26 },
+	{ ring = 286, radius = 32 },
+	{ ring = 294, radius = 22 },
+	{ ring = 288, radius = 29 },
+	{ ring = 292, radius = 24 },
+	{ ring = 285, radius = 32 },
+	{ ring = 295, radius = 20 },
+	{ ring = HILL_RING_RADIUS, radius = 28 },
 }
+
+local ISLAND_BOTTOM = -12
 
 local function buildTerrain()
 	local terrain = Workspace.Terrain
 	terrain:Clear()
 
-	-- Water everywhere first (Y -8..0), then the island so grass/sand win.
-	terrain:FillBlock(CFrame.new(0, -4, 0), Vector3.new(WATER_HALF * 2, 8, WATER_HALF * 2), Enum.Material.Water)
-	terrain:FillCylinder(CFrame.new(0, -5, 0), 10, BEACH_RADIUS, Enum.Material.Sand)
-	terrain:FillCylinder(CFrame.new(0, -5, 0), 10, ISLAND_RADIUS, Enum.Material.Grass)
+	local waterSize = WATER_HALF * 2
+	-- Sand seabed, then shallow water above it (surface at WATER_TOP).
+	terrain:FillBlock(
+		CFrame.new(0, SEABED_TOP - 2, 0),
+		Vector3.new(waterSize, 4, waterSize),
+		Enum.Material.Sand
+	)
+	terrain:FillBlock(
+		CFrame.new(0, (SEABED_TOP + WATER_TOP) / 2, 0),
+		Vector3.new(waterSize, WATER_TOP - SEABED_TOP, waterSize),
+		Enum.Material.Water
+	)
 
-	-- Low grass hills: spheres whose centers sit below ground so only a
-	-- gentle dome pokes up (peak ~0.55 * size).
-	for _, hill in HILLS do
-		local center = ringPos(hill.radius, hill.degrees, -hill.size * 0.45)
-		terrain:FillBall(center, hill.size, Enum.Material.Grass)
+	-- The island: Sand beach disc, Grass disc on top. Both span
+	-- ISLAND_BOTTOM .. 0 so the terrain top is exactly world Y = 0.
+	-- FillCylinder(cframe, height, radius, material); axis = cframe Y.
+	local islandHeight = -ISLAND_BOTTOM
+	local islandCF = CFrame.new(0, ISLAND_BOTTOM / 2, 0)
+	terrain:FillCylinder(islandCF, islandHeight, BEACH_RADIUS, Enum.Material.Sand)
+	terrain:FillCylinder(islandCF, islandHeight, ISLAND_RADIUS, Enum.Material.Grass)
+
+	-- Paint the terrain hidden under the ring road and under every pad as
+	-- Ground so animated grass blades never poke through those parts. Inset
+	-- by a full voxel (4 studs) plus the rotation slack of the pads so the
+	-- painted voxels stay entirely under the parts.
+	terrain:FillCylinder(islandCF, islandHeight, ROAD_RADIUS - 4, Enum.Material.Ground)
+	for _, zone in GameConfig.Zones do
+		terrain:FillBlock(
+			Mechanics.zoneGroundCFrame(zone.Order) * CFrame.new(0, ISLAND_BOTTOM / 2, 0),
+			Vector3.new(PAD_SIZE - 16, islandHeight, PAD_SIZE - 16),
+			Enum.Material.Ground
+		)
+	end
+
+	-- Low grass hills: FillBall(center, radius, material).
+	for index, hill in HILLS do
+		local degrees = (index - 0.5) * ZONE_STEP
+		local center = ringPos(hill.ring, degrees, -hill.radius * 0.6)
+		terrain:FillBall(center, hill.radius, Enum.Material.Grass)
 	end
 
 	terrain.Decoration = true -- animated grass blades
+	-- Cartoon lagoon water: bright turquoise, clear, small lazy waves.
 	terrain.WaterColor = Color3.fromRGB(52, 182, 230)
 	terrain.WaterTransparency = 0.55
 	terrain.WaterWaveSize = 0.18
@@ -467,17 +544,20 @@ local function buildTerrain()
 end
 
 ----------------------------------------------------------------------
--- Ground: terrain is the visible island; one invisible flat guarantee
+-- Ground: the terrain island is the visible ground; this model holds the
+-- decor (and a flat grass slab only if terrain generation failed)
 ----------------------------------------------------------------------
 
-local function buildGround(map: Folder): Model
+local function buildGround(map: Folder, terrainOk: boolean): Model
 	local ground = makeModel("Ground", map)
-	-- Invisible collision disc under the plaza, road and pads (Y -1..0) in
-	-- case terrain ever fails to generate; terrain is the visible surface.
-	makeCylinder({
-		name = "GroundSafety", parent = ground, diameter = 400, height = 1,
-		cframe = CFrame.new(0, -0.5, 0), color = GRASS_GREEN, transparency = 1,
-	})
+	if not terrainOk then
+		-- Fallback only: a flat grass slab (top at Y = 0) so players never
+		-- fall into the void if the terrain fills errored.
+		makeCylinder({
+			name = "FallbackGround", parent = ground, diameter = ISLAND_RADIUS * 2, height = 2,
+			cframe = CFrame.new(0, -1, 0), color = GRASS_GREEN, material = Enum.Material.Grass,
+		})
+	end
 	return ground
 end
 
@@ -728,11 +808,19 @@ local function buildPlaza(map: Folder)
 		cframe = CFrame.new(0, 1, 0), color = STONE, material = Enum.Material.Marble,
 	})
 
-	-- Spawn (Neutral, plain — no decal clutter), facing the statue
+	-- Spawn (Neutral, plain — no decal clutter): on the plaza floor between
+	-- the fountain and the starting zone, facing that zone so a new player's
+	-- first view is their first hustle (the coin statue stays behind them).
+	-- 12x1x12 slab resting on the floor top (Y PAD_TOP .. PAD_TOP + 1), its
+	-- near edge 2.4 studs clear of the fountain rim (radius ~11.6).
+	local startZone = GameConfig.getZone(GameConfig.StartingZoneId) or GameConfig.Zones[1]
+	local startCenter = Mechanics.zoneCenter(startZone.Order)
+	local spawnDir = Vector3.new(startCenter.X, 0, startCenter.Z).Unit
+	local spawnPos = spawnDir * 20 + Vector3.new(0, PAD_TOP + 0.5, 0)
 	local spawnLocation = Instance.new("SpawnLocation")
 	spawnLocation.Name = "SpawnLocation"
 	spawnLocation.Size = Vector3.new(12, 1, 12)
-	spawnLocation.CFrame = CFrame.lookAt(Vector3.new(-20, PAD_TOP + 0.5, 0), Vector3.new(0, PAD_TOP + 0.5, 0))
+	spawnLocation.CFrame = CFrame.lookAt(spawnPos, spawnPos + spawnDir)
 	spawnLocation.Color = Color3.fromRGB(236, 228, 205)
 	spawnLocation.Material = Enum.Material.Marble
 	spawnLocation.Anchored = true
@@ -778,6 +866,24 @@ type StationSpec = {
 	anchorLook: Vector3?, -- zone-local point the AutoAnchor faces
 }
 
+-- Neon accent for a zone: AccentColor, unless it is too dark to glow (Stock
+-- Desk's accent is near-black), then the SignColor.
+local function neonAccent(zone: GameConfig.ZoneDef): Color3
+	local c = zone.AccentColor
+	local luminance = 0.299 * c.R + 0.587 * c.G + 0.114 * c.B
+	return if luminance < 0.25 then zone.SignColor else c
+end
+
+-- Default station layout around the counter center (zone-local offsets):
+--   counter    7 wide base / 8 wide top, 3.5 tall, front face at -1.3 / -1.6
+--   PromptPart 2.4 in front of the counter center at counter-top height
+--   FeedbackPart 9.5 up = 6 studs above the counter top
+--   AutoAnchor 8 to the side = 4.5 studs clear of the counter base, its
+--     center 0.5 above the pad so its bottom rests on the pad (clients
+--     raycast down from it and stand the rig on whatever they hit)
+local DEFAULT_FEEDBACK_OFFSET = Vector3.new(0, 9.5, 0)
+local DEFAULT_ANCHOR_OFFSET = Vector3.new(8, 0.5, 0)
+
 local function buildHustleStation(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.ZoneDef, spec: StationSpec)
 	local station = makeModel("HustleStation", zoneModel)
 	local baseCF = zoneCF * CFrame.new(spec.pos)
@@ -795,7 +901,7 @@ local function buildHustleStation(zoneModel: Model, zoneCF: CFrame, zone: GameCo
 		})
 		makeBlock({
 			name = "CounterTrim", parent = station, size = Vector3.new(7.2, 0.6, 0.2),
-			cframe = baseCF * CFrame.new(0, 1.5, -1.4), color = zone.AccentColor,
+			cframe = baseCF * CFrame.new(0, 1.5, -1.4), color = neonAccent(zone),
 			material = Enum.Material.Neon, canCollide = false,
 		})
 		-- Verb plaque on the counter front ("WALK!", "TRADE!" ...)
@@ -812,12 +918,12 @@ local function buildHustleStation(zoneModel: Model, zoneCF: CFrame, zone: GameCo
 
 	-- FeedbackPart: ~6 studs above the counter top; the client parents its
 	-- market needle / charge bar / combo BillboardGui here.
-	local feedbackLocal = spec.feedback or (spec.pos + Vector3.new(0, 9.5, 0))
+	local feedbackLocal = spec.feedback or (spec.pos + DEFAULT_FEEDBACK_OFFSET)
 	makeMarker(station, "FeedbackPart", zoneCF * CFrame.new(feedbackLocal))
 
-	-- AutoAnchor: at ground level beside the counter, facing it; the client
-	-- stands the automation rig here (anchor bottom rests on the pad).
-	local anchorLocal = spec.anchor or (spec.pos + Vector3.new(6, 0.5, 0))
+	-- AutoAnchor: at ground level beside the counter, on open pad (nothing
+	-- overhead), facing it; the client stands the automation rig here.
+	local anchorLocal = spec.anchor or (spec.pos + DEFAULT_ANCHOR_OFFSET)
 	local lookLocal = spec.anchorLook or (spec.pos + Vector3.new(0, 0.5, 0))
 	local anchorWorld = zoneCF:PointToWorldSpace(anchorLocal)
 	local lookWorld = zoneCF:PointToWorldSpace(lookLocal)
@@ -855,7 +961,9 @@ local function buildGate(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.Zone
 		})
 	end
 
-	-- Level sign (billboard readable from across the map)
+	-- Level sign: a neon crest on the arch (SignPart, Y 12.9..15.5 above the
+	-- pad) carrying a BillboardGui that floats just above it, readable from
+	-- across the map. ZoneGateController hides the billboard once unlocked.
 	local signPart = makeBlock({
 		name = "SignPart", parent = gate, size = Vector3.new(11, 2.6, 0.9),
 		cframe = zoneCF * CFrame.new(0, 14.2, -30.5), color = zone.SignColor,
@@ -863,19 +971,42 @@ local function buildGate(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.Zone
 	})
 	addPointLight(signPart, zone.SignColor, 14, 0.6)
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromScale(2.4, 3.2) -- scales with SignPart: ~26 x 8 studs
-	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
+	billboard.Name = "GateSign"
+	-- BillboardGui Size scale is in studs: an 18 x 5.6 stud sign whose bottom
+	-- edge (offset 4.3 - 2.8 = 1.5 above the part center) clears the crest.
+	billboard.Size = UDim2.fromScale(18, 5.6)
+	billboard.StudsOffset = Vector3.new(0, 4.3, 0)
 	billboard.MaxDistance = 400
 	billboard.LightInfluence = 0
 	billboard.AlwaysOnTop = false
 	billboard.Parent = signPart
+
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.BackgroundColor3 = NAVY
+	panel.BackgroundTransparency = 0.15
+	panel.BorderSizePixel = 0
+	panel.Parent = billboard
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.22, 0)
+	corner.Parent = panel
+	local stripe = Instance.new("Frame")
+	stripe.Name = "Stripe"
+	stripe.AnchorPoint = Vector2.new(0.5, 0)
+	stripe.Position = UDim2.fromScale(0.5, 0.56)
+	stripe.Size = UDim2.fromScale(0.86, 0.04)
+	stripe.BackgroundColor3 = zone.SignColor
+	stripe.BorderSizePixel = 0
+	stripe.Parent = panel
+
 	makeTextLabel(
-		billboard, zone.Name, Enum.Font.FredokaOne, WHITE,
-		UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.55)
+		panel, zone.Name, Enum.Font.FredokaOne, WHITE,
+		UDim2.fromScale(0.05, 0.06), UDim2.fromScale(0.9, 0.48)
 	)
 	makeTextLabel(
-		billboard, "\u{1F512} Reach Level " .. tostring(zone.UnlockLevel), Enum.Font.FredokaOne, WHITE,
-		UDim2.fromScale(0, 0.55), UDim2.fromScale(1, 0.45)
+		panel, "\u{1F512} Reach Level " .. tostring(zone.UnlockLevel), Enum.Font.FredokaOne, zone.SignColor,
+		UDim2.fromScale(0.08, 0.62), UDim2.fromScale(0.84, 0.32)
 	)
 end
 
@@ -885,8 +1016,10 @@ end
 ----------------------------------------------------------------------
 
 -- Tap: big chunky neon button on the counter top ("SQUEEZE!" / "GRILL!").
--- cf = counter-top center, -Z toward the player.
-local function buildTapButton(parent: Instance, cf: CFrame, zone: GameConfig.ZoneDef)
+-- cf = counter-top center (top surface), -Z toward the player; the counter
+-- top is 3.2 deep, so its front lip is 1.6 in front of cf. `withLabel` adds a
+-- verb plaque on that lip (stations with a generic counter already have one).
+local function buildTapButton(parent: Instance, cf: CFrame, zone: GameConfig.ZoneDef, withLabel: boolean)
 	local domeColor = if zone.Id == "FoodTruck" then zone.AccentColor else zone.SignColor
 	makeCylinder({
 		name = "TapButtonBase", parent = parent, diameter = 3.2, height = 0.7,
@@ -902,11 +1035,14 @@ local function buildTapButton(parent: Instance, cf: CFrame, zone: GameConfig.Zon
 		material = Enum.Material.Neon, canCollide = false,
 	})
 	addPointLight(dome, domeColor, 9, 0.7)
-	local plate = makeBlock({
-		name = "TapButtonLabel", parent = parent, size = Vector3.new(3.8, 1.1, 0.3),
-		cframe = cf * CFrame.new(0, 0.55, 1.5), color = NAVY, canCollide = false,
-	})
-	addSurfaceText(plate, string.upper(zone.HustleVerb) .. "!", Enum.Font.LuckiestGuy, domeColor, Enum.NormalId.Front)
+	if withLabel then
+		-- Flush against the front face of the counter-top lip, facing the player.
+		local plate = makeBlock({
+			name = "TapButtonLabel", parent = parent, size = Vector3.new(3.8, 1.1, 0.3),
+			cframe = cf * CFrame.new(0, -0.25, -1.75), color = NAVY, canCollide = false,
+		})
+		addSurfaceText(plate, string.upper(zone.HustleVerb) .. "!", Enum.Font.LuckiestGuy, domeColor, Enum.NormalId.Front)
+	end
 end
 
 -- Hold (Dog Walking): a long sandy walking path with paw prints and
@@ -1053,10 +1189,10 @@ local function buildHypeColumn(parent: Instance, cf: CFrame, segColor: Color3, c
 	addSurfaceText(plate, title, Enum.Font.LuckiestGuy, segColor, Enum.NormalId.Front)
 end
 
-local function buildMechanicProp(zoneModel: Model, cf: CFrame, zone: GameConfig.ZoneDef)
+local function buildMechanicProp(zoneModel: Model, cf: CFrame, zone: GameConfig.ZoneDef, hasCounterPlaque: boolean)
 	local props = makeModel("MechanicProp", zoneModel)
 	if zone.Mechanic == "Tap" then
-		buildTapButton(props, cf, zone)
+		buildTapButton(props, cf, zone, not hasCounterPlaque)
 	elseif zone.Mechanic == "Hold" then
 		if zone.Id == "CarWash" then
 			buildConveyor(props, cf, zone)
@@ -1365,30 +1501,32 @@ local function buildCarWash(zoneModel: Model, zoneCF: CFrame, zone: GameConfig.Z
 		cframe = zoneCF * CFrame.new(0, 10.3, 1.4), color = zone.AccentColor,
 		material = Enum.Material.Neon, canCollide = false,
 	})
-	-- Big fabric roller brushes
-	for _, offset in { Vector3.new(-6, 0, 5.4), Vector3.new(0, 0, 10.6), Vector3.new(6, 0, 5.4) } do
+	-- Big fabric roller brushes hanging from the roof (Y 1.3..9.0): clear of
+	-- the conveyor rollers (top 1.25) and of the car body (X -4..4, Z 5.9..10.1)
+	for _, offset in { Vector3.new(-6, 0, 5.4), Vector3.new(0, 0, 11.7), Vector3.new(6, 0, 5.4) } do
 		makeCylinder({
-			name = "RollerBrush", parent = zoneModel, diameter = 3, height = 7.5,
-			cframe = zoneCF * CFrame.new(offset.X, 3.75, offset.Z), color = Color3.fromRGB(30, 70, 115),
+			name = "RollerBrush", parent = zoneModel, diameter = 3, height = 7.7,
+			cframe = zoneCF * CFrame.new(offset.X, 5.15, offset.Z), color = Color3.fromRGB(30, 70, 115),
 			material = Enum.Material.Fabric,
 		})
 	end
-	-- Chunky blocky car riding the conveyor (raised 0.9 onto the rollers)
-	local carCF = zoneCF * CFrame.new(0, 0.9, 0)
+	-- Chunky blocky car riding the conveyor: raised 1.25 so the wheel bottoms
+	-- (diameter 2 at local y 1) rest on the roller tops (0.8 + 0.45 = 1.25).
+	local carCF = zoneCF * CFrame.new(0, 1.25, 0)
 	makeBlock({
 		name = "CarBody", parent = zoneModel, size = Vector3.new(8, 2.2, 4.2),
-		cframe = carCF * CFrame.new(1, 2.1, 8), color = Color3.fromRGB(224, 82, 72),
+		cframe = carCF * CFrame.new(0, 2.1, 8), color = Color3.fromRGB(224, 82, 72),
 	})
 	makeBlock({
 		name = "CarCabin", parent = zoneModel, size = Vector3.new(4, 1.8, 3.8),
-		cframe = carCF * CFrame.new(0.6, 4.1, 8), color = Color3.fromRGB(120, 170, 210),
+		cframe = carCF * CFrame.new(-0.4, 4.1, 8), color = Color3.fromRGB(120, 170, 210),
 		material = Enum.Material.Glass, transparency = 0.35,
 	})
 	for _, xOff in { -2.8, 2.8 } do
 		for _, zOff in { -2.3, 2.3 } do
 			makeCylinder({
 				name = "CarWheel", parent = zoneModel, diameter = 2, height = 0.8, axis = "Z",
-				cframe = carCF * CFrame.new(1 + xOff, 1, 8 + zOff), color = WHEEL_DARK,
+				cframe = carCF * CFrame.new(xOff, 1, 8 + zOff), color = WHEEL_DARK,
 			})
 		end
 	end
@@ -1523,7 +1661,15 @@ local function buildFoodTruck(zoneModel: Model, zoneCF: CFrame, zone: GameConfig
 		name = "MenuPost", parent = zoneModel, size = Vector3.new(0.4, 3.2, 0.4),
 		cframe = zoneCF * CFrame.new(10.5, 1.6, 2), color = DARK_WOOD, material = Enum.Material.Wood,
 	})
-	addSignBoard(zoneModel, truckCF * CFrame.new(-0.5, 2.1, -3.5), 8, 1.4, zone.Name, NAVY, CREAM)
+	-- Name sign on two posts left of the truck (in front of the cab, clear of
+	-- the counter so it reads from the plaza; board Y 5.6..7.6 above the pad)
+	for _, xOff in { -20, -12 } do
+		makeBlock({
+			name = "NameSignPost", parent = zoneModel, size = Vector3.new(0.5, 5.8, 0.5),
+			cframe = zoneCF * CFrame.new(xOff, 2.9, 0), color = DARK_WOOD, material = Enum.Material.Wood,
+		})
+	end
+	addSignBoard(zoneModel, zoneCF * CFrame.new(-16, 6.6, 0), 9, 2, zone.Name, NAVY, orange)
 end
 
 ----------------------------------------------------------------------
@@ -1611,14 +1757,16 @@ local function buildContentCreator(zoneModel: Model, zoneCF: CFrame, zone: GameC
 		name = "PlayButtonCube", parent = zoneModel, size = Vector3.new(5.5, 5.5, 5.5),
 		cframe = zoneCF * CFrame.new(9, 3.45, -1), color = pink,
 	})
+	-- Yaw +90 puts each wedge's tall back face at zone-local +X, so the apex
+	-- points to -X = the right-hand side of a viewer looking from the plaza.
 	makeWedge({
 		name = "PlayTriangleTop", parent = zoneModel, size = Vector3.new(0.8, 1.4, 2.8),
-		cframe = zoneCF * CFrame.new(9, 4.15, -4.15) * CFrame.Angles(0, -RAD_90, 0),
+		cframe = zoneCF * CFrame.new(9, 4.15, -4.15) * CFrame.Angles(0, RAD_90, 0),
 		color = WHITE, canCollide = false,
 	})
 	makeWedge({
 		name = "PlayTriangleBottom", parent = zoneModel, size = Vector3.new(0.8, 1.4, 2.8),
-		cframe = zoneCF * CFrame.new(9, 2.75, -4.15) * CFrame.Angles(0, -RAD_90, 0) * CFrame.Angles(0, 0, math.rad(180)),
+		cframe = zoneCF * CFrame.new(9, 2.75, -4.15) * CFrame.Angles(0, RAD_90, 0) * CFrame.Angles(0, 0, math.rad(180)),
 		color = WHITE, canCollide = false,
 	})
 	addSignBoard(zoneModel, zoneCF * CFrame.new(0, 10.4, 9.85), 14, 2.5, zone.Name, NAVY, zone.AccentColor)
@@ -1818,10 +1966,14 @@ local ZONE_BUILDERS: { [string]: (Model, CFrame, GameConfig.ZoneDef) -> () } = {
 
 -- Hustle station placement per zone (zone-local, on the pad top; -Z = plaza).
 local STATIONS: { [string]: StationSpec } = {
+	-- The stand itself is the counter (top Y 3.7, X -5.5..5.5, Z 7.4..10.6);
+	-- PromptPart lands at (0, 3, 4.6) in front of it. FeedbackPart sits right
+	-- above the prompt (6.3 over the stand top, in front of canopy + lemon);
+	-- AutoAnchor stands on open pad 4 studs clear of the stand's +X side.
 	LemonadeStand = {
-		pos = Vector3.new(0, 0, 7), counter = false, -- the stand itself is the counter
-		feedback = Vector3.new(0, 9.6, 5),
-		anchor = Vector3.new(7.5, 0.5, 8.5), anchorLook = Vector3.new(0, 0.5, 9),
+		pos = Vector3.new(0, 0, 7), counter = false,
+		feedback = Vector3.new(0, 10, 4.6),
+		anchor = Vector3.new(9.5, 0.5, 8.5), anchorLook = Vector3.new(0, 0.5, 9),
 	},
 	DogWalking = { pos = Vector3.new(0, 0, -12), counter = true, material = Enum.Material.WoodPlanks, baseColor = WOOD },
 	SneakerFlipping = { pos = Vector3.new(6, 0, -8), counter = true, material = Enum.Material.Concrete },
@@ -1880,8 +2032,9 @@ local function buildZone(zonesFolder: Folder, zone: GameConfig.ZoneDef)
 	local builder = ZONE_BUILDERS[zone.Id] or buildGenericZone
 	builder(zoneModel, zoneCF, zone)
 
-	buildHustleStation(zoneModel, zoneCF, zone, STATIONS[zone.Id] or DEFAULT_STATION)
-	buildMechanicProp(zoneModel, zoneCF * (MECHANIC_PROP_CF[zone.Id] or CFrame.new(-6, 0, -6)), zone)
+	local stationSpec = STATIONS[zone.Id] or DEFAULT_STATION
+	buildHustleStation(zoneModel, zoneCF, zone, stationSpec)
+	buildMechanicProp(zoneModel, zoneCF * (MECHANIC_PROP_CF[zone.Id] or CFrame.new(-6, 0, -6)), zone, stationSpec.counter)
 
 	-- Entrance lamps on the road just in front of the pad
 	for _, xOff in { -16, 16 } do
@@ -1965,32 +2118,88 @@ local function buildSignpost(parent: Instance, cf: CFrame, text: string, color: 
 	})
 end
 
+-- Cartoon palm on the beach: three cylinder trunk segments curving toward
+-- `leanDir` (the sea), a crown of six drooping leaf slabs and three coconuts.
+local function buildPalm(parent: Instance, position: Vector3, leanDir: Vector3, scale: number)
+	local trunkColor = Color3.fromRGB(160, 116, 70)
+	local segmentHeight = 3.2 * scale
+	local lean = 0.45 * scale
+	local points = { position }
+	for k = 1, 3 do
+		table.insert(points, position + Vector3.new(0, k * segmentHeight, 0) + leanDir * (lean * k * k))
+	end
+	for k = 1, 3 do
+		local from, to = points[k], points[k + 1]
+		-- Native cylinder axis is X; yaw +90 maps it onto the lookAt direction.
+		makeCylinder({
+			name = "PalmTrunk", parent = parent, diameter = (1.4 - 0.15 * k) * scale,
+			height = (to - from).Magnitude + 0.3 * scale, axis = "X",
+			cframe = CFrame.lookAt((from + to) / 2, to) * CFrame.Angles(0, RAD_90, 0),
+			color = trunkColor:Lerp(DARK_WOOD, (k - 1) * 0.15), material = Enum.Material.Wood,
+		})
+	end
+	local top = points[4]
+	makeBall({
+		name = "PalmHeart", parent = parent, diameter = 1.5 * scale,
+		cframe = CFrame.new(top), color = LEAF_GREEN, canCollide = false,
+	})
+	for j = 0, 5 do
+		makeBlock({
+			name = "PalmLeaf", parent = parent, size = Vector3.new(1.6, 0.25, 5.4) * scale,
+			cframe = CFrame.new(top) * CFrame.Angles(0, math.rad(j * 60 + 15), 0)
+				* CFrame.Angles(math.rad(-24), 0, 0) * CFrame.new(0, 0, -2.6 * scale),
+			color = if j % 2 == 0 then LEAF_GREEN else Color3.fromRGB(96, 188, 80), canCollide = false,
+		})
+	end
+	for j = 0, 2 do
+		local angle = math.rad(j * 120)
+		makeBall({
+			name = "Coconut", parent = parent, diameter = 0.8 * scale,
+			cframe = CFrame.new(top + Vector3.new(math.cos(angle) * 0.7 * scale, -0.8 * scale, math.sin(angle) * 0.7 * scale)),
+			color = Color3.fromRGB(110, 74, 40), canCollide = false,
+		})
+	end
+end
+
 local function buildDecor(parent: Instance)
-	for i = 0, 7 do
-		local base = i * 45
+	local half = ZONE_STEP / 2
+	for i = 0, #GameConfig.Zones - 1 do
+		local base = i * ZONE_STEP -- zone (i + 1)'s angle; `base + half` is the gap
 		-- Trees between neighboring zones, then three sizes further out
-		-- (all outside the 118..182 pad band and inside the 255 hill clearance)
-		buildTree(parent, ringPos(152, base + 22.5), if i % 2 == 0 then 1.0 else 1.25)
+		-- (all outside the 118..185 pad band and inside the hill clearance)
+		buildTree(parent, ringPos(152, base + half), if i % 2 == 0 then 1.0 else 1.25)
 		buildTree(parent, ringPos(196, base + 13.5), 0.75)
 		buildTree(parent, ringPos(196, base + 31.5), 0.75)
+		buildTree(parent, ringPos(210, base), 1.6) -- backdrop right behind the zone
 		buildTree(parent, ringPos(225, base + 8), 1.4)
 		buildTree(parent, ringPos(230, base + 37), 1.1)
 		buildTree(parent, ringPos(255, base + 8.5), 1.55)
 		buildTree(parent, ringPos(255, base + 36.5), 1.55)
+		-- Outer ring near the beach, clear of the bisector hills
+		buildTree(parent, ringPos(312, base + 6), 1.2)
+		buildTree(parent, ringPos(316, base + 39), 0.85)
 		-- Bushes along the road edge and further out
-		buildBush(parent, ringPos(128, base + 22.5), 1.1)
+		buildBush(parent, ringPos(128, base + half), 1.1)
 		buildBush(parent, ringPos(195, base - 12), 1.3)
 		buildBush(parent, ringPos(240, base + 2.5), 1.0)
 		buildBush(parent, ringPos(240, base + 42.5), 1.0)
 		-- Flower clusters on the grass just outside the road trim
-		buildFlowerCluster(parent, ringPos(128, base + 17.5), i)
-		buildFlowerCluster(parent, ringPos(128, base + 27.5), i + 3)
+		buildFlowerCluster(parent, ringPos(128, base + half - 5), i)
+		buildFlowerCluster(parent, ringPos(128, base + half + 5), i + 3)
+		-- A palm on the sand rim in every gap, leaning out to sea
+		local gapAngle = math.rad(base + half)
+		buildPalm(
+			parent,
+			ringPos((ISLAND_RADIUS + BEACH_RADIUS) / 2, base + half),
+			Vector3.new(math.cos(gapAngle), 0, math.sin(gapAngle)),
+			if i % 2 == 0 then 1.0 else 1.15
+		)
 	end
 
 	-- Road-side signposts: a few degrees past each zone, board facing the
 	-- plaza, arrow tip swung back toward the zone's pad.
 	for _, zone in GameConfig.Zones do
-		local degrees = (zone.Order - 1) * GameConfig.Map.ZoneAngleStep + 12
+		local degrees = (zone.Order - 1) * ZONE_STEP + 12
 		local pos = ringPos(108, degrees, ROAD_TOP)
 		local cf = CFrame.lookAt(pos, Vector3.new(0, ROAD_TOP, 0)) * CFrame.Angles(0, math.rad(-30), 0)
 		buildSignpost(parent, cf, zone.Name, zone.SignColor)
@@ -2016,7 +2225,7 @@ function MapBuilder.build(): ()
 	local map = Instance.new("Folder")
 	map.Name = "SideHustleMap"
 
-	local ground = buildGround(map)
+	local ground = buildGround(map, okTerrain)
 	buildPlaza(map)
 
 	local zonesFolder = Instance.new("Folder")

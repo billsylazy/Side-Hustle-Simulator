@@ -1,0 +1,1378 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="ScreenGui" referent="RBX93ACE133A5754F48AC88ACB952D48602">
+    <Properties>
+      <bool name="ResetOnSpawn">false</bool>
+      <token name="ZIndexBehavior">1</token>
+      <bool name="IgnoreGuiInset">false</bool>
+      <bool name="Enabled">false</bool>
+      <token name="ScreenInsets">2</token>
+      <int name="DisplayOrder">5</int>
+      <string name="Name">HustleGui</string>
+    </Properties>
+    <Item class="Frame" referent="RBX39497686F97F44D1BDF677DE5AF0E475">
+      <Properties>
+        <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+        <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>8</YO></UDim2>
+        <UDim2 name="Size"><XS>0.66</XS><XO>0</XO><YS>0.9</YS><YO>0</YO></UDim2>
+        <float name="BackgroundTransparency">1</float>
+        <string name="Name">Main</string>
+      </Properties>
+      <Item class="UIScale" referent="RBX8607923230784573B6896CE43489E595">
+        <Properties>
+          <float name="Scale">1</float>
+          <string name="Name">PanelScale</string>
+        </Properties>
+      </Item>
+      <Item class="UISizeConstraint" referent="RBXBB68D1BC1F5F43569C1F8FAD4E54CA97">
+        <Properties>
+          <Vector2 name="MinSize"><X>540</X><Y>272</Y></Vector2>
+          <Vector2 name="MaxSize"><X>860</X><Y>430</Y></Vector2>
+          <string name="Name">UISizeConstraint</string>
+        </Properties>
+      </Item>
+      <Item class="Frame" referent="RBXB042318F4554452E8BAA0C183E69B2E1">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>8</YO></UDim2>
+          <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+          <float name="BackgroundTransparency">0.45</float>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">1</int>
+          <string name="Name">Shadow</string>
+        </Properties>
+        <Item class="UICorner" referent="RBX7D64654836524125990990D025591982">
+          <Properties>
+            <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Frame" referent="RBX11A6D238E51248BD830BE555EFA0E125">
+        <Properties>
+          <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">2</int>
+          <string name="Name">Panel</string>
+        </Properties>
+        <Item class="UICorner" referent="RBXE61DAA2C91EB4670ACF0C6C1BBD5943C">
+          <Properties>
+            <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+        <Item class="UIStroke" referent="RBX5BC3EE7B5CE34FB49F60BAA4703CE611">
+          <Properties>
+            <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <float name="Thickness">4</float>
+            <token name="ApplyStrokeMode">1</token>
+            <string name="Name">UIStroke</string>
+          </Properties>
+        </Item>
+        <Item class="UIGradient" referent="RBX595DED5756D443288B7644E452560319">
+          <Properties>
+            <float name="Rotation">90</float>
+            <ColorSequence name="Color">0 1 0.992157 0.964706 0 1 1 0.917647 0.952941 0 </ColorSequence>
+            <string name="Name">UIGradient</string>
+          </Properties>
+        </Item>
+        <Item class="UIPadding" referent="RBX4A98737AD59C439F871DB29A54AF232D">
+          <Properties>
+            <UDim name="PaddingTop"><S>0</S><O>30</O></UDim>
+            <UDim name="PaddingBottom"><S>0</S><O>10</O></UDim>
+            <UDim name="PaddingLeft"><S>0</S><O>12</O></UDim>
+            <UDim name="PaddingRight"><S>0</S><O>12</O></UDim>
+            <string name="Name">UIPadding</string>
+          </Properties>
+        </Item>
+        <Item class="ScrollingFrame" referent="RBX0E6A544CA9FF477BA5ADB0493FF4469D">
+          <Properties>
+            <UDim2 name="Size"><XS>0.25</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+            <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <int name="BorderSizePixel">0</int>
+            <int name="ScrollBarThickness">5</int>
+            <Color3 name="ScrollBarImageColor3"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <token name="AutomaticCanvasSize">2</token>
+            <UDim2 name="CanvasSize"><XS>0</XS><XO>0</XO><YS>0</YS><YO>0</YO></UDim2>
+            <token name="ScrollingDirection">2</token>
+            <int name="ZIndex">2</int>
+            <string name="Name">Tabs</string>
+          </Properties>
+          <Item class="UICorner" referent="RBXFB6B4B01047A4A588E2F7A82A227F5C3">
+            <Properties>
+              <UDim name="CornerRadius"><S>0</S><O>14</O></UDim>
+              <string name="Name">UICorner</string>
+            </Properties>
+          </Item>
+          <Item class="UIStroke" referent="RBXE96AA7380FB34DCCB12B579240E69A1C">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">2.5</float>
+              <token name="ApplyStrokeMode">1</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UIGradient" referent="RBX01825E159D734603BCFB4779CD642F5A">
+            <Properties>
+              <float name="Rotation">90</float>
+              <ColorSequence name="Color">0 0.937255 0.913725 0.972549 0 1 0.866667 0.823529 0.933333 0 </ColorSequence>
+              <string name="Name">UIGradient</string>
+            </Properties>
+          </Item>
+          <Item class="UIPadding" referent="RBX24D10BF4B43841F7ACB0D0E49F1DEDAD">
+            <Properties>
+              <UDim name="PaddingTop"><S>0</S><O>6</O></UDim>
+              <UDim name="PaddingBottom"><S>0</S><O>6</O></UDim>
+              <UDim name="PaddingLeft"><S>0</S><O>6</O></UDim>
+              <UDim name="PaddingRight"><S>0</S><O>10</O></UDim>
+              <string name="Name">UIPadding</string>
+            </Properties>
+          </Item>
+          <Item class="UIListLayout" referent="RBXD984F59711DA43429A0CD897B41B4564">
+            <Properties>
+              <token name="FillDirection">1</token>
+              <UDim name="Padding"><S>0</S><O>6</O></UDim>
+              <token name="SortOrder">2</token>
+              <token name="HorizontalAlignment">0</token>
+              <string name="Name">UIListLayout</string>
+            </Properties>
+          </Item>
+          <Item class="TextButton" referent="RBX5DE2668D187B4C8E92A26AA21F7DEDB2">
+            <Properties>
+              <bool name="Visible">false</bool>
+              <int name="LayoutOrder">0</int>
+              <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0</YS><YO>40</YO></UDim2>
+              <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+              <int name="BorderSizePixel">0</int>
+              <bool name="AutoButtonColor">false</bool>
+              <string name="Text"></string>
+              <int name="ZIndex">2</int>
+              <string name="Name">HustleTabTemplate</string>
+            </Properties>
+            <Item class="UICorner" referent="RBX255E779E84994C7693E72E0E8B77E947">
+              <Properties>
+                <UDim name="CornerRadius"><S>0</S><O>10</O></UDim>
+                <string name="Name">UICorner</string>
+              </Properties>
+            </Item>
+            <Item class="UIStroke" referent="RBX45A221A16D42428693DBC58CA4F4D2E8">
+              <Properties>
+                <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <float name="Thickness">2.5</float>
+                <token name="ApplyStrokeMode">1</token>
+                <string name="Name">Stroke</string>
+              </Properties>
+            </Item>
+            <Item class="UIGradient" referent="RBXBB65AAB06DAA46AEA17DA8B95BBC8C90">
+              <Properties>
+                <float name="Rotation">90</float>
+                <ColorSequence name="Color">0 0.984314 0.972549 1 0 1 0.894118 0.854902 0.952941 0 </ColorSequence>
+                <string name="Name">Grad</string>
+              </Properties>
+            </Item>
+            <Item class="Frame" referent="RBXF641A2D62EDF4CC8A1B7FEEA24491A7A">
+              <Properties>
+                <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+                <UDim2 name="Position"><XS>0</XS><XO>6</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>0</XS><XO>7</XO><YS>1</YS><YO>-12</YO></UDim2>
+                <Color3 name="BackgroundColor3"><R>1</R><G>0.831373</G><B>0.121569</B></Color3>
+                <int name="BorderSizePixel">0</int>
+                <int name="ZIndex">3</int>
+                <string name="Name">Stripe</string>
+              </Properties>
+              <Item class="UICorner" referent="RBXADACDC5561C94066A5B9DBF56B629405">
+                <Properties>
+                  <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                  <string name="Name">UICorner</string>
+                </Properties>
+              </Item>
+              <Item class="UIStroke" referent="RBX51076454854741189B4BC87CC147848C">
+                <Properties>
+                  <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                  <float name="Thickness">1.5</float>
+                  <token name="ApplyStrokeMode">1</token>
+                  <string name="Name">UIStroke</string>
+                </Properties>
+              </Item>
+            </Item>
+            <Item class="TextLabel" referent="RBX48F0E8B7D6A54297B370D8D19D6CBC95">
+              <Properties>
+                <string name="Text">Lemonade Stand</string>
+                <float name="BackgroundTransparency">1</float>
+                <Color3 name="TextColor3"><R>0.227451</R><G>0.192157</G><B>0.32549</B></Color3>
+                <bool name="TextScaled">true</bool>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+                <UDim2 name="Position"><XS>0</XS><XO>17</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>1</XS><XO>-23</XO><YS>1</YS><YO>-8</YO></UDim2>
+                <token name="TextXAlignment">0</token>
+                <bool name="TextWrapped">true</bool>
+                <int name="ZIndex">3</int>
+                <string name="Name">Name</string>
+              </Properties>
+              <Item class="UITextSizeConstraint" referent="RBXCC2D52AF367C404AB1E3795FD879E7E9">
+                <Properties>
+                  <int name="MaxTextSize">15</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+            <Item class="ImageLabel" referent="RBXC47BDDE6B07A4428A9FD8C4F36EC4D89">
+              <Properties>
+                <Vector2 name="AnchorPoint"><X>1</X><Y>0</Y></Vector2>
+                <UDim2 name="Position"><XS>1</XS><XO>-6</XO><YS>0</YS><YO>2</YO></UDim2>
+                <UDim2 name="Size"><XS>0</XS><XO>22</XO><YS>0</YS><YO>22</YO></UDim2>
+                <float name="BackgroundTransparency">1</float>
+                <Content name="Image"><url>rbxassetid://0</url></Content>
+                <token name="ScaleType">3</token>
+                <bool name="Visible">false</bool>
+                <int name="ZIndex">4</int>
+                <string name="Name">LockIcon</string>
+              </Properties>
+            </Item>
+            <Item class="TextLabel" referent="RBX080B9A2644D04DA68E8BA4D58B1C8176">
+              <Properties>
+                <string name="Text">Lv 8</string>
+                <float name="BackgroundTransparency">1</float>
+                <Color3 name="TextColor3"><R>0.752941</R><G>0.0705882</G><B>0.247059</B></Color3>
+                <bool name="TextScaled">true</bool>
+                <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                <Vector2 name="AnchorPoint"><X>1</X><Y>1</Y></Vector2>
+                <UDim2 name="Position"><XS>1</XS><XO>-3</XO><YS>1</YS><YO>-2</YO></UDim2>
+                <UDim2 name="Size"><XS>0</XS><XO>30</XO><YS>0</YS><YO>13</YO></UDim2>
+                <bool name="Visible">false</bool>
+                <int name="ZIndex">4</int>
+                <string name="Name">LockLabel</string>
+              </Properties>
+              <Item class="UITextSizeConstraint" referent="RBXC0309410C68B47ECB751F880294DD482">
+                <Properties>
+                  <int name="MaxTextSize">12</int>
+                  <string name="Name">UITextSizeConstraint</string>
+                </Properties>
+              </Item>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Frame" referent="RBX6584E27A5A4640DABB3056B5F7CAB682">
+          <Properties>
+            <UDim2 name="Position"><XS>0.25</XS><XO>10</XO><YS>0</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>0.75</XS><XO>-10</XO><YS>1</YS><YO>0</YO></UDim2>
+            <float name="BackgroundTransparency">1</float>
+            <int name="ZIndex">2</int>
+            <string name="Name">Detail</string>
+          </Properties>
+          <Item class="TextLabel" referent="RBX6C6E9C918D5B478D935B389D6FCD86CF">
+            <Properties>
+              <string name="Text">LEMONADE STAND</string>
+              <float name="BackgroundTransparency">1</float>
+              <Color3 name="TextColor3"><R>1</R><G>0.831373</G><B>0.121569</B></Color3>
+              <bool name="TextScaled">true</bool>
+              <Font name="FontFace"><Family><url>rbxasset://fonts/families/LuckiestGuy.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+              <UDim2 name="Position"><XS>0</XS><XO>2</XO><YS>0</YS><YO>1</YO></UDim2>
+              <UDim2 name="Size"><XS>0.56</XS><XO>0</XO><YS>0</YS><YO>28</YO></UDim2>
+              <token name="TextXAlignment">0</token>
+              <int name="ZIndex">3</int>
+              <string name="Name">ZoneName</string>
+            </Properties>
+            <Item class="UIStroke" referent="RBXF05F623CCCB4435490536B0F6AC6B9E7">
+              <Properties>
+                <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <float name="Thickness">2.5</float>
+                <token name="ApplyStrokeMode">0</token>
+                <string name="Name">UIStroke</string>
+              </Properties>
+            </Item>
+            <Item class="UITextSizeConstraint" referent="RBX2F538BB513AB42C78DA9F7A2D106EA03">
+              <Properties>
+                <int name="MaxTextSize">26</int>
+                <string name="Name">UITextSizeConstraint</string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="TextLabel" referent="RBXE3FB9C379681420DBF0F057D0443E1FD">
+            <Properties>
+              <Vector2 name="AnchorPoint"><X>1</X><Y>0</Y></Vector2>
+              <UDim2 name="Position"><XS>1</XS><XO>-2</XO><YS>0</YS><YO>2</YO></UDim2>
+              <UDim2 name="Size"><XS>0.42</XS><XO>0</XO><YS>0</YS><YO>24</YO></UDim2>
+              <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+              <int name="BorderSizePixel">0</int>
+              <string name="Text">Reach level 8 to unlock</string>
+              <bool name="TextScaled">true</bool>
+              <Color3 name="TextColor3"><R>0.752941</R><G>0.0705882</G><B>0.247059</B></Color3>
+              <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+              <bool name="Visible">false</bool>
+              <int name="ZIndex">4</int>
+              <string name="Name">LockedNote</string>
+            </Properties>
+            <Item class="UICorner" referent="RBXBDBB333F472F40408E1B7B52D76FF98A">
+              <Properties>
+                <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                <string name="Name">UICorner</string>
+              </Properties>
+            </Item>
+            <Item class="UIStroke" referent="RBXB54688CAB6F042D2A5E293E1E351E90D">
+              <Properties>
+                <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <float name="Thickness">2.5</float>
+                <token name="ApplyStrokeMode">1</token>
+                <string name="Name">UIStroke</string>
+              </Properties>
+            </Item>
+            <Item class="UIGradient" referent="RBX899FC45D1DEE4DD280B073BF309016FC">
+              <Properties>
+                <float name="Rotation">90</float>
+                <ColorSequence name="Color">0 1 0.901961 0.92549 0 1 1 0.768627 0.819608 0 </ColorSequence>
+                <string name="Name">UIGradient</string>
+              </Properties>
+            </Item>
+            <Item class="UITextSizeConstraint" referent="RBX5048AB6DE9DD45F7B6A1F4C02838789F">
+              <Properties>
+                <int name="MaxTextSize">14</int>
+                <string name="Name">UITextSizeConstraint</string>
+              </Properties>
+            </Item>
+            <Item class="UIPadding" referent="RBX5C331B2A74E64B66993D9896193D33DE">
+              <Properties>
+                <UDim name="PaddingLeft"><S>0</S><O>28</O></UDim>
+                <UDim name="PaddingRight"><S>0</S><O>10</O></UDim>
+                <UDim name="PaddingTop"><S>0</S><O>4</O></UDim>
+                <UDim name="PaddingBottom"><S>0</S><O>3</O></UDim>
+                <string name="Name">UIPadding</string>
+              </Properties>
+            </Item>
+            <Item class="ImageLabel" referent="RBX0BF7AB4C78404071AA6BDFDF17A3A3C2">
+              <Properties>
+                <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+                <UDim2 name="Position"><XS>0</XS><XO>-24</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>0</XS><XO>20</XO><YS>0</YS><YO>20</YO></UDim2>
+                <float name="BackgroundTransparency">1</float>
+                <Content name="Image"><url>rbxassetid://0</url></Content>
+                <token name="ScaleType">3</token>
+                <int name="ZIndex">5</int>
+                <string name="Name">LockGlyph</string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="TextLabel" referent="RBX5D4EE2AAB96F4795AB468F913E486AF8">
+            <Properties>
+              <string name="Text">Mash SQUEEZE to build a combo!</string>
+              <float name="BackgroundTransparency">1</float>
+              <Color3 name="TextColor3"><R>0.419608</R><G>0.372549</G><B>0.521569</B></Color3>
+              <bool name="TextScaled">true</bool>
+              <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+              <UDim2 name="Position"><XS>0</XS><XO>2</XO><YS>0</YS><YO>29</YO></UDim2>
+              <UDim2 name="Size"><XS>1</XS><XO>-4</XO><YS>0</YS><YO>16</YO></UDim2>
+              <token name="TextXAlignment">0</token>
+              <int name="ZIndex">3</int>
+              <string name="Name">Tagline</string>
+            </Properties>
+            <Item class="UITextSizeConstraint" referent="RBX84BFB2F0B4374349B182602A9DCEAFB6">
+              <Properties>
+                <int name="MaxTextSize">14</int>
+                <string name="Name">UITextSizeConstraint</string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="TextLabel" referent="RBXE843742221224D8D8EEEE21F52270168">
+            <Properties>
+              <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0</YS><YO>48</YO></UDim2>
+              <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0</YS><YO>25</YO></UDim2>
+              <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+              <int name="BorderSizePixel">0</int>
+              <string name="Text">$3 + 2 XP per Squeeze  -  0.6s</string>
+              <bool name="TextScaled">true</bool>
+              <Color3 name="TextColor3"><R>0.227451</R><G>0.192157</G><B>0.32549</B></Color3>
+              <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+              <int name="ZIndex">3</int>
+              <string name="Name">Preview</string>
+            </Properties>
+            <Item class="UICorner" referent="RBX7F45BE3FB3354CBAA47917406B43AE4C">
+              <Properties>
+                <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                <string name="Name">UICorner</string>
+              </Properties>
+            </Item>
+            <Item class="UIStroke" referent="RBX71814CA907E84ABAB4E23D97495F8CF6">
+              <Properties>
+                <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                <float name="Thickness">2</float>
+                <token name="ApplyStrokeMode">1</token>
+                <string name="Name">UIStroke</string>
+              </Properties>
+            </Item>
+            <Item class="UIGradient" referent="RBXD4840CF388FF45A7BECDD5CE1D5A9323">
+              <Properties>
+                <float name="Rotation">90</float>
+                <ColorSequence name="Color">0 1 0.972549 0.858824 0 1 1 0.901961 0.603922 0 </ColorSequence>
+                <string name="Name">UIGradient</string>
+              </Properties>
+            </Item>
+            <Item class="UITextSizeConstraint" referent="RBX6E8C28BF87184F2E804EC5502429947D">
+              <Properties>
+                <int name="MaxTextSize">15</int>
+                <string name="Name">UITextSizeConstraint</string>
+              </Properties>
+            </Item>
+            <Item class="UIPadding" referent="RBXCF8912385E394BD999ADE17F0C72A4D3">
+              <Properties>
+                <UDim name="PaddingLeft"><S>0</S><O>12</O></UDim>
+                <UDim name="PaddingRight"><S>0</S><O>12</O></UDim>
+                <UDim name="PaddingTop"><S>0</S><O>4</O></UDim>
+                <UDim name="PaddingBottom"><S>0</S><O>3</O></UDim>
+                <string name="Name">UIPadding</string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Frame" referent="RBXC69CCAD17B9047248CD9003709E2F8B4">
+            <Properties>
+              <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0</YS><YO>79</YO></UDim2>
+              <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>-79</YO></UDim2>
+              <float name="BackgroundTransparency">1</float>
+              <int name="ZIndex">2</int>
+              <string name="Name">Rows</string>
+            </Properties>
+            <Item class="UIListLayout" referent="RBXA5C8C79FD63E45A3ADAB3BE5ABCDF56A">
+              <Properties>
+                <token name="FillDirection">1</token>
+                <UDim name="Padding"><S>0</S><O>5</O></UDim>
+                <token name="SortOrder">2</token>
+                <token name="HorizontalAlignment">0</token>
+                <token name="VerticalAlignment">1</token>
+                <string name="Name">UIListLayout</string>
+              </Properties>
+            </Item>
+            <Item class="Frame" referent="RBX40F5C45082DC423196A4427F617CFD53">
+              <Properties>
+                <bool name="Visible">false</bool>
+                <int name="LayoutOrder">0</int>
+                <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>0.25</YS><YO>-4</YO></UDim2>
+                <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                <int name="BorderSizePixel">0</int>
+                <int name="ZIndex">2</int>
+                <string name="Name">UpgradeRowTemplate</string>
+              </Properties>
+              <Item class="UISizeConstraint" referent="RBX3D2FDA0C67E847508EED2E0539C0451E">
+                <Properties>
+                  <Vector2 name="MaxSize"><X>4000</X><Y>64</Y></Vector2>
+                  <string name="Name">UISizeConstraint</string>
+                </Properties>
+              </Item>
+              <Item class="UICorner" referent="RBXCD9343981BE74969B08639F785945612">
+                <Properties>
+                  <UDim name="CornerRadius"><S>0</S><O>12</O></UDim>
+                  <string name="Name">UICorner</string>
+                </Properties>
+              </Item>
+              <Item class="UIStroke" referent="RBXFEA6FC1F2A514D96A37328FE08AB1FC8">
+                <Properties>
+                  <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                  <float name="Thickness">2.5</float>
+                  <token name="ApplyStrokeMode">1</token>
+                  <string name="Name">Stroke</string>
+                </Properties>
+              </Item>
+              <Item class="UIGradient" referent="RBX85637C6534B54FFFADBC74B1D8C7D4DF">
+                <Properties>
+                  <float name="Rotation">90</float>
+                  <ColorSequence name="Color">0 1 1 1 0 1 0.937255 0.909804 0.980392 0 </ColorSequence>
+                  <string name="Name">Grad</string>
+                </Properties>
+              </Item>
+              <Item class="Frame" referent="RBXFDD2E6DCB59548379F7F4806A3F1DBEA">
+                <Properties>
+                  <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+                  <UDim2 name="Position"><XS>0</XS><XO>6</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>0</XS><XO>7</XO><YS>1</YS><YO>-12</YO></UDim2>
+                  <Color3 name="BackgroundColor3"><R>1</R><G>0.831373</G><B>0.121569</B></Color3>
+                  <int name="BorderSizePixel">0</int>
+                  <int name="ZIndex">3</int>
+                  <string name="Name">Accent</string>
+                </Properties>
+                <Item class="UICorner" referent="RBX2CF35F87E74244AFB8DDFC93F7CEB11F">
+                  <Properties>
+                    <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                    <string name="Name">UICorner</string>
+                  </Properties>
+                </Item>
+                <Item class="UIStroke" referent="RBXF9CA5C2484BE426E85AEAF3CD405B45E">
+                  <Properties>
+                    <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                    <float name="Thickness">1.5</float>
+                    <token name="ApplyStrokeMode">1</token>
+                    <string name="Name">UIStroke</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="ImageLabel" referent="RBX03E7886DCB1E49F9A27A02FAD074DF1D">
+                <Properties>
+                  <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+                  <UDim2 name="Position"><XS>0</XS><XO>18</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>0.82</XS><XO>0</XO><YS>0.82</YS><YO>0</YO></UDim2>
+                  <token name="SizeConstraint">2</token>
+                  <float name="BackgroundTransparency">1</float>
+                  <Content name="Image"><url>rbxassetid://0</url></Content>
+                  <token name="ScaleType">3</token>
+                  <int name="ZIndex">3</int>
+                  <string name="Name">Icon</string>
+                </Properties>
+                <Item class="UISizeConstraint" referent="RBXD15034B329524400BEA6ED44597E7AB7">
+                  <Properties>
+                    <Vector2 name="MaxSize"><X>42</X><Y>42</Y></Vector2>
+                    <string name="Name">UISizeConstraint</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="TextLabel" referent="RBX6133F0F116DC403698C892F2F05D40C6">
+                <Properties>
+                  <string name="Text">Bigger Pitcher</string>
+                  <float name="BackgroundTransparency">1</float>
+                  <Color3 name="TextColor3"><R>0.227451</R><G>0.192157</G><B>0.32549</B></Color3>
+                  <bool name="TextScaled">true</bool>
+                  <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                  <UDim2 name="Position"><XS>0</XS><XO>64</XO><YS>0.08</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>1</XS><XO>-244</XO><YS>0.44</YS><YO>0</YO></UDim2>
+                  <token name="TextXAlignment">0</token>
+                  <int name="ZIndex">3</int>
+                  <string name="Name">Name</string>
+                </Properties>
+                <Item class="UITextSizeConstraint" referent="RBXCBE48C7D97FD49639A7541FF327EA637">
+                  <Properties>
+                    <int name="MaxTextSize">20</int>
+                    <string name="Name">UITextSizeConstraint</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="TextLabel" referent="RBXFBD518EEC6474237886EAA8899653E27">
+                <Properties>
+                  <string name="Text">+25% cash per squeeze</string>
+                  <float name="BackgroundTransparency">1</float>
+                  <Color3 name="TextColor3"><R>0.419608</R><G>0.372549</G><B>0.521569</B></Color3>
+                  <bool name="TextScaled">true</bool>
+                  <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                  <UDim2 name="Position"><XS>0</XS><XO>64</XO><YS>0.54</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>1</XS><XO>-176</XO><YS>0.36</YS><YO>0</YO></UDim2>
+                  <token name="TextXAlignment">0</token>
+                  <int name="ZIndex">3</int>
+                  <string name="Name">Desc</string>
+                </Properties>
+                <Item class="UITextSizeConstraint" referent="RBXF9CEEE4FCE98455098B0825B25A4297E">
+                  <Properties>
+                    <int name="MaxTextSize">14</int>
+                    <string name="Name">UITextSizeConstraint</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="Frame" referent="RBX83D699BCD1954391A7D425CA5A2DE1A8">
+                <Properties>
+                  <Vector2 name="AnchorPoint"><X>1</X><Y>0</Y></Vector2>
+                  <UDim2 name="Position"><XS>1</XS><XO>-114</XO><YS>0.1</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>0</XS><XO>60</XO><YS>0.4</YS><YO>0</YO></UDim2>
+                  <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                  <int name="BorderSizePixel">0</int>
+                  <int name="ZIndex">3</int>
+                  <string name="Name">LevelBadge</string>
+                </Properties>
+                <Item class="UICorner" referent="RBXE41EE86F2CD84DD29A5230E52063101A">
+                  <Properties>
+                    <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+                    <string name="Name">UICorner</string>
+                  </Properties>
+                </Item>
+                <Item class="UIStroke" referent="RBX83B68A7E4F6649BA958E9F084B1592B8">
+                  <Properties>
+                    <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                    <float name="Thickness">2</float>
+                    <token name="ApplyStrokeMode">1</token>
+                    <string name="Name">UIStroke</string>
+                  </Properties>
+                </Item>
+                <Item class="UIGradient" referent="RBX1023B81A098D4561B4C79E62D9D12EB0">
+                  <Properties>
+                    <float name="Rotation">90</float>
+                    <ColorSequence name="Color">0 0.501961 0.45098 1 0 1 0.360784 0.2 0.858824 0 </ColorSequence>
+                    <string name="Name">UIGradient</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="TextLabel" referent="RBX0274028267D546D2A6B17A086364DE78">
+                <Properties>
+                  <string name="Text">Lv 0/10</string>
+                  <float name="BackgroundTransparency">1</float>
+                  <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                  <bool name="TextScaled">true</bool>
+                  <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                  <Vector2 name="AnchorPoint"><X>1</X><Y>0</Y></Vector2>
+                  <UDim2 name="Position"><XS>1</XS><XO>-118</XO><YS>0.1</YS><YO>2</YO></UDim2>
+                  <UDim2 name="Size"><XS>0</XS><XO>52</XO><YS>0.4</YS><YO>-4</YO></UDim2>
+                  <int name="ZIndex">4</int>
+                  <string name="Name">Level</string>
+                </Properties>
+                <Item class="UIStroke" referent="RBX28A08323BB214088A26EF80804E4DD3C">
+                  <Properties>
+                    <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                    <float name="Thickness">1.5</float>
+                    <token name="ApplyStrokeMode">0</token>
+                    <string name="Name">UIStroke</string>
+                  </Properties>
+                </Item>
+                <Item class="UITextSizeConstraint" referent="RBXA4E7359040E242948E1606261E576E04">
+                  <Properties>
+                    <int name="MaxTextSize">14</int>
+                    <string name="Name">UITextSizeConstraint</string>
+                  </Properties>
+                </Item>
+              </Item>
+              <Item class="TextButton" referent="RBX80C7E1730524473F8AD059CFC3C15A07">
+                <Properties>
+                  <Vector2 name="AnchorPoint"><X>1</X><Y>0.5</Y></Vector2>
+                  <UDim2 name="Position"><XS>1</XS><XO>-6</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                  <UDim2 name="Size"><XS>0</XS><XO>100</XO><YS>1</YS><YO>-9</YO></UDim2>
+                  <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                  <int name="BorderSizePixel">0</int>
+                  <bool name="AutoButtonColor">true</bool>
+                  <string name="Text"></string>
+                  <int name="ZIndex">4</int>
+                  <string name="Name">BuyButton</string>
+                </Properties>
+                <Item class="UICorner" referent="RBXACDB554830934AA08C1185ABD92FBEFF">
+                  <Properties>
+                    <UDim name="CornerRadius"><S>0</S><O>10</O></UDim>
+                    <string name="Name">UICorner</string>
+                  </Properties>
+                </Item>
+                <Item class="UIStroke" referent="RBXD3258E3159CE4C8D9DB37428D55B9354">
+                  <Properties>
+                    <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                    <float name="Thickness">2.5</float>
+                    <token name="ApplyStrokeMode">1</token>
+                    <string name="Name">UIStroke</string>
+                  </Properties>
+                </Item>
+                <Item class="UIGradient" referent="RBX830DDC064C2646FABFDF82F6351B45B9">
+                  <Properties>
+                    <float name="Rotation">90</float>
+                    <ColorSequence name="Color">0 0.278431 0.776471 0.305882 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
+                    <string name="Name">Grad</string>
+                  </Properties>
+                </Item>
+                <Item class="TextLabel" referent="RBX44178EDD672B407A85AF53D573EF8609">
+                  <Properties>
+                    <string name="Text">$120</string>
+                    <float name="BackgroundTransparency">1</float>
+                    <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+                    <bool name="TextScaled">true</bool>
+                    <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+                    <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+                    <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                    <UDim2 name="Size"><XS>1</XS><XO>-14</XO><YS>1</YS><YO>-12</YO></UDim2>
+                    <int name="ZIndex">5</int>
+                    <string name="Name">Price</string>
+                  </Properties>
+                  <Item class="UIStroke" referent="RBX8C96CB3BF57F49FCA3476D36C7029D8D">
+                    <Properties>
+                      <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+                      <float name="Thickness">2.5</float>
+                      <token name="ApplyStrokeMode">0</token>
+                      <string name="Name">UIStroke</string>
+                    </Properties>
+                  </Item>
+                  <Item class="UITextSizeConstraint" referent="RBX660613F981F048C1970DC037E0731747">
+                    <Properties>
+                      <int name="MaxTextSize">20</int>
+                      <string name="Name">UITextSizeConstraint</string>
+                    </Properties>
+                  </Item>
+                </Item>
+              </Item>
+              <Item class="Frame" referent="RBX8FE0B124DC274FEE95711BB08F8C1955">
+                <Properties>
+                  <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
+                  <Color3 name="BackgroundColor3"><R>0.94902</R><G>0.933333</G><B>0.972549</B></Color3>
+                  <float name="BackgroundTransparency">0.35</float>
+                  <int name="BorderSizePixel">0</int>
+                  <bool name="Visible">false</bool>
+                  <int name="ZIndex">10</int>
+                  <string name="Name">Dim</string>
+                </Properties>
+                <Item class="UICorner" referent="RBXDE6F15DE30A34B5E92DE9DC0B26645D9">
+                  <Properties>
+                    <UDim name="CornerRadius"><S>0</S><O>12</O></UDim>
+                    <string name="Name">UICorner</string>
+                  </Properties>
+                </Item>
+              </Item>
+            </Item>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="Frame" referent="RBX4162321E62D042DFA0AB55CDD2EA2567">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0</YS><YO>2</YO></UDim2>
+          <UDim2 name="Size"><XS>0.36</XS><XO>0</XO><YS>0</YS><YO>50</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">5</int>
+          <string name="Name">TitleBanner</string>
+        </Properties>
+        <Item class="UISizeConstraint" referent="RBX151B3519812F4229BA58421C97D5B2D4">
+          <Properties>
+            <Vector2 name="MinSize"><X>190</X><Y>44</Y></Vector2>
+            <Vector2 name="MaxSize"><X>280</X><Y>52</Y></Vector2>
+            <string name="Name">UISizeConstraint</string>
+          </Properties>
+        </Item>
+        <Item class="UICorner" referent="RBXB6232F5BE97044AC9AEC034BC857BB42">
+          <Properties>
+            <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+        <Item class="UIStroke" referent="RBXEEACE510BE1B4373A070CD488E296749">
+          <Properties>
+            <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <float name="Thickness">4</float>
+            <token name="ApplyStrokeMode">1</token>
+            <string name="Name">UIStroke</string>
+          </Properties>
+        </Item>
+        <Item class="UIGradient" referent="RBX8659390283974E72B1977CFD42F8FA60">
+          <Properties>
+            <float name="Rotation">90</float>
+            <ColorSequence name="Color">0 0.278431 0.776471 0.305882 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
+            <string name="Name">UIGradient</string>
+          </Properties>
+        </Item>
+        <Item class="TextLabel" referent="RBXCCB6EDD485294512AC2B1A02CAC9A630">
+          <Properties>
+            <string name="Text">HUSTLES</string>
+            <float name="BackgroundTransparency">1</float>
+            <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <bool name="TextScaled">true</bool>
+            <Font name="FontFace"><Family><url>rbxasset://fonts/families/LuckiestGuy.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+            <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+            <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>2</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>-28</XO><YS>1</YS><YO>-12</YO></UDim2>
+            <int name="ZIndex">6</int>
+            <string name="Name">Title</string>
+          </Properties>
+          <Item class="UIStroke" referent="RBX7B7694F22D7D4003A16BA407A48826CA">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">3</float>
+              <token name="ApplyStrokeMode">0</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UITextSizeConstraint" referent="RBX3B1D96C13118492FA2D49436DDBEF9DE">
+            <Properties>
+              <int name="MaxTextSize">30</int>
+              <string name="Name">UITextSizeConstraint</string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="Frame" referent="RBXA6677DCA3B414A4695F3B9BB0D04A844">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>0</XS><XO>28</XO><YS>0</YS><YO>2</YO></UDim2>
+          <UDim2 name="Size"><XS>0</XS><XO>112</XO><YS>0</YS><YO>32</YO></UDim2>
+          <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
+          <int name="BorderSizePixel">0</int>
+          <int name="ZIndex">5</int>
+          <string name="Name">CashPill</string>
+        </Properties>
+        <Item class="UICorner" referent="RBX5C7B76C6AB6B4DD9A0A653B6C4487855">
+          <Properties>
+            <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
+            <string name="Name">UICorner</string>
+          </Properties>
+        </Item>
+        <Item class="UIStroke" referent="RBX9FDA541D250A476FB669FF4403C3C71C">
+          <Properties>
+            <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+            <float name="Thickness">3</float>
+            <token name="ApplyStrokeMode">1</token>
+            <string name="Name">UIStroke</string>
+          </Properties>
+        </Item>
+        <Item class="UIGradient" referent="RBX68B5F0E03E9F419A912A4DA340253447">
+          <Properties>
+            <float name="Rotation">90</float>
+            <ColorSequence name="Color">0 1 0.831373 0.121569 0 0.5 0.611765 0.796078 0.188235 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
+            <string name="Name">UIGradient</string>
+          </Properties>
+        </Item>
+        <Item class="ImageLabel" referent="RBX887175D2438F4B76B94A489284D2E043">
+          <Properties>
+            <Content name="Image"><url>rbxassetid://0</url></Content>
+            <float name="BackgroundTransparency">1</float>
+            <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
+            <UDim2 name="Position"><XS>0</XS><XO>-12</XO><YS>0.5</YS><YO>0</YO></UDim2>
+            <UDim2 name="Size"><XS>1.3</XS><XO>0</XO><YS>1.3</YS><YO>0</YO></UDim2>
+            <token name="SizeConstraint">2</token>
+            <token name="ScaleType">3</token>
+            <int name="ZIndex">6</int>
+            <string name="Name">CashIcon</string>
+          </Properties>
+        </Item>
+        <Item class="TextLabel" referent="RBXFA492DC610CE4AD8B1CDFA39D185F181">
+          <Properties>
+            <string name="Text">$0</string>
+            <float name="BackgroundTransparency">1</float>
+            <Color3 name="TextColor3"><R>1</R><G>1</G><B>1</B></Color3>
+            <bool name="TextScaled">true</bool>
+            <Font name="FontFace"><Family><url>rbxasset://fonts/families/FredokaOne.json</url></Family><Weight>400</Weight><Style>Normal</Style></Font>
+            <UDim2 name="Position"><XS>0</XS><XO>32</XO><YS>0</YS><YO>4</YO></UDim2>
+            <UDim2 name="Size"><XS>1</XS><XO>-38</XO><YS>1</YS><YO>-8</YO></UDim2>
+            <token name="TextXAlignment">0</token>
+            <int name="ZIndex">6</int>
+            <string name="Name">Amount</string>
+          </Properties>
+          <Item class="UIStroke" referent="RBXC5A8FFE549414EF49929D7F22F4A743F">
+            <Properties>
+              <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
+              <float name="Thickness">2.5</float>
+              <token name="ApplyStrokeMode">0</token>
+              <string name="Name">UIStroke</string>
+            </Properties>
+          </Item>
+          <Item class="UITextSizeConstraint" referent="RBX6CE7FF8BCA98436B993A5407CFB0331B">
+            <Properties>
+              <int name="MaxTextSize">20</int>
+              <string name="Name">UITextSizeConstraint</string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+      <Item class="ImageButton" referent="RBX63B71F10396C4FAD8A8E389D12C689FA">
+        <Properties>
+          <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
+          <UDim2 name="Position"><XS>1</XS><XO>-8</XO><YS>0</YS><YO>8</YO></UDim2>
+          <UDim2 name="Size"><XS>0</XS><XO>52</XO><YS>0</YS><YO>52</YO></UDim2>
+          <float name="BackgroundTransparency">1</float>
+          <Content name="Image"><url>rbxassetid://0</url></Content>
+          <token name="ScaleType">3</token>
+          <int name="ZIndex">6</int>
+          <string name="Name">CloseButton</string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="LocalScript" referent="RBX891E9DAC3F9448AA932B42E3C2ED60A7">
+      <Properties>
+        <string name="Name">HustleController</string>
+        <ProtectedString name="Source"><![CDATA[-- HustleController (LocalScript inside HustleGui) — v2
+-- LEFT : one tab per GameConfig.Zones entry (in Order), cloned once from the
+--        hidden Tabs.HustleTabTemplate. Locked zones show a lock + "Lv N".
+-- RIGHT: the selected zone's Detail pane (ZoneName, Tagline, Preview,
+--        LockedNote) and one row per zone.Upgrades entry, cloned once from the
+--        hidden Rows.UpgradeRowTemplate and re-filled when the zone changes.
+--   open        -> select the zone nearest the character (Mechanics.nearestZoneId)
+--   DataSync    -> cache the snapshot; refresh lock state, levels, prices, preview
+--   BuyButton   -> BuyUpgrade(zoneId, upgradeId)  (UpgradeService validates all)
+--   a level increase on the shown zone -> sparkle the row + "LevelUp" sound
+-- The client only displays and asks. Unaffordable taps still fire so the
+-- server's "Not enough cash" toast explains why nothing happened.
+-- See ARCHITECTURE.md "UI contract" and "Earnings, XP and mechanics".
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Mechanics = require(Shared:WaitForChild("Mechanics"))
+local FormatNumber = require(Shared:WaitForChild("FormatNumber"))
+local ButtonFX = require(Shared:WaitForChild("ButtonFX"))
+local ClientEffects = require(Shared:WaitForChild("ClientEffects"))
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local DataSync = Remotes:WaitForChild("DataSync") :: RemoteEvent
+local BuyUpgrade = Remotes:WaitForChild("BuyUpgrade") :: RemoteEvent
+
+local player = Players.LocalPlayer
+local gui = script.Parent :: ScreenGui
+local main = gui:WaitForChild("Main")
+local panelScale = main:WaitForChild("PanelScale") :: UIScale
+local panel = main:WaitForChild("Panel")
+local tabsFrame = panel:WaitForChild("Tabs") :: ScrollingFrame
+local tabTemplate = tabsFrame:WaitForChild("HustleTabTemplate") :: TextButton
+local detail = panel:WaitForChild("Detail")
+local zoneNameLabel = detail:WaitForChild("ZoneName") :: TextLabel
+local taglineLabel = detail:WaitForChild("Tagline") :: TextLabel
+local previewLabel = detail:WaitForChild("Preview") :: TextLabel
+local lockedNote = detail:WaitForChild("LockedNote") :: TextLabel
+local rowsFrame = detail:WaitForChild("Rows")
+local rowTemplate = rowsFrame:WaitForChild("UpgradeRowTemplate") :: Frame
+local closeButton = main:WaitForChild("CloseButton") :: GuiButton
+local cashAmount = main:WaitForChild("CashPill"):WaitForChild("Amount") :: TextLabel
+
+tabTemplate.Visible = false
+rowTemplate.Visible = false
+
+----------------------------------------------------------------------
+-- Look constants (match hustlegui.spec.json)
+----------------------------------------------------------------------
+
+local function rgb(r: number, g: number, b: number): Color3
+	return Color3.fromRGB(r, g, b)
+end
+
+local WHITE = rgb(255, 255, 255) -- gradients show at full strength
+local UNAFFORDABLE = rgb(135, 135, 145) -- multiplies the gradient toward gray
+local GOLD = rgb(255, 212, 31)
+local DARK_TEXT = rgb(58, 49, 83)
+local MUTED_TEXT = rgb(138, 127, 158)
+
+local GREEN_SEQUENCE = ColorSequence.new(rgb(71, 198, 78), rgb(42, 147, 42)) -- #47c64e -> #2a932a
+local GOLD_SEQUENCE = ColorSequence.new(rgb(255, 212, 31), rgb(255, 123, 34)) -- #ffd41f -> #ff7b22
+local TAB_SEQUENCE = ColorSequence.new(rgb(251, 248, 255), rgb(228, 218, 243))
+local TAB_SELECTED_SEQUENCE = ColorSequence.new(rgb(255, 246, 204), rgb(255, 216, 107))
+local ROW_SEQUENCE = ColorSequence.new(WHITE, rgb(239, 232, 250))
+local ROW_AUTO_SEQUENCE = ColorSequence.new(rgb(255, 248, 214), rgb(255, 223, 126))
+
+local TAB_STROKE = 2.5
+local TAB_SELECTED_STROKE = 3.5
+local TAB_NAME_SIZE = UDim2.new(1, -23, 1, -8)
+local TAB_NAME_SIZE_LOCKED = UDim2.new(1, -51, 1, -8) -- leaves room for the lock
+
+-- Row icon per upgrade Effect. The double-brace icon tokens below are replaced
+-- by build_ui.py with the uploaded asset id (rbxassetid://0 until the spec's
+-- icon_ids are filled in).
+local EFFECT_ICONS: { [string]: string } = {
+	Earn = "rbxassetid://0",
+	Xp = "rbxassetid://0",
+	Speed = "rbxassetid://0",
+	Auto = "rbxassetid://0",
+}
+
+----------------------------------------------------------------------
+-- Small helpers
+----------------------------------------------------------------------
+
+local function findLabel(parent: Instance, name: string): TextLabel?
+	-- FindFirstChild on purpose: a child literally named "Name" is shadowed by
+	-- the Instance.Name property under dot access.
+	local child = parent:FindFirstChild(name)
+	return if child and child:IsA("TextLabel") then child else nil
+end
+
+local function findGui(parent: Instance, name: string): GuiObject?
+	local child = parent:FindFirstChild(name)
+	return if child and child:IsA("GuiObject") then child else nil
+end
+
+local function findGradient(parent: Instance, name: string): UIGradient?
+	local child = parent:FindFirstChild(name)
+	return if child and child:IsA("UIGradient") then child else nil
+end
+
+local function numberOr(value: any, default: number): number
+	return if typeof(value) == "number" and value == value then value else default
+end
+
+local function secondsText(seconds: number): string
+	if seconds == math.floor(seconds) then
+		return tostring(math.floor(seconds))
+	end
+	return string.format("%.1f", seconds)
+end
+
+----------------------------------------------------------------------
+-- Zones in Order (GameConfig.Zones is already ordered; sort defensively)
+----------------------------------------------------------------------
+
+local zones = table.clone(GameConfig.Zones)
+table.sort(zones, function(a, b)
+	return a.Order < b.Order
+end)
+
+local maxUpgradeCount = 0
+for _, zone in zones do
+	maxUpgradeCount = math.max(maxUpgradeCount, #zone.Upgrades)
+end
+
+----------------------------------------------------------------------
+-- State
+----------------------------------------------------------------------
+
+local lastSnapshot: { [string]: any }? = nil
+local selectedZoneId: string = GameConfig.StartingZoneId
+
+type TabEntry = {
+	button: TextButton,
+	zone: any, -- GameConfig.ZoneDef
+	index: number,
+	stroke: UIStroke?,
+	gradient: UIGradient?,
+	nameLabel: TextLabel?,
+	lockIcon: GuiObject?,
+	lockLabel: TextLabel?,
+}
+
+type RowEntry = {
+	frame: Frame,
+	accent: GuiObject?,
+	icon: ImageLabel?,
+	nameLabel: TextLabel?,
+	descLabel: TextLabel?,
+	levelLabel: TextLabel?,
+	rowGradient: UIGradient?,
+	buyButton: TextButton,
+	buyGradient: UIGradient?,
+	price: TextLabel?,
+	dim: GuiObject?,
+	zoneId: string?,
+	upgradeId: string?,
+	canBuy: boolean,
+}
+
+local tabs: { [string]: TabEntry } = {}
+local rows: { RowEntry } = {}
+
+----------------------------------------------------------------------
+-- Preview line: the contract's earnings formulas without the mechanic
+-- multiplier, e.g. "$3 + 2 XP per Squeeze  -  0.6s | Auto: $1 every 2s"
+----------------------------------------------------------------------
+
+local function previewText(zone: any, upgrades: any, rebirths: number): string
+	local effects = GameConfig.UpgradeEffects
+	local earnLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Earn")
+	local xpLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Xp")
+	local autoLevel = GameConfig.getZoneEffectLevel(upgrades, zone.Id, "Auto")
+
+	local cash = math.floor(
+		zone.HustleEarn * (1 + effects.Earn.PerLevel * earnLevel) * GameConfig.getRebirthCashMultiplier(rebirths)
+	)
+	local xp = math.floor(
+		zone.XpPerHustle * (1 + effects.Xp.PerLevel * xpLevel) * GameConfig.getRebirthXpMultiplier(rebirths)
+	)
+	local cooldown = Mechanics.cooldownFor(zone, upgrades)
+
+	local text = string.format(
+		"%s + %s XP per %s  -  %.1fs",
+		FormatNumber.money(cash),
+		FormatNumber.abbreviate(xp),
+		zone.HustleVerb,
+		cooldown
+	)
+	if autoLevel > 0 then
+		local autoCash = math.floor(cash * Mechanics.autoPercent(autoLevel))
+		text ..= " | Auto: " .. FormatNumber.money(autoCash) .. " every " .. secondsText(effects.Auto.Interval) .. "s"
+	end
+	return text
+end
+
+----------------------------------------------------------------------
+-- Refresh everything from the cached snapshot (defaults before the first one)
+----------------------------------------------------------------------
+
+local function refresh()
+	local snapshot = lastSnapshot or {}
+	local level = numberOr(snapshot.Level, 1)
+	local cash = numberOr(snapshot.Cash, 0)
+	local rebirths = numberOr(snapshot.Rebirths, 0)
+	local upgrades = snapshot.Upgrades -- any; GameConfig helpers tolerate nil/garbage
+
+	cashAmount.Text = FormatNumber.money(cash)
+
+	-- Tabs: lock badge + selection highlight.
+	for zoneId, entry in tabs do
+		local locked = level < entry.zone.UnlockLevel
+		local selected = zoneId == selectedZoneId
+		if entry.lockIcon then
+			entry.lockIcon.Visible = locked
+		end
+		if entry.lockLabel then
+			entry.lockLabel.Visible = locked
+			entry.lockLabel.Text = "Lv " .. entry.zone.UnlockLevel
+		end
+		if entry.nameLabel then
+			entry.nameLabel.Size = if locked then TAB_NAME_SIZE_LOCKED else TAB_NAME_SIZE
+			entry.nameLabel.TextColor3 = if locked then MUTED_TEXT else DARK_TEXT
+		end
+		if entry.stroke then
+			entry.stroke.Thickness = if selected then TAB_SELECTED_STROKE else TAB_STROKE
+		end
+		if entry.gradient then
+			entry.gradient.Color = if selected then TAB_SELECTED_SEQUENCE else TAB_SEQUENCE
+		end
+	end
+
+	-- Detail pane for the selected zone.
+	local zone = GameConfig.getZone(selectedZoneId)
+	if not zone then
+		return
+	end
+	local locked = level < zone.UnlockLevel
+
+	zoneNameLabel.Text = string.upper(zone.Name)
+	zoneNameLabel.TextColor3 = zone.SignColor
+	taglineLabel.Text = zone.Tagline
+	previewLabel.Text = previewText(zone, upgrades, rebirths)
+	lockedNote.Text = "Reach level " .. zone.UnlockLevel .. " to unlock"
+	lockedNote.Visible = locked
+
+	for index, entry in rows do
+		local def = zone.Upgrades[index]
+		if not def then
+			entry.frame.Visible = false
+			entry.zoneId = nil
+			entry.upgradeId = nil
+			entry.canBuy = false
+			continue
+		end
+		entry.frame.Visible = true
+		entry.zoneId = zone.Id
+		entry.upgradeId = def.Id
+
+		local isAuto = def.Effect == "Auto"
+		if entry.nameLabel then
+			entry.nameLabel.Text = def.Name
+		end
+		if entry.descLabel then
+			entry.descLabel.Text = def.Description
+		end
+		if entry.icon then
+			local image = EFFECT_ICONS[def.Effect]
+			if image then
+				entry.icon.Image = image
+			end
+		end
+		if entry.accent then
+			entry.accent.BackgroundColor3 = if isAuto then GOLD else zone.SignColor
+		end
+		if entry.rowGradient then
+			entry.rowGradient.Color = if isAuto then ROW_AUTO_SEQUENCE else ROW_SEQUENCE
+		end
+
+		local upgradeLevel = GameConfig.getZoneUpgradeLevel(upgrades, zone.Id, def.Id)
+		if entry.levelLabel then
+			entry.levelLabel.Text = "Lv " .. upgradeLevel .. "/" .. def.MaxLevel
+		end
+
+		local cost = GameConfig.getZoneUpgradeCost(zone.Id, def.Id, upgradeLevel)
+		local button = entry.buyButton
+		if cost == nil then
+			-- Maxed out: gold MAX button that no longer accepts taps.
+			if entry.price then
+				entry.price.Text = "MAX"
+			end
+			if entry.buyGradient then
+				entry.buyGradient.Color = GOLD_SEQUENCE
+			end
+			button.BackgroundColor3 = WHITE
+			entry.canBuy = false
+		else
+			if entry.price then
+				entry.price.Text = FormatNumber.money(cost)
+			end
+			if entry.buyGradient then
+				entry.buyGradient.Color = GREEN_SEQUENCE
+			end
+			button.BackgroundColor3 = if not locked and cash >= cost then WHITE else UNAFFORDABLE
+			entry.canBuy = not locked
+		end
+		button.Active = entry.canBuy
+		button.AutoButtonColor = entry.canBuy
+
+		-- Locked zone: the whole row sits under a cream veil, buttons inactive.
+		if entry.dim then
+			entry.dim.Visible = locked
+		end
+	end
+end
+
+----------------------------------------------------------------------
+-- Build tabs + rows once
+----------------------------------------------------------------------
+
+local function selectZone(zoneId: string)
+	if not GameConfig.getZone(zoneId) then
+		return
+	end
+	selectedZoneId = zoneId
+	refresh()
+end
+
+for index, zone in zones do
+	local button = tabTemplate:Clone()
+	button.Name = zone.Id
+	button.LayoutOrder = zone.Order
+	button.Visible = true
+
+	local stripe = findGui(button, "Stripe")
+	if stripe then
+		stripe.BackgroundColor3 = zone.SignColor
+	end
+	local nameLabel = findLabel(button, "Name")
+	if nameLabel then
+		nameLabel.Text = zone.Name
+	end
+	local lockLabel = findLabel(button, "LockLabel")
+	if lockLabel then
+		lockLabel.Text = "Lv " .. zone.UnlockLevel
+	end
+	local strokeChild = button:FindFirstChild("Stroke")
+
+	tabs[zone.Id] = {
+		button = button,
+		zone = zone,
+		index = index,
+		stroke = if strokeChild and strokeChild:IsA("UIStroke") then strokeChild else nil,
+		gradient = findGradient(button, "Grad"),
+		nameLabel = nameLabel,
+		lockIcon = findGui(button, "LockIcon"),
+		lockLabel = lockLabel,
+	}
+
+	local zoneId = zone.Id
+	button.Activated:Connect(function()
+		selectZone(zoneId)
+	end)
+	ButtonFX.attach(button)
+	button.Parent = tabsFrame
+end
+
+for index = 1, maxUpgradeCount do
+	local frame = rowTemplate:Clone()
+	frame.Name = "UpgradeRow" .. index
+	frame.LayoutOrder = index
+	frame.Visible = true
+
+	local buyButton = frame:WaitForChild("BuyButton") :: TextButton
+	local icon = frame:FindFirstChild("Icon")
+	local entry: RowEntry = {
+		frame = frame,
+		accent = findGui(frame, "Accent"),
+		icon = if icon and icon:IsA("ImageLabel") then icon else nil,
+		nameLabel = findLabel(frame, "Name"),
+		descLabel = findLabel(frame, "Desc"),
+		levelLabel = findLabel(frame, "Level"),
+		rowGradient = findGradient(frame, "Grad"),
+		buyButton = buyButton,
+		buyGradient = findGradient(buyButton, "Grad"),
+		price = findLabel(buyButton, "Price"),
+		dim = findGui(frame, "Dim"),
+		zoneId = nil,
+		upgradeId = nil,
+		canBuy = false,
+	}
+	rows[index] = entry
+
+	buyButton.Activated:Connect(function()
+		-- Locked / maxed rows ignore taps (Active=false too); the server
+		-- re-validates level, unlock and cash regardless.
+		local zoneId, upgradeId = entry.zoneId, entry.upgradeId
+		if not entry.canBuy or not zoneId or not upgradeId then
+			return
+		end
+		BuyUpgrade:FireServer(zoneId, upgradeId)
+	end)
+	ButtonFX.attach(buyButton)
+	frame.Parent = rowsFrame
+end
+
+----------------------------------------------------------------------
+-- Open: nearest zone, scroll its tab into view, refresh, bounce
+----------------------------------------------------------------------
+
+local function nearestZoneId(): string
+	local character = player.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if root and root:IsA("BasePart") then
+		local zoneId = Mechanics.nearestZoneId(root.Position)
+		if GameConfig.getZone(zoneId) then
+			return zoneId
+		end
+	end
+	return GameConfig.StartingZoneId
+end
+
+local function scrollTabIntoView(zoneId: string)
+	local entry = tabs[zoneId]
+	if not entry then
+		return
+	end
+	-- Offsets from the spec (tab height + list padding); keep one tab of
+	-- context above the selected one. The ScrollingFrame clamps the rest.
+	local layout = tabsFrame:FindFirstChildOfClass("UIListLayout")
+	local step = tabTemplate.Size.Y.Offset + (if layout then layout.Padding.Offset else 0)
+	tabsFrame.CanvasPosition = Vector2.new(0, math.max(0, (entry.index - 2) * step))
+end
+
+local function bounceOpen()
+	panelScale.Scale = 0.6
+	TweenService:Create(
+		panelScale,
+		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 }
+	):Play()
+end
+
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	if gui.Enabled then
+		selectedZoneId = nearestZoneId()
+		refresh()
+		scrollTabIntoView(selectedZoneId)
+		bounceOpen()
+	end
+end)
+
+----------------------------------------------------------------------
+-- DataSync: cache, refresh while open, juice level increases on the shown zone
+----------------------------------------------------------------------
+
+DataSync.OnClientEvent:Connect(function(snapshot: any)
+	if typeof(snapshot) ~= "table" then
+		return
+	end
+	local previous = lastSnapshot
+	lastSnapshot = snapshot
+	if not gui.Enabled then
+		return
+	end
+	refresh()
+
+	-- Compare consecutive snapshots (not "last shown") so switching tabs never
+	-- fakes a level-up, and a rebirth reset (levels drop) stays quiet.
+	local zone = GameConfig.getZone(selectedZoneId)
+	if not previous or not zone then
+		return
+	end
+	local leveled = false
+	for index, def in zone.Upgrades do
+		local before = GameConfig.getZoneUpgradeLevel(previous.Upgrades, zone.Id, def.Id)
+		local after = GameConfig.getZoneUpgradeLevel(snapshot.Upgrades, zone.Id, def.Id)
+		if after > before then
+			leveled = true
+			local entry = rows[index]
+			if entry then
+				ClientEffects.sparkle(entry.frame)
+			end
+		end
+	end
+	if leveled then
+		ClientEffects.playSound("LevelUp")
+	end
+end)
+
+----------------------------------------------------------------------
+-- Close
+----------------------------------------------------------------------
+
+closeButton.Activated:Connect(function()
+	gui.Enabled = false
+end)
+ButtonFX.attach(closeButton)
+
+-- Never show template placeholder text, even if opened before the first DataSync.
+refresh()
+]]></ProtectedString>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>

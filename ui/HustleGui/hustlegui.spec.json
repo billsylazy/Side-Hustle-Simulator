@@ -1,0 +1,1553 @@
+{
+  "name": "HustleGui",
+  "screen_gui_props": {
+    "Enabled": false,
+    "IgnoreGuiInset": false,
+    "ScreenInsets": "CoreUISafeInsets",
+    "DisplayOrder": 5
+  },
+  "icon_ids": {},
+  "todos": [
+    "Upload the icons listed above, then paste the asset ids into icon_ids and rebuild (the per-effect row icons in HustleController are icon tokens and update with the same build)"
+  ],
+  "children": [
+    {
+      "class": "Frame",
+      "name": "Main",
+      "props": {
+        "AnchorPoint": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.5,
+          0,
+          0.5,
+          8
+        ],
+        "Size": [
+          0.66,
+          0,
+          0.9,
+          0
+        ],
+        "BackgroundTransparency": 1
+      },
+      "children": [
+        {
+          "class": "UIScale",
+          "name": "PanelScale",
+          "props": {
+            "Scale": 1
+          }
+        },
+        {
+          "class": "UISizeConstraint",
+          "props": {
+            "MinSize": [
+              540,
+              272
+            ],
+            "MaxSize": [
+              860,
+              430
+            ]
+          }
+        },
+        {
+          "class": "Frame",
+          "name": "Shadow",
+          "props": {
+            "AnchorPoint": [
+              0.5,
+              0.5
+            ],
+            "Position": [
+              0.5,
+              0,
+              0.5,
+              8
+            ],
+            "Size": [
+              1,
+              0,
+              1,
+              0
+            ],
+            "BackgroundColor3": "#040435",
+            "BackgroundTransparency": 0.45,
+            "BorderSizePixel": 0,
+            "ZIndex": 1
+          },
+          "children": [
+            {
+              "class": "UICorner",
+              "props": {
+                "CornerRadius": [
+                  0,
+                  24
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "class": "Frame",
+          "name": "Panel",
+          "props": {
+            "Size": [
+              1,
+              0,
+              1,
+              0
+            ],
+            "BackgroundColor3": "#ffffff",
+            "BorderSizePixel": 0,
+            "ZIndex": 2
+          },
+          "children": [
+            {
+              "class": "UICorner",
+              "props": {
+                "CornerRadius": [
+                  0,
+                  24
+                ]
+              }
+            },
+            {
+              "class": "UIStroke",
+              "props": {
+                "Color": "#040435",
+                "Thickness": 4,
+                "ApplyStrokeMode": "Border"
+              }
+            },
+            {
+              "class": "UIGradient",
+              "props": {
+                "Rotation": 90,
+                "Color": [
+                  [
+                    0,
+                    "#fffdf6"
+                  ],
+                  [
+                    1,
+                    "#ffeaf3"
+                  ]
+                ]
+              }
+            },
+            {
+              "class": "UIPadding",
+              "props": {
+                "PaddingTop": [
+                  0,
+                  30
+                ],
+                "PaddingBottom": [
+                  0,
+                  10
+                ],
+                "PaddingLeft": [
+                  0,
+                  12
+                ],
+                "PaddingRight": [
+                  0,
+                  12
+                ]
+              }
+            },
+            {
+              "class": "ScrollingFrame",
+              "name": "Tabs",
+              "props": {
+                "Size": [
+                  0.25,
+                  0,
+                  1,
+                  0
+                ],
+                "BackgroundColor3": "#ffffff",
+                "BorderSizePixel": 0,
+                "ScrollBarThickness": 5,
+                "ScrollBarImageColor3": "#040435",
+                "AutomaticCanvasSize": "Y",
+                "CanvasSize": [
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "ScrollingDirection": "Y",
+                "ZIndex": 2
+              },
+              "children": [
+                {
+                  "class": "UICorner",
+                  "props": {
+                    "CornerRadius": [
+                      0,
+                      14
+                    ]
+                  }
+                },
+                {
+                  "class": "UIStroke",
+                  "props": {
+                    "Color": "#040435",
+                    "Thickness": 2.5,
+                    "ApplyStrokeMode": "Border"
+                  }
+                },
+                {
+                  "class": "UIGradient",
+                  "props": {
+                    "Rotation": 90,
+                    "Color": [
+                      [
+                        0,
+                        "#efe9f8"
+                      ],
+                      [
+                        1,
+                        "#ddd2ee"
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "class": "UIPadding",
+                  "props": {
+                    "PaddingTop": [
+                      0,
+                      6
+                    ],
+                    "PaddingBottom": [
+                      0,
+                      6
+                    ],
+                    "PaddingLeft": [
+                      0,
+                      6
+                    ],
+                    "PaddingRight": [
+                      0,
+                      10
+                    ]
+                  }
+                },
+                {
+                  "class": "UIListLayout",
+                  "props": {
+                    "FillDirection": "Vertical",
+                    "Padding": [
+                      0,
+                      6
+                    ],
+                    "SortOrder": "LayoutOrder",
+                    "HorizontalAlignment": "Center"
+                  }
+                },
+                {
+                  "class": "TextButton",
+                  "name": "HustleTabTemplate",
+                  "props": {
+                    "Visible": false,
+                    "LayoutOrder": 0,
+                    "Size": [
+                      1,
+                      0,
+                      0,
+                      40
+                    ],
+                    "BackgroundColor3": "#ffffff",
+                    "BorderSizePixel": 0,
+                    "AutoButtonColor": false,
+                    "Text": "",
+                    "ZIndex": 2
+                  },
+                  "children": [
+                    {
+                      "class": "UICorner",
+                      "props": {
+                        "CornerRadius": [
+                          0,
+                          10
+                        ]
+                      }
+                    },
+                    {
+                      "class": "UIStroke",
+                      "name": "Stroke",
+                      "props": {
+                        "Color": "#040435",
+                        "Thickness": 2.5,
+                        "ApplyStrokeMode": "Border"
+                      }
+                    },
+                    {
+                      "class": "UIGradient",
+                      "name": "Grad",
+                      "props": {
+                        "Rotation": 90,
+                        "Color": [
+                          [
+                            0,
+                            "#fbf8ff"
+                          ],
+                          [
+                            1,
+                            "#e4daf3"
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "class": "Frame",
+                      "name": "Stripe",
+                      "props": {
+                        "AnchorPoint": [
+                          0,
+                          0.5
+                        ],
+                        "Position": [
+                          0,
+                          6,
+                          0.5,
+                          0
+                        ],
+                        "Size": [
+                          0,
+                          7,
+                          1,
+                          -12
+                        ],
+                        "BackgroundColor3": "#ffd41f",
+                        "BorderSizePixel": 0,
+                        "ZIndex": 3
+                      },
+                      "children": [
+                        {
+                          "class": "UICorner",
+                          "props": {
+                            "CornerRadius": [
+                              1,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "class": "UIStroke",
+                          "props": {
+                            "Color": "#040435",
+                            "Thickness": 1.5,
+                            "ApplyStrokeMode": "Border"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "class": "TextLabel",
+                      "name": "Name",
+                      "props": {
+                        "Text": "Lemonade Stand",
+                        "BackgroundTransparency": 1,
+                        "TextColor3": "#3a3153",
+                        "TextScaled": true,
+                        "FontFace": {
+                          "family": "FredokaOne"
+                        },
+                        "AnchorPoint": [
+                          0,
+                          0.5
+                        ],
+                        "Position": [
+                          0,
+                          17,
+                          0.5,
+                          0
+                        ],
+                        "Size": [
+                          1,
+                          -23,
+                          1,
+                          -8
+                        ],
+                        "TextXAlignment": "Left",
+                        "TextWrapped": true,
+                        "ZIndex": 3
+                      },
+                      "children": [
+                        {
+                          "class": "UITextSizeConstraint",
+                          "props": {
+                            "MaxTextSize": 15
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "class": "ImageLabel",
+                      "name": "LockIcon",
+                      "props": {
+                        "AnchorPoint": [
+                          1,
+                          0
+                        ],
+                        "Position": [
+                          1,
+                          -6,
+                          0,
+                          2
+                        ],
+                        "Size": [
+                          0,
+                          22,
+                          0,
+                          22
+                        ],
+                        "BackgroundTransparency": 1,
+                        "Image": "icon:Item/Lock/Lock 1st",
+                        "ScaleType": "Fit",
+                        "Visible": false,
+                        "ZIndex": 4
+                      }
+                    },
+                    {
+                      "class": "TextLabel",
+                      "name": "LockLabel",
+                      "props": {
+                        "Text": "Lv 8",
+                        "BackgroundTransparency": 1,
+                        "TextColor3": "#c0123f",
+                        "TextScaled": true,
+                        "FontFace": {
+                          "family": "FredokaOne"
+                        },
+                        "AnchorPoint": [
+                          1,
+                          1
+                        ],
+                        "Position": [
+                          1,
+                          -3,
+                          1,
+                          -2
+                        ],
+                        "Size": [
+                          0,
+                          30,
+                          0,
+                          13
+                        ],
+                        "Visible": false,
+                        "ZIndex": 4
+                      },
+                      "children": [
+                        {
+                          "class": "UITextSizeConstraint",
+                          "props": {
+                            "MaxTextSize": 12
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "class": "Frame",
+              "name": "Detail",
+              "props": {
+                "Position": [
+                  0.25,
+                  10,
+                  0,
+                  0
+                ],
+                "Size": [
+                  0.75,
+                  -10,
+                  1,
+                  0
+                ],
+                "BackgroundTransparency": 1,
+                "ZIndex": 2
+              },
+              "children": [
+                {
+                  "class": "TextLabel",
+                  "name": "ZoneName",
+                  "props": {
+                    "Text": "LEMONADE STAND",
+                    "BackgroundTransparency": 1,
+                    "TextColor3": "#ffd41f",
+                    "TextScaled": true,
+                    "FontFace": {
+                      "family": "LuckiestGuy"
+                    },
+                    "Position": [
+                      0,
+                      2,
+                      0,
+                      1
+                    ],
+                    "Size": [
+                      0.56,
+                      0,
+                      0,
+                      28
+                    ],
+                    "TextXAlignment": "Left",
+                    "ZIndex": 3
+                  },
+                  "children": [
+                    {
+                      "class": "UIStroke",
+                      "props": {
+                        "Color": "#040435",
+                        "Thickness": 2.5,
+                        "ApplyStrokeMode": "Contextual"
+                      }
+                    },
+                    {
+                      "class": "UITextSizeConstraint",
+                      "props": {
+                        "MaxTextSize": 26
+                      }
+                    }
+                  ]
+                },
+                {
+                  "class": "TextLabel",
+                  "name": "LockedNote",
+                  "props": {
+                    "AnchorPoint": [
+                      1,
+                      0
+                    ],
+                    "Position": [
+                      1,
+                      -2,
+                      0,
+                      2
+                    ],
+                    "Size": [
+                      0.42,
+                      0,
+                      0,
+                      24
+                    ],
+                    "BackgroundColor3": "#ffffff",
+                    "BorderSizePixel": 0,
+                    "Text": "Reach level 8 to unlock",
+                    "TextScaled": true,
+                    "TextColor3": "#c0123f",
+                    "FontFace": {
+                      "family": "FredokaOne"
+                    },
+                    "Visible": false,
+                    "ZIndex": 4
+                  },
+                  "children": [
+                    {
+                      "class": "UICorner",
+                      "props": {
+                        "CornerRadius": [
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    {
+                      "class": "UIStroke",
+                      "props": {
+                        "Color": "#040435",
+                        "Thickness": 2.5,
+                        "ApplyStrokeMode": "Border"
+                      }
+                    },
+                    {
+                      "class": "UIGradient",
+                      "props": {
+                        "Rotation": 90,
+                        "Color": [
+                          [
+                            0,
+                            "#ffe6ec"
+                          ],
+                          [
+                            1,
+                            "#ffc4d1"
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "class": "UITextSizeConstraint",
+                      "props": {
+                        "MaxTextSize": 14
+                      }
+                    },
+                    {
+                      "class": "UIPadding",
+                      "props": {
+                        "PaddingLeft": [
+                          0,
+                          28
+                        ],
+                        "PaddingRight": [
+                          0,
+                          10
+                        ],
+                        "PaddingTop": [
+                          0,
+                          4
+                        ],
+                        "PaddingBottom": [
+                          0,
+                          3
+                        ]
+                      }
+                    },
+                    {
+                      "class": "ImageLabel",
+                      "name": "LockGlyph",
+                      "props": {
+                        "AnchorPoint": [
+                          0,
+                          0.5
+                        ],
+                        "Position": [
+                          0,
+                          -24,
+                          0.5,
+                          0
+                        ],
+                        "Size": [
+                          0,
+                          20,
+                          0,
+                          20
+                        ],
+                        "BackgroundTransparency": 1,
+                        "Image": "icon:Item/Lock/Lock 1st",
+                        "ScaleType": "Fit",
+                        "ZIndex": 5
+                      }
+                    }
+                  ]
+                },
+                {
+                  "class": "TextLabel",
+                  "name": "Tagline",
+                  "props": {
+                    "Text": "Mash SQUEEZE to build a combo!",
+                    "BackgroundTransparency": 1,
+                    "TextColor3": "#6b5f85",
+                    "TextScaled": true,
+                    "FontFace": {
+                      "family": "FredokaOne"
+                    },
+                    "Position": [
+                      0,
+                      2,
+                      0,
+                      29
+                    ],
+                    "Size": [
+                      1,
+                      -4,
+                      0,
+                      16
+                    ],
+                    "TextXAlignment": "Left",
+                    "ZIndex": 3
+                  },
+                  "children": [
+                    {
+                      "class": "UITextSizeConstraint",
+                      "props": {
+                        "MaxTextSize": 14
+                      }
+                    }
+                  ]
+                },
+                {
+                  "class": "TextLabel",
+                  "name": "Preview",
+                  "props": {
+                    "Position": [
+                      0,
+                      0,
+                      0,
+                      48
+                    ],
+                    "Size": [
+                      1,
+                      0,
+                      0,
+                      25
+                    ],
+                    "BackgroundColor3": "#ffffff",
+                    "BorderSizePixel": 0,
+                    "Text": "$3 + 2 XP per Squeeze  -  0.6s",
+                    "TextScaled": true,
+                    "TextColor3": "#3a3153",
+                    "FontFace": {
+                      "family": "FredokaOne"
+                    },
+                    "ZIndex": 3
+                  },
+                  "children": [
+                    {
+                      "class": "UICorner",
+                      "props": {
+                        "CornerRadius": [
+                          1,
+                          0
+                        ]
+                      }
+                    },
+                    {
+                      "class": "UIStroke",
+                      "props": {
+                        "Color": "#040435",
+                        "Thickness": 2,
+                        "ApplyStrokeMode": "Border"
+                      }
+                    },
+                    {
+                      "class": "UIGradient",
+                      "props": {
+                        "Rotation": 90,
+                        "Color": [
+                          [
+                            0,
+                            "#fff8db"
+                          ],
+                          [
+                            1,
+                            "#ffe69a"
+                          ]
+                        ]
+                      }
+                    },
+                    {
+                      "class": "UITextSizeConstraint",
+                      "props": {
+                        "MaxTextSize": 15
+                      }
+                    },
+                    {
+                      "class": "UIPadding",
+                      "props": {
+                        "PaddingLeft": [
+                          0,
+                          12
+                        ],
+                        "PaddingRight": [
+                          0,
+                          12
+                        ],
+                        "PaddingTop": [
+                          0,
+                          4
+                        ],
+                        "PaddingBottom": [
+                          0,
+                          3
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "class": "Frame",
+                  "name": "Rows",
+                  "props": {
+                    "Position": [
+                      0,
+                      0,
+                      0,
+                      79
+                    ],
+                    "Size": [
+                      1,
+                      0,
+                      1,
+                      -79
+                    ],
+                    "BackgroundTransparency": 1,
+                    "ZIndex": 2
+                  },
+                  "children": [
+                    {
+                      "class": "UIListLayout",
+                      "props": {
+                        "FillDirection": "Vertical",
+                        "Padding": [
+                          0,
+                          5
+                        ],
+                        "SortOrder": "LayoutOrder",
+                        "HorizontalAlignment": "Center",
+                        "VerticalAlignment": "Top"
+                      }
+                    },
+                    {
+                      "class": "Frame",
+                      "name": "UpgradeRowTemplate",
+                      "props": {
+                        "Visible": false,
+                        "LayoutOrder": 0,
+                        "Size": [
+                          1,
+                          0,
+                          0.25,
+                          -4
+                        ],
+                        "BackgroundColor3": "#ffffff",
+                        "BorderSizePixel": 0,
+                        "ZIndex": 2
+                      },
+                      "children": [
+                        {
+                          "class": "UISizeConstraint",
+                          "props": {
+                            "MaxSize": [
+                              4000,
+                              64
+                            ]
+                          }
+                        },
+                        {
+                          "class": "UICorner",
+                          "props": {
+                            "CornerRadius": [
+                              0,
+                              12
+                            ]
+                          }
+                        },
+                        {
+                          "class": "UIStroke",
+                          "name": "Stroke",
+                          "props": {
+                            "Color": "#040435",
+                            "Thickness": 2.5,
+                            "ApplyStrokeMode": "Border"
+                          }
+                        },
+                        {
+                          "class": "UIGradient",
+                          "name": "Grad",
+                          "props": {
+                            "Rotation": 90,
+                            "Color": [
+                              [
+                                0,
+                                "#ffffff"
+                              ],
+                              [
+                                1,
+                                "#efe8fa"
+                              ]
+                            ]
+                          }
+                        },
+                        {
+                          "class": "Frame",
+                          "name": "Accent",
+                          "props": {
+                            "AnchorPoint": [
+                              0,
+                              0.5
+                            ],
+                            "Position": [
+                              0,
+                              6,
+                              0.5,
+                              0
+                            ],
+                            "Size": [
+                              0,
+                              7,
+                              1,
+                              -12
+                            ],
+                            "BackgroundColor3": "#ffd41f",
+                            "BorderSizePixel": 0,
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            {
+                              "class": "UICorner",
+                              "props": {
+                                "CornerRadius": [
+                                  1,
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "class": "UIStroke",
+                              "props": {
+                                "Color": "#040435",
+                                "Thickness": 1.5,
+                                "ApplyStrokeMode": "Border"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "ImageLabel",
+                          "name": "Icon",
+                          "props": {
+                            "AnchorPoint": [
+                              0,
+                              0.5
+                            ],
+                            "Position": [
+                              0,
+                              18,
+                              0.5,
+                              0
+                            ],
+                            "Size": [
+                              0.82,
+                              0,
+                              0.82,
+                              0
+                            ],
+                            "SizeConstraint": "RelativeYY",
+                            "BackgroundTransparency": 1,
+                            "Image": "icon:Currency/Cash/Green Cash 1st",
+                            "ScaleType": "Fit",
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            {
+                              "class": "UISizeConstraint",
+                              "props": {
+                                "MaxSize": [
+                                  42,
+                                  42
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "TextLabel",
+                          "name": "Name",
+                          "props": {
+                            "Text": "Bigger Pitcher",
+                            "BackgroundTransparency": 1,
+                            "TextColor3": "#3a3153",
+                            "TextScaled": true,
+                            "FontFace": {
+                              "family": "FredokaOne"
+                            },
+                            "Position": [
+                              0,
+                              64,
+                              0.08,
+                              0
+                            ],
+                            "Size": [
+                              1,
+                              -244,
+                              0.44,
+                              0
+                            ],
+                            "TextXAlignment": "Left",
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            {
+                              "class": "UITextSizeConstraint",
+                              "props": {
+                                "MaxTextSize": 20
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "TextLabel",
+                          "name": "Desc",
+                          "props": {
+                            "Text": "+25% cash per squeeze",
+                            "BackgroundTransparency": 1,
+                            "TextColor3": "#6b5f85",
+                            "TextScaled": true,
+                            "FontFace": {
+                              "family": "FredokaOne"
+                            },
+                            "Position": [
+                              0,
+                              64,
+                              0.54,
+                              0
+                            ],
+                            "Size": [
+                              1,
+                              -176,
+                              0.36,
+                              0
+                            ],
+                            "TextXAlignment": "Left",
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            {
+                              "class": "UITextSizeConstraint",
+                              "props": {
+                                "MaxTextSize": 14
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "Frame",
+                          "name": "LevelBadge",
+                          "props": {
+                            "AnchorPoint": [
+                              1,
+                              0
+                            ],
+                            "Position": [
+                              1,
+                              -114,
+                              0.1,
+                              0
+                            ],
+                            "Size": [
+                              0,
+                              60,
+                              0.4,
+                              0
+                            ],
+                            "BackgroundColor3": "#ffffff",
+                            "BorderSizePixel": 0,
+                            "ZIndex": 3
+                          },
+                          "children": [
+                            {
+                              "class": "UICorner",
+                              "props": {
+                                "CornerRadius": [
+                                  1,
+                                  0
+                                ]
+                              }
+                            },
+                            {
+                              "class": "UIStroke",
+                              "props": {
+                                "Color": "#040435",
+                                "Thickness": 2,
+                                "ApplyStrokeMode": "Border"
+                              }
+                            },
+                            {
+                              "class": "UIGradient",
+                              "props": {
+                                "Rotation": 90,
+                                "Color": [
+                                  [
+                                    0,
+                                    "#8073ff"
+                                  ],
+                                  [
+                                    1,
+                                    "#5c33db"
+                                  ]
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "TextLabel",
+                          "name": "Level",
+                          "props": {
+                            "Text": "Lv 0/10",
+                            "BackgroundTransparency": 1,
+                            "TextColor3": "#ffffff",
+                            "TextScaled": true,
+                            "FontFace": {
+                              "family": "FredokaOne"
+                            },
+                            "AnchorPoint": [
+                              1,
+                              0
+                            ],
+                            "Position": [
+                              1,
+                              -118,
+                              0.1,
+                              2
+                            ],
+                            "Size": [
+                              0,
+                              52,
+                              0.4,
+                              -4
+                            ],
+                            "ZIndex": 4
+                          },
+                          "children": [
+                            {
+                              "class": "UIStroke",
+                              "props": {
+                                "Color": "#040435",
+                                "Thickness": 1.5,
+                                "ApplyStrokeMode": "Contextual"
+                              }
+                            },
+                            {
+                              "class": "UITextSizeConstraint",
+                              "props": {
+                                "MaxTextSize": 14
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "class": "TextButton",
+                          "name": "BuyButton",
+                          "props": {
+                            "AnchorPoint": [
+                              1,
+                              0.5
+                            ],
+                            "Position": [
+                              1,
+                              -6,
+                              0.5,
+                              0
+                            ],
+                            "Size": [
+                              0,
+                              100,
+                              1,
+                              -9
+                            ],
+                            "BackgroundColor3": "#ffffff",
+                            "BorderSizePixel": 0,
+                            "AutoButtonColor": true,
+                            "Text": "",
+                            "ZIndex": 4
+                          },
+                          "children": [
+                            {
+                              "class": "UICorner",
+                              "props": {
+                                "CornerRadius": [
+                                  0,
+                                  10
+                                ]
+                              }
+                            },
+                            {
+                              "class": "UIStroke",
+                              "props": {
+                                "Color": "#040435",
+                                "Thickness": 2.5,
+                                "ApplyStrokeMode": "Border"
+                              }
+                            },
+                            {
+                              "class": "UIGradient",
+                              "name": "Grad",
+                              "props": {
+                                "Rotation": 90,
+                                "Color": [
+                                  [
+                                    0,
+                                    "#47c64e"
+                                  ],
+                                  [
+                                    1,
+                                    "#2a932a"
+                                  ]
+                                ]
+                              }
+                            },
+                            {
+                              "class": "TextLabel",
+                              "name": "Price",
+                              "props": {
+                                "Text": "$120",
+                                "BackgroundTransparency": 1,
+                                "TextColor3": "#ffffff",
+                                "TextScaled": true,
+                                "FontFace": {
+                                  "family": "FredokaOne"
+                                },
+                                "AnchorPoint": [
+                                  0.5,
+                                  0.5
+                                ],
+                                "Position": [
+                                  0.5,
+                                  0,
+                                  0.5,
+                                  0
+                                ],
+                                "Size": [
+                                  1,
+                                  -14,
+                                  1,
+                                  -12
+                                ],
+                                "ZIndex": 5
+                              },
+                              "children": [
+                                {
+                                  "class": "UIStroke",
+                                  "props": {
+                                    "Color": "#040435",
+                                    "Thickness": 2.5,
+                                    "ApplyStrokeMode": "Contextual"
+                                  }
+                                },
+                                {
+                                  "class": "UITextSizeConstraint",
+                                  "props": {
+                                    "MaxTextSize": 20
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "class": "Frame",
+                          "name": "Dim",
+                          "props": {
+                            "Size": [
+                              1,
+                              0,
+                              1,
+                              0
+                            ],
+                            "BackgroundColor3": "#f2eef8",
+                            "BackgroundTransparency": 0.35,
+                            "BorderSizePixel": 0,
+                            "Visible": false,
+                            "ZIndex": 10
+                          },
+                          "children": [
+                            {
+                              "class": "UICorner",
+                              "props": {
+                                "CornerRadius": [
+                                  0,
+                                  12
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "class": "Frame",
+          "name": "TitleBanner",
+          "props": {
+            "AnchorPoint": [
+              0.5,
+              0.5
+            ],
+            "Position": [
+              0.5,
+              0,
+              0,
+              2
+            ],
+            "Size": [
+              0.36,
+              0,
+              0,
+              50
+            ],
+            "BackgroundColor3": "#ffffff",
+            "BorderSizePixel": 0,
+            "ZIndex": 5
+          },
+          "children": [
+            {
+              "class": "UISizeConstraint",
+              "props": {
+                "MinSize": [
+                  190,
+                  44
+                ],
+                "MaxSize": [
+                  280,
+                  52
+                ]
+              }
+            },
+            {
+              "class": "UICorner",
+              "props": {
+                "CornerRadius": [
+                  1,
+                  0
+                ]
+              }
+            },
+            {
+              "class": "UIStroke",
+              "props": {
+                "Color": "#040435",
+                "Thickness": 4,
+                "ApplyStrokeMode": "Border"
+              }
+            },
+            {
+              "class": "UIGradient",
+              "props": {
+                "Rotation": 90,
+                "Color": [
+                  [
+                    0,
+                    "#47c64e"
+                  ],
+                  [
+                    1,
+                    "#2a932a"
+                  ]
+                ]
+              }
+            },
+            {
+              "class": "TextLabel",
+              "name": "Title",
+              "props": {
+                "Text": "HUSTLES",
+                "BackgroundTransparency": 1,
+                "TextColor3": "#ffffff",
+                "TextScaled": true,
+                "FontFace": {
+                  "family": "LuckiestGuy"
+                },
+                "AnchorPoint": [
+                  0.5,
+                  0.5
+                ],
+                "Position": [
+                  0.5,
+                  0,
+                  0.5,
+                  2
+                ],
+                "Size": [
+                  1,
+                  -28,
+                  1,
+                  -12
+                ],
+                "ZIndex": 6
+              },
+              "children": [
+                {
+                  "class": "UIStroke",
+                  "props": {
+                    "Color": "#040435",
+                    "Thickness": 3,
+                    "ApplyStrokeMode": "Contextual"
+                  }
+                },
+                {
+                  "class": "UITextSizeConstraint",
+                  "props": {
+                    "MaxTextSize": 30
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "class": "Frame",
+          "name": "CashPill",
+          "props": {
+            "AnchorPoint": [
+              0,
+              0.5
+            ],
+            "Position": [
+              0,
+              28,
+              0,
+              2
+            ],
+            "Size": [
+              0,
+              112,
+              0,
+              32
+            ],
+            "BackgroundColor3": "#ffffff",
+            "BorderSizePixel": 0,
+            "ZIndex": 5
+          },
+          "children": [
+            {
+              "class": "UICorner",
+              "props": {
+                "CornerRadius": [
+                  1,
+                  0
+                ]
+              }
+            },
+            {
+              "class": "UIStroke",
+              "props": {
+                "Color": "#040435",
+                "Thickness": 3,
+                "ApplyStrokeMode": "Border"
+              }
+            },
+            {
+              "class": "UIGradient",
+              "props": {
+                "Rotation": 90,
+                "Color": [
+                  [
+                    0,
+                    "#ffd41f"
+                  ],
+                  [
+                    0.5,
+                    "#9ccb30"
+                  ],
+                  [
+                    1,
+                    "#2a932a"
+                  ]
+                ]
+              }
+            },
+            {
+              "class": "ImageLabel",
+              "name": "CashIcon",
+              "props": {
+                "Image": "icon:Currency/Cash/Green Cash 1st Outline",
+                "BackgroundTransparency": 1,
+                "AnchorPoint": [
+                  0,
+                  0.5
+                ],
+                "Position": [
+                  0,
+                  -12,
+                  0.5,
+                  0
+                ],
+                "Size": [
+                  1.3,
+                  0,
+                  1.3,
+                  0
+                ],
+                "SizeConstraint": "RelativeYY",
+                "ScaleType": "Fit",
+                "ZIndex": 6
+              }
+            },
+            {
+              "class": "TextLabel",
+              "name": "Amount",
+              "props": {
+                "Text": "$0",
+                "BackgroundTransparency": 1,
+                "TextColor3": "#ffffff",
+                "TextScaled": true,
+                "FontFace": {
+                  "family": "FredokaOne"
+                },
+                "Position": [
+                  0,
+                  32,
+                  0,
+                  4
+                ],
+                "Size": [
+                  1,
+                  -38,
+                  1,
+                  -8
+                ],
+                "TextXAlignment": "Left",
+                "ZIndex": 6
+              },
+              "children": [
+                {
+                  "class": "UIStroke",
+                  "props": {
+                    "Color": "#040435",
+                    "Thickness": 2.5,
+                    "ApplyStrokeMode": "Contextual"
+                  }
+                },
+                {
+                  "class": "UITextSizeConstraint",
+                  "props": {
+                    "MaxTextSize": 20
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "class": "ImageButton",
+          "name": "CloseButton",
+          "props": {
+            "AnchorPoint": [
+              0.5,
+              0.5
+            ],
+            "Position": [
+              1,
+              -8,
+              0,
+              8
+            ],
+            "Size": [
+              0,
+              52,
+              0,
+              52
+            ],
+            "BackgroundTransparency": 1,
+            "Image": "icon:UI/Close Button/Close Button 1st Outline",
+            "ScaleType": "Fit",
+            "ZIndex": 6
+          }
+        }
+      ]
+    },
+    {
+      "class": "LocalScript",
+      "name": "HustleController",
+      "source_file": "hustle.client.lua"
+    }
+  ]
+}

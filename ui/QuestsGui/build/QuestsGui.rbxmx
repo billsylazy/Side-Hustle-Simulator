@@ -1,37 +1,38 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
   <External>null</External>
   <External>nil</External>
-  <Item class="ScreenGui" referent="RBX514EC18CF4444DE7ACDE83402B9453D6">
+  <Item class="ScreenGui" referent="RBX99EB33452099473082305FB167A6F626">
     <Properties>
       <bool name="ResetOnSpawn">false</bool>
       <token name="ZIndexBehavior">1</token>
       <bool name="IgnoreGuiInset">false</bool>
       <bool name="Enabled">false</bool>
       <token name="ScreenInsets">2</token>
+      <int name="DisplayOrder">5</int>
       <string name="Name">QuestsGui</string>
     </Properties>
-    <Item class="Frame" referent="RBX53603BA07E744AB1ABF8C1B1B0DAA5E5">
+    <Item class="Frame" referent="RBX44E89BFB437644C999F4A5AFAA43075C">
       <Properties>
         <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
         <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
-        <UDim2 name="Size"><XS>0.56</XS><XO>0</XO><YS>0.78</YS><YO>0</YO></UDim2>
+        <UDim2 name="Size"><XS>0.62</XS><XO>0</XO><YS>0.78</YS><YO>0</YO></UDim2>
         <float name="BackgroundTransparency">1</float>
         <string name="Name">Main</string>
       </Properties>
-      <Item class="UIScale" referent="RBX3B4A563D5B834C88AE1D87D80E2C0557">
+      <Item class="UIScale" referent="RBX702E7FD2AF124E27BC18FD73556C6431">
         <Properties>
           <float name="Scale">1</float>
           <string name="Name">PanelScale</string>
         </Properties>
       </Item>
-      <Item class="UISizeConstraint" referent="RBX6AF063517918415F9EE71DFBAE1CE44B">
+      <Item class="UISizeConstraint" referent="RBXEDC7FCB9E42C427CBF7C5544F6FC8B1C">
         <Properties>
           <Vector2 name="MinSize"><X>500</X><Y>250</Y></Vector2>
           <Vector2 name="MaxSize"><X>720</X><Y>540</Y></Vector2>
           <string name="Name">UISizeConstraint</string>
         </Properties>
       </Item>
-      <Item class="Frame" referent="RBXEAD104CE280F486685C2FB33614DBD26">
+      <Item class="Frame" referent="RBXF2ED7BA0FF524592B12D33E261AD64EE">
         <Properties>
           <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
           <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>8</YO></UDim2>
@@ -42,14 +43,14 @@
           <int name="ZIndex">1</int>
           <string name="Name">Shadow</string>
         </Properties>
-        <Item class="UICorner" referent="RBX16DAC3E4847D426682E63665051DE8D3">
+        <Item class="UICorner" referent="RBXC44CAE78A38F4B3CB7D9E73C40969F64">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
       </Item>
-      <Item class="Frame" referent="RBXEE9A5B160E72430EAE9FB24D73568098">
+      <Item class="Frame" referent="RBXC902E7DF578D494480ABE262727A0006">
         <Properties>
           <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
           <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -57,13 +58,13 @@
           <int name="ZIndex">2</int>
           <string name="Name">Panel</string>
         </Properties>
-        <Item class="UICorner" referent="RBXCB7757743923445B81D0211E1E2E3083">
+        <Item class="UICorner" referent="RBX1BFC72047EBA431EB35517D106398247">
           <Properties>
             <UDim name="CornerRadius"><S>0</S><O>24</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBX1DF0EE8FEE1D486CBC4570C51CC8876B">
+        <Item class="UIStroke" referent="RBXA88A1CD594EC4085B138A16BF78BC127">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">4</float>
@@ -71,14 +72,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX674A654234944114BD357AFC998E3302">
+        <Item class="UIGradient" referent="RBX54AF62A2824E4B3F85FF1800EE934206">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.992157 0.964706 0 1 1 0.917647 0.952941 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="UIPadding" referent="RBXB3294F7A57974EC798D605056746E3FC">
+        <Item class="UIPadding" referent="RBXB8C82FB8763741F9930C0D64FD2B526A">
           <Properties>
             <UDim name="PaddingTop"><S>0</S><O>34</O></UDim>
             <UDim name="PaddingBottom"><S>0</S><O>14</O></UDim>
@@ -87,7 +88,7 @@
             <string name="Name">UIPadding</string>
           </Properties>
         </Item>
-        <Item class="ScrollingFrame" referent="RBX0EE3BCE3F7084F1D9AB9F6F81F68894C">
+        <Item class="ScrollingFrame" referent="RBX403F9DACE6F04D05843A400DC7920F49">
           <Properties>
             <UDim2 name="Position"><XS>0</XS><XO>0</XO><YS>0</YS><YO>6</YO></UDim2>
             <UDim2 name="Size"><XS>1</XS><XO>0</XO><YS>1</YS><YO>-6</YO></UDim2>
@@ -101,7 +102,7 @@
             <int name="ZIndex">2</int>
             <string name="Name">Items</string>
           </Properties>
-          <Item class="UIListLayout" referent="RBX3782DFD3500F49489B182FF44649987A">
+          <Item class="UIListLayout" referent="RBX04C5067A884E431D8D4E08058BDBFB77">
             <Properties>
               <token name="FillDirection">1</token>
               <UDim name="Padding"><S>0</S><O>8</O></UDim>
@@ -110,14 +111,14 @@
               <string name="Name">UIListLayout</string>
             </Properties>
           </Item>
-          <Item class="UIPadding" referent="RBX228A12F6B7D04208AC2F417A38DD9AA2">
+          <Item class="UIPadding" referent="RBX1365082BED284FE4B9FAAAA724E78309">
             <Properties>
               <UDim name="PaddingTop"><S>0</S><O>4</O></UDim>
               <UDim name="PaddingRight"><S>0</S><O>10</O></UDim>
               <string name="Name">UIPadding</string>
             </Properties>
           </Item>
-          <Item class="CanvasGroup" referent="RBXC480EE9346614F2AAD010883BFF685C9">
+          <Item class="CanvasGroup" referent="RBX09189A30ADD74E77B5BBDE6F75D53DEF">
             <Properties>
               <bool name="Visible">false</bool>
               <UDim2 name="Size"><XS>1</XS><XO>-10</XO><YS>0</YS><YO>64</YO></UDim2>
@@ -125,13 +126,13 @@
               <int name="BorderSizePixel">0</int>
               <string name="Name">QuestRowTemplate</string>
             </Properties>
-            <Item class="UICorner" referent="RBX3AE8F86CEE184A8BB181274CC143BE8B">
+            <Item class="UICorner" referent="RBX8748B1F439FA4A93BEBCAB81A94671A9">
               <Properties>
                 <UDim name="CornerRadius"><S>0</S><O>12</O></UDim>
                 <string name="Name">UICorner</string>
               </Properties>
             </Item>
-            <Item class="UIStroke" referent="RBX6AF5E4387A374D8C9B339B9BA7CF081A">
+            <Item class="UIStroke" referent="RBX0A5F92AAC36C4F0583502DF4D6A37AE6">
               <Properties>
                 <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                 <float name="Thickness">2.5</float>
@@ -139,17 +140,17 @@
                 <string name="Name">UIStroke</string>
               </Properties>
             </Item>
-            <Item class="UIGradient" referent="RBX8006310EFBF1488BB7A8009E0C6F3DAC">
+            <Item class="UIGradient" referent="RBX60D863D7B83347B8A5218F6F0FCA2314">
               <Properties>
                 <float name="Rotation">90</float>
                 <ColorSequence name="Color">0 0.964706 0.945098 0.992157 0 1 0.878431 0.839216 0.941176 0 </ColorSequence>
                 <string name="Name">UIGradient</string>
               </Properties>
             </Item>
-            <Item class="TextLabel" referent="RBXF198BF56544E4F98BC84B403EDF5EE0D">
+            <Item class="TextLabel" referent="RBX24ABAC4EC03D4259BF180FB309293B5A">
               <Properties>
                 <UDim2 name="Position"><XS>0</XS><XO>12</XO><YS>0</YS><YO>9</YO></UDim2>
-                <UDim2 name="Size"><XS>0.33</XS><XO>-12</XO><YS>0</YS><YO>22</YO></UDim2>
+                <UDim2 name="Size"><XS>0.38</XS><XO>-12</XO><YS>0</YS><YO>22</YO></UDim2>
                 <float name="BackgroundTransparency">1</float>
                 <string name="Text">First Squeeze</string>
                 <bool name="TextScaled">true</bool>
@@ -159,17 +160,17 @@
                 <int name="ZIndex">2</int>
                 <string name="Name">Title</string>
               </Properties>
-              <Item class="UITextSizeConstraint" referent="RBXCE88858145B045E38AA09D9652BAF88A">
+              <Item class="UITextSizeConstraint" referent="RBXEF86ACC1FF3949BD922C90C8C397E577">
                 <Properties>
                   <int name="MaxTextSize">16</int>
                   <string name="Name">UITextSizeConstraint</string>
                 </Properties>
               </Item>
             </Item>
-            <Item class="TextLabel" referent="RBXD78C74EE8A2D455FB491EE7561074ADB">
+            <Item class="TextLabel" referent="RBXD61BE37373794D21A2DA503F0EA0BEF3">
               <Properties>
                 <UDim2 name="Position"><XS>0</XS><XO>12</XO><YS>0</YS><YO>34</YO></UDim2>
-                <UDim2 name="Size"><XS>0.33</XS><XO>-12</XO><YS>0</YS><YO>18</YO></UDim2>
+                <UDim2 name="Size"><XS>0.38</XS><XO>-12</XO><YS>0</YS><YO>18</YO></UDim2>
                 <float name="BackgroundTransparency">1</float>
                 <string name="Text">Do 10 hustles</string>
                 <bool name="TextScaled">true</bool>
@@ -179,30 +180,30 @@
                 <int name="ZIndex">2</int>
                 <string name="Name">Desc</string>
               </Properties>
-              <Item class="UITextSizeConstraint" referent="RBXCEA473B2BBCB4FC4B784EEC9BB7F0D06">
+              <Item class="UITextSizeConstraint" referent="RBXE24926243B504E28B94D49A60F943367">
                 <Properties>
                   <int name="MaxTextSize">12</int>
                   <string name="Name">UITextSizeConstraint</string>
                 </Properties>
               </Item>
             </Item>
-            <Item class="Frame" referent="RBXAF42776F60BE478F8BF6AC2C72EB53C0">
+            <Item class="Frame" referent="RBXFF8ABC439E02415C879E7D378718E5D1">
               <Properties>
                 <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
-                <UDim2 name="Position"><XS>0.35</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
-                <UDim2 name="Size"><XS>0.26</XS><XO>0</XO><YS>0</YS><YO>18</YO></UDim2>
+                <UDim2 name="Position"><XS>0.4</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
+                <UDim2 name="Size"><XS>0.22</XS><XO>0</XO><YS>0</YS><YO>18</YO></UDim2>
                 <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
                 <int name="BorderSizePixel">0</int>
                 <int name="ZIndex">2</int>
                 <string name="Name">ProgressBack</string>
               </Properties>
-              <Item class="UICorner" referent="RBXE696794682F04CF6B6F7D90C38A7C217">
+              <Item class="UICorner" referent="RBX1D43C5065E3C49BC91B02C92BF4B5BFD">
                 <Properties>
                   <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
                   <string name="Name">UICorner</string>
                 </Properties>
               </Item>
-              <Item class="UIStroke" referent="RBXF2E9BEDEABD74110AFC78E22612A85C7">
+              <Item class="UIStroke" referent="RBXA21DBC6EEC0A4473B354B87493FEA8BC">
                 <Properties>
                   <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                   <float name="Thickness">2</float>
@@ -210,14 +211,14 @@
                   <string name="Name">UIStroke</string>
                 </Properties>
               </Item>
-              <Item class="UIGradient" referent="RBX0E89562439F441118F20EBA8D392BDBD">
+              <Item class="UIGradient" referent="RBX54BF6A38B1B64741A5FD70A7FE803C49">
                 <Properties>
                   <float name="Rotation">90</float>
                   <ColorSequence name="Color">0 0.870588 0.835294 0.933333 0 1 0.788235 0.74902 0.878431 0 </ColorSequence>
                   <string name="Name">UIGradient</string>
                 </Properties>
               </Item>
-              <Item class="Frame" referent="RBX38E8464511FA438EB08AC19082092B87">
+              <Item class="Frame" referent="RBX354264749552463DABDD03F449B00552">
                 <Properties>
                   <UDim2 name="Size"><XS>0.75</XS><XO>0</XO><YS>1</YS><YO>0</YO></UDim2>
                   <Color3 name="BackgroundColor3"><R>1</R><G>1</G><B>1</B></Color3>
@@ -225,13 +226,13 @@
                   <int name="ZIndex">3</int>
                   <string name="Name">ProgressFill</string>
                 </Properties>
-                <Item class="UICorner" referent="RBX9ABE275AF28846D0843AE8F5BC020173">
+                <Item class="UICorner" referent="RBX7EFB078B0A5F495FB20C3F28EC6B9040">
                   <Properties>
                     <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
                     <string name="Name">UICorner</string>
                   </Properties>
                 </Item>
-                <Item class="UIGradient" referent="RBX7BF98AFEEB7B490F901F45F44ADA21DF">
+                <Item class="UIGradient" referent="RBXD22F9ED4B19E46BE93E07491BAA070BF">
                   <Properties>
                     <float name="Rotation">90</float>
                     <ColorSequence name="Color">0 0.431373 0.886275 0.431373 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
@@ -239,7 +240,7 @@
                   </Properties>
                 </Item>
               </Item>
-              <Item class="TextLabel" referent="RBXCFDB5249590542BBB5CF0CBD2978DF51">
+              <Item class="TextLabel" referent="RBX4C4CBEDE473941B682EB04BE54425578">
                 <Properties>
                   <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
                   <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -252,7 +253,7 @@
                   <int name="ZIndex">4</int>
                   <string name="Name">ProgressLabel</string>
                 </Properties>
-                <Item class="UIStroke" referent="RBX462DC98D2BB84D77B4F21C276EBB7E5B">
+                <Item class="UIStroke" referent="RBX1D362F26DA57449CAA66F7FCB3A2E4FD">
                   <Properties>
                     <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                     <float name="Thickness">1.5</float>
@@ -260,7 +261,7 @@
                     <string name="Name">UIStroke</string>
                   </Properties>
                 </Item>
-                <Item class="UITextSizeConstraint" referent="RBX22C83E77F4674852A45CC6FE948C1212">
+                <Item class="UITextSizeConstraint" referent="RBXF86C3F34E74F4739A13DCE62EBC912D2">
                   <Properties>
                     <int name="MaxTextSize">11</int>
                     <string name="Name">UITextSizeConstraint</string>
@@ -268,7 +269,7 @@
                 </Item>
               </Item>
             </Item>
-            <Item class="TextLabel" referent="RBXAB205FEC41AA4CC08AEDC8D8C3D0BF5E">
+            <Item class="TextLabel" referent="RBX1700AF0BC9FF4ABC8A038A7476572138">
               <Properties>
                 <Vector2 name="AnchorPoint"><X>0</X><Y>0.5</Y></Vector2>
                 <UDim2 name="Position"><XS>0.63</XS><XO>4</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -281,7 +282,7 @@
                 <int name="ZIndex">2</int>
                 <string name="Name">Reward</string>
               </Properties>
-              <Item class="UIStroke" referent="RBXBC8E68553C9648BFA3D6880F8E2EEB6C">
+              <Item class="UIStroke" referent="RBX830C2F5728424B5FAECA1FDEB92C2B8B">
                 <Properties>
                   <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                   <float name="Thickness">2</float>
@@ -289,14 +290,14 @@
                   <string name="Name">UIStroke</string>
                 </Properties>
               </Item>
-              <Item class="UITextSizeConstraint" referent="RBX9A64C825F29640CBB0311DA7CBC051CB">
+              <Item class="UITextSizeConstraint" referent="RBX07960418653846209815EACDFBD54A3C">
                 <Properties>
                   <int name="MaxTextSize">18</int>
                   <string name="Name">UITextSizeConstraint</string>
                 </Properties>
               </Item>
             </Item>
-            <Item class="TextButton" referent="RBX2482143B2BFA44779478590C2F8BAD7B">
+            <Item class="TextButton" referent="RBXEBB4AFDAD2C6426A8C03C240F5AE51D2">
               <Properties>
                 <Vector2 name="AnchorPoint"><X>1</X><Y>0.5</Y></Vector2>
                 <UDim2 name="Position"><XS>1</XS><XO>-10</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -310,13 +311,13 @@
                 <int name="ZIndex">3</int>
                 <string name="Name">ClaimButton</string>
               </Properties>
-              <Item class="UICorner" referent="RBXFBD2C5AE269C473981411BF5FCC82C0E">
+              <Item class="UICorner" referent="RBXF55BABC2C7074600BE72B64FCD2793B8">
                 <Properties>
                   <UDim name="CornerRadius"><S>0</S><O>10</O></UDim>
                   <string name="Name">UICorner</string>
                 </Properties>
               </Item>
-              <Item class="UIStroke" referent="RBX843D09C75EBD4DAC87C1A4D39233BCB0">
+              <Item class="UIStroke" referent="RBX8F7AD38A52FE413D9BF46CE9115E50D7">
                 <Properties>
                   <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
                   <float name="Thickness">2.5</float>
@@ -324,20 +325,20 @@
                   <string name="Name">UIStroke</string>
                 </Properties>
               </Item>
-              <Item class="UIGradient" referent="RBXA78BE1ED03CE4ED7A69DB77353A84068">
+              <Item class="UIGradient" referent="RBXB0C2E6144BFD40459ED9D85BBC24C95E">
                 <Properties>
                   <float name="Rotation">90</float>
                   <ColorSequence name="Color">0 0.278431 0.776471 0.305882 0 1 0.164706 0.576471 0.164706 0 </ColorSequence>
                   <string name="Name">UIGradient</string>
                 </Properties>
               </Item>
-              <Item class="UITextSizeConstraint" referent="RBX83BFFF8AE7104E4A95F9FF5EBD316EFD">
+              <Item class="UITextSizeConstraint" referent="RBX9EE5E898FFCA458EA3E8EDE6CF794715">
                 <Properties>
                   <int name="MaxTextSize">16</int>
                   <string name="Name">UITextSizeConstraint</string>
                 </Properties>
               </Item>
-              <Item class="UIPadding" referent="RBXF70CA55676BE415FBB2648ACBF35B970">
+              <Item class="UIPadding" referent="RBX3C34F1CB822640EC91BC9468DFE542BC">
                 <Properties>
                   <UDim name="PaddingTop"><S>0</S><O>6</O></UDim>
                   <UDim name="PaddingBottom"><S>0</S><O>6</O></UDim>
@@ -345,7 +346,7 @@
                 </Properties>
               </Item>
             </Item>
-            <Item class="ImageLabel" referent="RBX0E08C231A0A740489A7642F897230192">
+            <Item class="ImageLabel" referent="RBX3EFDD6A5403E4563AEFA2BBE616E82AC">
               <Properties>
                 <Vector2 name="AnchorPoint"><X>1</X><Y>0.5</Y></Vector2>
                 <UDim2 name="Position"><XS>1</XS><XO>-16</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -361,7 +362,7 @@
           </Item>
         </Item>
       </Item>
-      <Item class="Frame" referent="RBXF336693E109B4B10B3A462A05A883741">
+      <Item class="Frame" referent="RBX2489E03ECFDE476B83738446DD28801D">
         <Properties>
           <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
           <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0</YS><YO>2</YO></UDim2>
@@ -371,20 +372,20 @@
           <int name="ZIndex">5</int>
           <string name="Name">TitleBanner</string>
         </Properties>
-        <Item class="UISizeConstraint" referent="RBX61D641B04A7541B581F78B7BDFC03761">
+        <Item class="UISizeConstraint" referent="RBX3F9C0A904AED41E18B9DF501580C2F0D">
           <Properties>
             <Vector2 name="MinSize"><X>190</X><Y>44</Y></Vector2>
             <Vector2 name="MaxSize"><X>280</X><Y>52</Y></Vector2>
             <string name="Name">UISizeConstraint</string>
           </Properties>
         </Item>
-        <Item class="UICorner" referent="RBX98A8F9BB684043CAAED82CD02B3F47EC">
+        <Item class="UICorner" referent="RBX4273ABA5BAE8409E802EE00CB7DE9475">
           <Properties>
             <UDim name="CornerRadius"><S>1</S><O>0</O></UDim>
             <string name="Name">UICorner</string>
           </Properties>
         </Item>
-        <Item class="UIStroke" referent="RBX111C6B6D5E164016A0067C53EF663780">
+        <Item class="UIStroke" referent="RBX77C81DAE0C4148879786F0774F8DA1AD">
           <Properties>
             <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
             <float name="Thickness">4</float>
@@ -392,14 +393,14 @@
             <string name="Name">UIStroke</string>
           </Properties>
         </Item>
-        <Item class="UIGradient" referent="RBX8B4CDAAEBCEE4D72A2B9CA2DBF2104B5">
+        <Item class="UIGradient" referent="RBX24EAC252B0D14133A04409213741065F">
           <Properties>
             <float name="Rotation">90</float>
             <ColorSequence name="Color">0 1 0.831373 0.121569 0 1 1 0.482353 0.133333 0 </ColorSequence>
             <string name="Name">UIGradient</string>
           </Properties>
         </Item>
-        <Item class="TextLabel" referent="RBXE069E80F893A4E8698E9256E58136604">
+        <Item class="TextLabel" referent="RBXEB615F745E314C7DB3650CE9635ABD7D">
           <Properties>
             <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
             <UDim2 name="Position"><XS>0.5</XS><XO>0</XO><YS>0.5</YS><YO>0</YO></UDim2>
@@ -412,7 +413,7 @@
             <int name="ZIndex">6</int>
             <string name="Name">Title</string>
           </Properties>
-          <Item class="UIStroke" referent="RBXA04724DB1E6C40DE8316AF10AFE88BE7">
+          <Item class="UIStroke" referent="RBX26B3EAA7C7404331B40304D95BC39D4A">
             <Properties>
               <Color3 name="Color"><R>0.0156863</R><G>0.0156863</G><B>0.207843</B></Color3>
               <float name="Thickness">3</float>
@@ -420,7 +421,7 @@
               <string name="Name">UIStroke</string>
             </Properties>
           </Item>
-          <Item class="UITextSizeConstraint" referent="RBX8E1DFA0860474ED1B3D5BCC16586ACF1">
+          <Item class="UITextSizeConstraint" referent="RBXA74F10EDAB91465D8F61ADAF7357AAF7">
             <Properties>
               <int name="MaxTextSize">30</int>
               <string name="Name">UITextSizeConstraint</string>
@@ -428,7 +429,7 @@
           </Item>
         </Item>
       </Item>
-      <Item class="ImageButton" referent="RBX6F6A4B476DB440BF940ACCCE6C6A9252">
+      <Item class="ImageButton" referent="RBX26AD2137863A47B48373E58ECF7FFB68">
         <Properties>
           <Vector2 name="AnchorPoint"><X>0.5</X><Y>0.5</Y></Vector2>
           <UDim2 name="Position"><XS>1</XS><XO>-8</XO><YS>0</YS><YO>8</YO></UDim2>
@@ -441,13 +442,18 @@
         </Properties>
       </Item>
     </Item>
-    <Item class="LocalScript" referent="RBXA1DCF00D650D4012A59AA70BBA7C3194">
+    <Item class="LocalScript" referent="RBX4BB74FD641144CCDB913220FF63AC823">
       <Properties>
         <string name="Name">QuestsController</string>
-        <ProtectedString name="Source"><![CDATA[-- QuestsController (LocalScript inside QuestsGui)
--- One row per GameConfig.Quests entry, cloned once from the hidden
--- QuestRowTemplate and updated in place from DataSync snapshots.
--- Claimed rows show a checkmark, dim, and sink to the bottom of the list.
+        <ProtectedString name="Source"><![CDATA[-- QuestsController (LocalScript inside QuestsGui) — v2
+-- One row per GameConfig.Quests entry (15 in v2), cloned once from the hidden
+-- QuestRowTemplate into the Items ScrollingFrame (AutomaticCanvasSize = Y, so
+-- the list scrolls) and updated in place from DataSync snapshots.
+-- Progress is read generically from snapshot.Stats[quest.Stat]; the stat names
+-- live only in GameConfig.Quests (lifetime Stats survive rebirth).
+-- Row order: claimable first, then in progress, then claimed (dimmed, with a
+-- checkmark) - config order within each group.
+-- CLAIM fires ClaimQuest(questId); QuestService validates and pays.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -459,27 +465,34 @@ local ButtonFX = require(Shared:WaitForChild("ButtonFX"))
 local ClientEffects = require(Shared:WaitForChild("ClientEffects"))
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local DataSync = Remotes:WaitForChild("DataSync")
-local ClaimQuest = Remotes:WaitForChild("ClaimQuest")
+local DataSync = Remotes:WaitForChild("DataSync") :: RemoteEvent
+local ClaimQuest = Remotes:WaitForChild("ClaimQuest") :: RemoteEvent
 
-local gui = script.Parent
+local gui = script.Parent :: ScreenGui
 local main = gui:WaitForChild("Main")
-local panelScale = main:WaitForChild("PanelScale")
+local panelScale = main:WaitForChild("PanelScale") :: UIScale
 local panel = main:WaitForChild("Panel")
-local items = panel:WaitForChild("Items")
-local template = items:WaitForChild("QuestRowTemplate")
-local closeButton = main:WaitForChild("CloseButton")
+local items = panel:WaitForChild("Items") :: ScrollingFrame
+local template = items:WaitForChild("QuestRowTemplate") :: CanvasGroup
+local closeButton = main:WaitForChild("CloseButton") :: GuiButton
 
-local CLAIMED_SORT_OFFSET = 1000 -- claimed rows sink below every unclaimed row
+template.Visible = false
+
+local IN_PROGRESS_SORT_OFFSET = 100 -- below every claimable row
+local CLAIMED_SORT_OFFSET = 1000 -- claimed rows sink below everything else
 
 local lastSnapshot: { [string]: any }? = nil
 local rows: { [string]: CanvasGroup } = {}
+
+local function numberOr(value: any, default: number): number
+	return if typeof(value) == "number" and value == value then value else default
+end
 
 -- Build all rows once, in GameConfig.Quests (config) order.
 for index, quest in GameConfig.Quests do
 	local row = template:Clone()
 	row.Name = quest.Id
-	row.LayoutOrder = index
+	row.LayoutOrder = IN_PROGRESS_SORT_OFFSET + index
 	row.Visible = true
 
 	local title = row:FindFirstChild("Title")
@@ -497,9 +510,12 @@ for index, quest in GameConfig.Quests do
 
 	local claim = row:FindFirstChild("ClaimButton")
 	if claim and claim:IsA("TextButton") then
-		claim.Visible = false -- enabled by refresh() once the quest is completable
+		claim.Visible = false -- shown by refresh() once the quest is completable
 		local questId = quest.Id
 		claim.Activated:Connect(function()
+			if not claim.Visible then
+				return
+			end
 			-- Optimistic juice; the server validates the claim and the row
 			-- settles on the next DataSync snapshot either way.
 			ClaimQuest:FireServer(questId)
@@ -507,6 +523,11 @@ for index, quest in GameConfig.Quests do
 			ClientEffects.playSound("Buy")
 		end)
 		ButtonFX.attach(claim)
+	end
+
+	local checkmark = row:FindFirstChild("Claimed")
+	if checkmark and checkmark:IsA("GuiObject") then
+		checkmark.Visible = false
 	end
 
 	row.Parent = items
@@ -517,15 +538,15 @@ local function refresh(snapshot: { [string]: any }?)
 	if not snapshot then
 		return
 	end
-	local stats = snapshot.Stats or {}
-	local claimedQuests = snapshot.ClaimedQuests or {}
+	local stats = if typeof(snapshot.Stats) == "table" then snapshot.Stats else {}
+	local claimedQuests = if typeof(snapshot.ClaimedQuests) == "table" then snapshot.ClaimedQuests else {}
 
 	for index, quest in GameConfig.Quests do
 		local row = rows[quest.Id]
 		if not row then
 			continue
 		end
-		local progress = math.min(stats[quest.Stat] or 0, quest.Target)
+		local progress = math.min(numberOr(stats[quest.Stat], 0), quest.Target)
 		local claimed = claimedQuests[quest.Id] == true
 		local canClaim = progress >= quest.Target and not claimed
 
@@ -548,12 +569,15 @@ local function refresh(snapshot: { [string]: any }?)
 			claim.Active = canClaim
 		end
 		local checkmark = row:FindFirstChild("Claimed")
-		if checkmark and checkmark:IsA("ImageLabel") then
+		if checkmark and checkmark:IsA("GuiObject") then
 			checkmark.Visible = claimed
 		end
 
 		row.GroupTransparency = if claimed then 0.45 else 0
-		row.LayoutOrder = if claimed then CLAIMED_SORT_OFFSET + index else index
+		row.LayoutOrder = if canClaim
+			then index
+			elseif claimed then CLAIMED_SORT_OFFSET + index
+			else IN_PROGRESS_SORT_OFFSET + index
 	end
 end
 
@@ -568,12 +592,16 @@ end
 
 gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if gui.Enabled then
-		bounceOpen()
 		refresh(lastSnapshot)
+		items.CanvasPosition = Vector2.zero -- claimable quests sit at the top
+		bounceOpen()
 	end
 end)
 
-DataSync.OnClientEvent:Connect(function(snapshot)
+DataSync.OnClientEvent:Connect(function(snapshot: any)
+	if typeof(snapshot) ~= "table" then
+		return
+	end
 	lastSnapshot = snapshot
 	if gui.Enabled then
 		refresh(snapshot)

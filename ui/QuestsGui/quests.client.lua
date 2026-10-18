@@ -1,7 +1,12 @@
--- QuestsController (LocalScript inside QuestsGui)
--- One row per GameConfig.Quests entry, cloned once from the hidden
--- QuestRowTemplate and updated in place from DataSync snapshots.
--- Claimed rows show a checkmark, dim, and sink to the bottom of the list.
+-- QuestsController (LocalScript inside QuestsGui) — v2
+-- One row per GameConfig.Quests entry (15 in v2), cloned once from the hidden
+-- QuestRowTemplate into the Items ScrollingFrame (AutomaticCanvasSize = Y, so
+-- the list scrolls) and updated in place from DataSync snapshots.
+-- Progress is read generically from snapshot.Stats[quest.Stat]; the stat names
+-- live only in GameConfig.Quests (lifetime Stats survive rebirth).
+-- Row order: claimable first, then in progress, then claimed (dimmed, with a
+-- checkmark) - config order within each group.
+-- CLAIM fires ClaimQuest(questId); QuestService validates and pays.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -13,27 +18,34 @@ local ButtonFX = require(Shared:WaitForChild("ButtonFX"))
 local ClientEffects = require(Shared:WaitForChild("ClientEffects"))
 
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local DataSync = Remotes:WaitForChild("DataSync")
-local ClaimQuest = Remotes:WaitForChild("ClaimQuest")
+local DataSync = Remotes:WaitForChild("DataSync") :: RemoteEvent
+local ClaimQuest = Remotes:WaitForChild("ClaimQuest") :: RemoteEvent
 
-local gui = script.Parent
+local gui = script.Parent :: ScreenGui
 local main = gui:WaitForChild("Main")
-local panelScale = main:WaitForChild("PanelScale")
+local panelScale = main:WaitForChild("PanelScale") :: UIScale
 local panel = main:WaitForChild("Panel")
-local items = panel:WaitForChild("Items")
-local template = items:WaitForChild("QuestRowTemplate")
-local closeButton = main:WaitForChild("CloseButton")
+local items = panel:WaitForChild("Items") :: ScrollingFrame
+local template = items:WaitForChild("QuestRowTemplate") :: CanvasGroup
+local closeButton = main:WaitForChild("CloseButton") :: GuiButton
 
-local CLAIMED_SORT_OFFSET = 1000 -- claimed rows sink below every unclaimed row
+template.Visible = false
+
+local IN_PROGRESS_SORT_OFFSET = 100 -- below every claimable row
+local CLAIMED_SORT_OFFSET = 1000 -- claimed rows sink below everything else
 
 local lastSnapshot: { [string]: any }? = nil
 local rows: { [string]: CanvasGroup } = {}
+
+local function numberOr(value: any, default: number): number
+	return if typeof(value) == "number" and value == value then value else default
+end
 
 -- Build all rows once, in GameConfig.Quests (config) order.
 for index, quest in GameConfig.Quests do
 	local row = template:Clone()
 	row.Name = quest.Id
-	row.LayoutOrder = index
+	row.LayoutOrder = IN_PROGRESS_SORT_OFFSET + index
 	row.Visible = true
 
 	local title = row:FindFirstChild("Title")
@@ -51,9 +63,12 @@ for index, quest in GameConfig.Quests do
 
 	local claim = row:FindFirstChild("ClaimButton")
 	if claim and claim:IsA("TextButton") then
-		claim.Visible = false -- enabled by refresh() once the quest is completable
+		claim.Visible = false -- shown by refresh() once the quest is completable
 		local questId = quest.Id
 		claim.Activated:Connect(function()
+			if not claim.Visible then
+				return
+			end
 			-- Optimistic juice; the server validates the claim and the row
 			-- settles on the next DataSync snapshot either way.
 			ClaimQuest:FireServer(questId)
@@ -61,6 +76,11 @@ for index, quest in GameConfig.Quests do
 			ClientEffects.playSound("Buy")
 		end)
 		ButtonFX.attach(claim)
+	end
+
+	local checkmark = row:FindFirstChild("Claimed")
+	if checkmark and checkmark:IsA("GuiObject") then
+		checkmark.Visible = false
 	end
 
 	row.Parent = items
@@ -71,15 +91,15 @@ local function refresh(snapshot: { [string]: any }?)
 	if not snapshot then
 		return
 	end
-	local stats = snapshot.Stats or {}
-	local claimedQuests = snapshot.ClaimedQuests or {}
+	local stats = if typeof(snapshot.Stats) == "table" then snapshot.Stats else {}
+	local claimedQuests = if typeof(snapshot.ClaimedQuests) == "table" then snapshot.ClaimedQuests else {}
 
 	for index, quest in GameConfig.Quests do
 		local row = rows[quest.Id]
 		if not row then
 			continue
 		end
-		local progress = math.min(stats[quest.Stat] or 0, quest.Target)
+		local progress = math.min(numberOr(stats[quest.Stat], 0), quest.Target)
 		local claimed = claimedQuests[quest.Id] == true
 		local canClaim = progress >= quest.Target and not claimed
 
@@ -102,12 +122,15 @@ local function refresh(snapshot: { [string]: any }?)
 			claim.Active = canClaim
 		end
 		local checkmark = row:FindFirstChild("Claimed")
-		if checkmark and checkmark:IsA("ImageLabel") then
+		if checkmark and checkmark:IsA("GuiObject") then
 			checkmark.Visible = claimed
 		end
 
 		row.GroupTransparency = if claimed then 0.45 else 0
-		row.LayoutOrder = if claimed then CLAIMED_SORT_OFFSET + index else index
+		row.LayoutOrder = if canClaim
+			then index
+			elseif claimed then CLAIMED_SORT_OFFSET + index
+			else IN_PROGRESS_SORT_OFFSET + index
 	end
 end
 
@@ -122,12 +145,16 @@ end
 
 gui:GetPropertyChangedSignal("Enabled"):Connect(function()
 	if gui.Enabled then
-		bounceOpen()
 		refresh(lastSnapshot)
+		items.CanvasPosition = Vector2.zero -- claimable quests sit at the top
+		bounceOpen()
 	end
 end)
 
-DataSync.OnClientEvent:Connect(function(snapshot)
+DataSync.OnClientEvent:Connect(function(snapshot: any)
+	if typeof(snapshot) ~= "table" then
+		return
+	end
 	lastSnapshot = snapshot
 	if gui.Enabled then
 		refresh(snapshot)
